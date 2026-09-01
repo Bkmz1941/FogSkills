@@ -27,8 +27,10 @@ or entering Play Mode» — не поломка, а занятый редакт�
 ## Офлайн-компиляция (5 секунд, без Unity)
 
 ```
-python3 ~/.claude/skills/tavern-game/compile_check.py
+cd /media/ilya/T714/Unity/Tavern-fresh && python3 compile_check.py
 ```
+Скрипт берёт проект из текущей папки (`os.getcwd()`) — запуск откуда-то ещё
+молча собирает не то и оставляет мусорный `Temp/compile_check`.
 Roslyn по всем сборкам. Быстрее, чем ждать редактор; ошибка чужой сессии в
 общем файле видна тут же — в общем дереве это норма, перепроверить через минуту.
 

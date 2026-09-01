@@ -28,7 +28,7 @@ def editor_state():
 
 
 def compile_check():
-    out = subprocess.run(['python3', GAME + '/compile_check.py'],
+    out = subprocess.run(['python3', PROJECT + '/compile_check.py'],
                          capture_output=True, text=True, timeout=600, cwd=PROJECT)
     ok = 'КОМПИЛЯЦИЯ ЧИСТАЯ' in out.stdout
     print('компиляция:', 'чисто' if ok else 'ОШИБКИ')

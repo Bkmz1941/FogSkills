@@ -112,7 +112,7 @@
   `editor/state` отдаёт `is_playing:true` уже во время domain reload входа в
   play → пробы ждут не состояние редактора, а `return Application.isPlaying`
   через `execute_code` (см. `scratchpad/probe_play.py`).
-- **Автономная офлайн-сборка** — `compile_check.py` из скила (Roslyn из
+- **Автономная офлайн-сборка** — `compile_check.py` из КОРНЯ ПРОЕКТА (Roslyn из
   поставки Unity) проверяет все asmdef без Unity: пользоваться ВСЕГДА перед
   ожиданием выхода из play; чужая красная сборка видна там же.
 - **Снял «мёртвое» поле — упала сборка соседней сессии** (`HudUI._selectionTarget`
