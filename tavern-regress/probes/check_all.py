@@ -77,7 +77,7 @@ def tests():
 
 
 def probe(name):
-    out = subprocess.run(['python3', GAME + '/probes/' + name],
+    out = subprocess.run(['python3', REG + '/probes/' + name],
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
     tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
     print(name + ':', tail[-1][:200] if tail else 'нет ответа')
