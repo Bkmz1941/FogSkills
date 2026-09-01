@@ -16,6 +16,7 @@ MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 REG = pathlib.Path.home() / '.claude/skills/tavern-regress/probes'
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 STATE = REG / '.cycle_level'
+GAME_SCENE = 'Assets/Scenes/level1.unity'
 
 
 def mcp(tool, payload):
@@ -107,18 +108,42 @@ def cmd_tests():
             for f in fails:
                 print('   ПРОВАЛ:', f.get('full_name'))
                 print('      ', str(f.get('message', ''))[:200].replace('\n', ' '))
+            ensure_game_scene()
             return not fails
     print('тесты: не дождался результата'); return None
+
+
+def active_scene():
+    return run('return UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;') or ''
+
+
+def ensure_game_scene():
+    for _ in range(30):
+        if active_scene() == GAME_SCENE:
+            return True
+        time.sleep(2)
+    p, c, _ = state()
+    if p:
+        print('сцена: в play открыта не игровая сцена — сначала stop'); return False
+    res = run('var sc = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("%s"); return sc.path;' % GAME_SCENE)
+    ok = res == GAME_SCENE
+    print('сцена: открыта', GAME_SCENE if ok else f'НЕ открылась ({res})')
+    return ok
 
 
 def cmd_play(level=None):
     level = level or (STATE.read_text().strip() if STATE.exists() else '')
     p, c, _ = state()
     if not p:
+        if not ensure_game_scene():
+            return False
         mcp('manage_editor', {"action": "play"})
         if not wait_state(play=True, seconds=90):
             print('play: не дождался входа'); return False
         time.sleep(3)
+    alive = run('return (Cozy.Grid.GridCursor.I != null) + "|" + (Cozy.Grid.PlayerRef.GameObject != null);')
+    if str(alive) != 'True|True':
+        print('play: КРАСНОЕ — нет GridCursor или игрока (сцена ' + active_scene() + ')'); return False
     if level:
         res = run('var d = Cozy.Grid.LevelIO.Load("%s"); if (d == null) return "нет уровня"; Cozy.Grid.GridCursor.I.RestoreLevel(d); return "загружен " + Cozy.Grid.LevelIO.CurrentLevelName;' % level)
         print('play: вошли, уровень:', res)
@@ -134,8 +159,8 @@ def cmd_probes():
         tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
         last = tail[-1] if tail else 'нет ответа'
         print(name + ':', last[:220])
-        if 'КРАСНОЕ' in last or 'сдвиг' in last.lower() or 'потер' in last.lower():
-            ok = False
+        if 'КРАСНОЕ' in last or 'сдвиг' in last.lower() or 'потер' in last.lower() or 'объектов=0' in last:
+            print('    КРАСНОЕ: мир пустой или проба не дошла до объектов'); ok = False
     return ok
 
 
