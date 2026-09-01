@@ -54,7 +54,32 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
         && io.transform.parent.GetComponentInParent<Cozy.Grid.InteractiveObject>() != io)
         bad.Append("вложен, но без Container: " + io.Def.id + "; ");
 }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " :: "
+// 5. Подвес шкафа свободен ровно тогда, когда под ним нет лампы того же
+//    семейства: занятость считают только родственные по snapToNode объекты
+//    (P117: мойка «занимала» подвес раздутым габаритом).
+var gc = Cozy.Grid.GridCursor.I;
+var mountTaken = gc != null ? gc.GetType().GetMethod("MountTaken", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance) : null;
+int mounts = 0;
+if (mountTaken != null)
+    foreach (var host in Cozy.Grid.InteractiveObject.All)
+    {
+        if (host == null || host.Def == null || !host.Def.id.StartsWith("home_wall_cabinet")) continue;
+        foreach (var node in host.GetComponentsInChildren<UnityEngine.Transform>(true))
+        {
+            if (!node.name.StartsWith("Mount_Light")) continue;
+            mounts++;
+            bool lampThere = false;
+            foreach (var lamp in Cozy.Grid.InteractiveObject.All)
+            {
+                if (lamp == null || lamp.Def == null || !lamp.Def.id.StartsWith("home_under_light")) continue;
+                var lb = lamp.WorldBounds; lb.Expand(0.2f);
+                if (lb.Contains(node.position) || (lamp.transform.position - node.position).sqrMagnitude < 0.04f) { lampThere = true; break; }
+            }
+            bool taken = (bool)mountTaken.Invoke(gc, new object[] { node.position, "Mount_Light", null });
+            if (taken != lampThere) bad.Append("подвес " + node.name + " у " + host.Def.id + ": занят=" + taken + ", лампа=" + lampThere + "; ");
+        }
+    }
+return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
