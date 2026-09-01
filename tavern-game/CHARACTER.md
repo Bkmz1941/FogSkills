@@ -580,7 +580,7 @@
 
 - **Части — только в осмотре (2026-08-29):** `InteractiveObject.PartsActive`
   = `ExamineHost != null && (ExamineHost == this || == HostObject)`; без
-  гейта `null == null` открывал части вне осмотра (PITFALLS §3).
+  гейта `null == null` открывал части вне осмотра (PITFALLS P043).
 
 - **Esc снимает выделение (2026-08-29, Илья):** попап объекта (не осмотр)
   закрывается по Esc — `Interactor.Update` до проверки `OverUI` зовёт

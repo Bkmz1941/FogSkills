@@ -1,10 +1,11 @@
-"""Один прогон: компиляция, тесты EditMode, живые пробы. Печатает вердикт.
+"""Один прогон: линт граблей, компиляция, тесты EditMode, живые пробы. Печатает вердикт.
 
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/check_all.py
 """
 import json, subprocess, sys, time
 
 GAME = '/home/ilya/.claude/skills/tavern-game'
+REG = '/home/ilya/.claude/skills/tavern-regress'
 MCP = GAME + '/mcp_call.py'
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 
@@ -25,6 +26,17 @@ def editor_state():
     res = (d.get('data') or {}).get('result') or '|'
     play, comp = (res.split('|') + ['', ''])[:2]
     return play.lower().startswith('t'), comp.lower().startswith('t')
+
+
+def lint():
+    out = subprocess.run(['python3', REG + '/probes/bugs.py', '--lint'],
+                         capture_output=True, text=True, timeout=60)
+    tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
+    print('грабли:', tail[-1] if tail else 'нет ответа')
+    for line in tail:
+        if 'КРАСНОЕ' in line:
+            print('   ', line.strip())
+    return out.returncode == 0
 
 
 def compile_check():
@@ -74,6 +86,7 @@ def probe(name):
 
 def main():
     print('=== проверка «всё, что работало, работает» ===')
+    ok_lint = lint()
     ok_compile = compile_check()
     play, compiling = editor_state()
     print('редактор: play =', play, ', компилируется =', compiling)
@@ -88,10 +101,11 @@ def main():
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')
+    print('грабли:', 'ок' if ok_lint else 'КРАСНОЕ')
     print('компиляция:', 'ок' if ok_compile else 'КРАСНОЕ')
     print('тесты:', 'ок' if ok_tests else ('КРАСНОЕ' if ok_tests is False else 'не прогнаны'))
     print('живые пробы: смотри строки выше')
-    sys.exit(0 if ok_compile and ok_tests is not False else 1)
+    sys.exit(0 if ok_lint and ok_compile and ok_tests is not False else 1)
 
 
 if __name__ == '__main__':

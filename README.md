@@ -4,10 +4,19 @@
 
 ## Скиллы
 
-- `tavern-game` — контекст и журнал решений игры «Таверна» (DESIGN_LOG.md — единый источник истины, слит из двух копий 2026-07-18)
-- `tavern-cooking` — готовка в «Таверне» (еда, рецепты, кухонные объекты, голод); дополняет `tavern-game`, модуль `Assets/Modules/Cooking`
+Игра «Таверна» — четыре скила, у каждого своя роль (разделение 2026-09-01):
+
+- `tavern-game` — память решений: доменные справочники (BUILD/VIEW/CHARACTER/MONSTERS/UI/ARCHITECTURE/ATTRIBUTES), `PITFALLS.md` (история багов), `DESIGN_LOG.md` (хронология), `history/` (журналы аудитов и правок UI)
+- `tavern-cooking` — готовка (еда, рецепты, жидкости, посуда), модуль `Assets/Modules/Cooking`; всегда рядом с `tavern-game`
+- `tavern-regress` — контроль регрессий: инварианты, карта покрытия, `probes/check_all.py` одним прогоном, порядок разбора красного
+- `tavern-ideas` — идейный помощник: вкус Ильи, отвергнутое с причинами, приёмы движка; включается только по зову
+
+Остальное:
+
+- `crash-games`, `lucky-infra`, `poker-infra`, `debug-panel` — инфраструктура рабочих проектов
 - `shinobi-council` — формат ответов «Совет шиноби»
 - `admin-ui` — библиотека компонентов admin-ui
+- `vitriny-tz` — не подключён симлинком (архивный)
 
 ## Как подключить на новой машине
 
@@ -15,7 +24,7 @@ Claude Code ищет скиллы в `~/.claude/skills/<имя>/`. Диск exFA
 
 ### Linux
 ```bash
-for s in tavern-game tavern-cooking shinobi-council; do
+for s in tavern-game tavern-cooking tavern-regress tavern-ideas crash-games lucky-infra poker-infra debug-panel shinobi-council admin-ui; do
   ln -s /media/<user>/T714/claude-skills/$s ~/.claude/skills/$s
 done
 ```
