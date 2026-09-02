@@ -7,6 +7,27 @@
 
 ## Производительность: игра мусорит 164–208 КБ/кадр (открыто с 2026-08-14)
 
+**Ночь 02.09 (ilya-fb): источник локализован грубо.** Пробник `GcProbe` в
+проекте, драйвер `tavern-regress/probes/gc_probe.py`. В редакторе на
+«Test #1» 265–293 КБ/кадр; отключение ВСЕХ тикающих `Cozy.Grid.*` (34 типа)
+снимает лишь ≈30 КБ, UI/персонаж/канвасы — в пределах шума. Значит ≈250 КБ
+приходят не из Update-методов игры: рендер (URP, `Volume`, `ScenePostFx`),
+физические колбэки, редактор. Дальше: (1) замер в development build без
+редактора — если там сотни КБ нет, долг закрывается как «редакторский»;
+(2) Unity Profiler с Deep Profile и колонкой GC Alloc на 2–3 кадрах;
+(3) независимо — снять аллокации по аудиту: `sharedMaterials` в
+`UpdateHeatTint` и `BuildQuery.CubeBlock`, `SilhouetteRect.Stale` для пустого
+набора, `SinkPile.Sort` с делегатом экземпляра, `Split/Trim` в `Accepts`,
+`Soiling`, `SinkPile.Full`, строки надписей каждый кадр (`ActionLabel`,
+`PlayerStatHud`, `TemperatureSim.Label`), `CladCuts.Compute`,
+`InteractHighlight.StaticBody`.
+
+**Найдено аудитом 02.09, не починено (нужен отдельный заход с пробой):**
+`ContainerSlot.HoldsClosed` рекурсивно переиспользует статический `_slotBuf`
+внутри `foreach` по нему же — вложенный вызов затирает буфер внешнего;
+`BuildQuery._buf` один на все запросы (вложенные сканы затрут друг друга,
+если есть). Оба — корректность, не производительность.
+
 - [!] **Игра мусорит 164–208 КБ/кадр** (ProfilerRecorder «GC Allocated In
   Frame», среднее по окну кадров; пик ~250 КБ). ~11 МБ/с при 60 fps ⇒
   регулярные сборки и микрофризы. Источник НЕ найден: A/B-скан по 36
@@ -18,6 +39,28 @@
 
 Что в тот заход уже оптимизировали (клумба, кеш мешей BevelView, NonAlloc-лучи,
 LiveFade) — в `history/refactor-log.md`.
+
+## Компоненты с узлами модели без `IModelBound` (найдено аудитом 02.09)
+
+После `SwapModel` перепривязываются только `LiquidVolume`, `WaterSource`,
+`DrainVortex` (через `IModelBound`). Держат ссылки на узлы модели и НЕ
+перепривязываются: `Soiling` (`_node/_tiers`), `Greased` (`Film`, шкворчание),
+`SinkPile`, `MountStretch`, `ChamberTempLabel`, `_heatRend/_heatMat`
+(`FindHeatSlot` только из Build), слоты (`BuildSlots`), `CoffeeBrewer`
+(защёлка `_resolved`). Сегодня не стреляет: у продуктов, которым меняют
+модель, нет ни `dirtNode`, ни `capacityL`, ни `heatSlot`, ни слотов. Стрельнёт
+в первый день, когда продукт получит такой узел или `SwapModel` позовут для
+прибора. Лечение известно: реализовать `IModelBound.Rebind(def, model)` у
+каждого — по одному, с проверкой в play.
+
+## Двойная интеграция температуры (намеренно, аудит 02.09)
+
+`TemperatureSim.cs:~60` тянет `io.Temperature → Liquid.Heat`, а
+`LiquidVolume.CoolDown` тянет `Heat → io.Temperature` кадром позже; третий
+писатель — `MixHeat` без dt. Порядок `CookProgress.Update` (0) против
+`Greased.BurnOff` (0) на кадре выгорания масла решает нагар произвольно. На
+это откалиброваны `seconds=20/40` в `CookBook`; развязывать = менять время
+закипания. Только с замером «ДО/ПОСЛЕ» по времени закипания и жарки.
 
 ## Покрытие проверками
 
