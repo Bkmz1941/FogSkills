@@ -79,7 +79,7 @@ def cmd_compile():
     ok = wait_state(play=False, compiling=False, seconds=240)
     errs = mcp('read_console', {"action": "get", "types": ["error"], "count": 20})
     data = errs.get('data') if isinstance(errs, dict) else None
-    items = (data or {}).get('items') or (data or {}).get('messages') or []
+    items = data if isinstance(data, list) else ((data or {}).get('items') or (data or {}).get('messages') or [])
     comp = [m for m in items if 'error CS' in json.dumps(m, ensure_ascii=False)]
     print('компиляция:', 'готово' if ok else 'не дождался', f'| ошибок CS в консоли: {len(comp)}')
     for m in comp[:10]:
