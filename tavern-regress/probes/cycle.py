@@ -5,7 +5,7 @@ python3 cycle.py stop              выйти из play (уровень запо
 python3 cycle.py compile           refresh + компиляция, ждать готовности, показать ошибки консоли
 python3 cycle.py tests             EditMode-тесты (только вне play), красные — списком
 python3 cycle.py play [уровень]    войти в play и вернуть уровень (по умолчанию тот, что был при stop)
-python3 cycle.py probes            живые пробы: invariants_play, level_roundtrip
+python3 cycle.py probes            живые пробы: invariants_play, level_roundtrip, reach_probe, slot_gate_probe
 python3 cycle.py all [уровень]     stop → compile → tests → play → probes; код 1, если что-то красное
 
 Перед stop предупредить соседей (SESSIONS.md): у них может идти проба в play.
@@ -155,7 +155,7 @@ def cmd_play(level=None):
 def cmd_probes(level=None):
     ok = True
     before = state()[2]
-    for name in ('invariants_play.py', 'level_roundtrip.py'):
+    for name in ('invariants_play.py', 'level_roundtrip.py', 'reach_probe.py', 'slot_gate_probe.py'):
         out = subprocess.run(['python3', str(REG / name)], capture_output=True, text=True, timeout=300, cwd=PROJECT)
         tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
         last = tail[-1] if tail else 'нет ответа'
