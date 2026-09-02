@@ -152,8 +152,9 @@ def cmd_play(level=None):
     return True
 
 
-def cmd_probes():
+def cmd_probes(level=None):
     ok = True
+    before = state()[2]
     for name in ('invariants_play.py', 'level_roundtrip.py'):
         out = subprocess.run(['python3', str(REG / name)], capture_output=True, text=True, timeout=300, cwd=PROJECT)
         tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
@@ -161,6 +162,10 @@ def cmd_probes():
         print(name + ':', last[:220])
         if 'КРАСНОЕ' in last or 'сдвиг' in last.lower() or 'потер' in last.lower() or 'объектов=0' in last:
             print('    КРАСНОЕ: мир пустой или проба не дошла до объектов'); ok = False
+    after = state()[2]
+    want = level or before
+    if want and after != want:
+        print(f'    КРАСНОЕ: текущий уровень после проб «{after}», ожидался «{want}» — проба подменила уровень'); ok = False
     return ok
 
 
@@ -178,13 +183,13 @@ def main():
     if arg == 'play':
         sys.exit(0 if cmd_play(lvl) else 1)
     if arg == 'probes':
-        sys.exit(0 if cmd_probes() else 1)
+        sys.exit(0 if cmd_probes(lvl) else 1)
     if arg == 'all':
         ok = cmd_stop() and cmd_compile()
         t = cmd_tests() if ok else None
         ok = ok and (t is not False)
         ok = cmd_play(lvl) and ok
-        ok = cmd_probes() and ok
+        ok = cmd_probes(lvl) and ok
         print('=== итог:', 'зелёное' if ok else 'КРАСНОЕ')
         sys.exit(0 if ok else 1)
     print(__doc__)

@@ -28,12 +28,17 @@ return s.ToString();
 RELOAD = r'''
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var cursor = Cozy.Grid.GridCursor.I;
-var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-Cozy.Grid.LevelIO.Save(scene);
-var data = Cozy.Grid.LevelIO.Load(scene);
+var keepName = Cozy.Grid.LevelIO.CurrentLevelName;
+var keepSlug = Cozy.Grid.LevelIO.CurrentSlug;
+const string scratch = "_roundtrip";
+Cozy.Grid.LevelIO.Save(scratch);
+var data = Cozy.Grid.LevelIO.Load(scratch, false);
 if (data == null) return "сейв не читается";
 cursor.RestoreLevel(data);
-return "объектов в файле=" + data.objects.Count;
+Cozy.Grid.LevelIO.CurrentLevelName = keepName;
+Cozy.Grid.LevelIO.CurrentSlug = keepSlug;
+Cozy.Grid.LevelIO.Delete(scratch);
+return "объектов в файле=" + data.objects.Count + " уровень=" + Cozy.Grid.LevelIO.CurrentLevelName;
 '''
 
 
