@@ -79,7 +79,36 @@ if (mountTaken != null)
             if (taken != lampThere) bad.Append("подвес " + node.name + " у " + host.Def.id + ": занят=" + taken + ", лампа=" + lampThere + "; ");
         }
     }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " :: "
+// 6. Камера осмотра ВЛОЖЕННОГО предмета не заходит в его контейнер (P147:
+//    зум в осмотре бака уводил камеру в корпус кофемашины). Минимум
+//    дистанции с 16 ракурсов ставит камеру снаружи внешнего контейнера.
+var mClear = typeof(Cozy.Character.CameraFollow).GetMethod("ClearDistance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var examineProp = typeof(Cozy.Grid.Interactor).GetProperty("ExamineHost");
+var savedHost = examineProp.GetValue(null, null);
+int nested = 0;
+try
+{
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null || io.Container == null) continue;
+        var outer = io; while (outer.Container != null) outer = outer.Container;
+        var ob = outer.WorldBounds; ob.Expand(-0.02f);
+        var focus = io.WorldBounds.center;
+        nested++;
+        examineProp.SetValue(null, io, null);
+        bool inside = false;
+        foreach (float pitch in new float[] { 10f, 35f })
+        foreach (float yaw in new float[] { 0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f })
+        {
+            float d = (float)mClear.Invoke(null, new object[] { focus, yaw, pitch, 0.05f, 0.15f });
+            var pos = focus + UnityEngine.Quaternion.Euler(pitch, yaw, 0f) * new UnityEngine.Vector3(0f, 0f, -d);
+            if (ob.Contains(pos)) inside = true;
+        }
+        if (inside) bad.Append("камера осмотра внутри контейнера: " + io.Def.id + " в " + outer.Def.id + "; ");
+    }
+}
+finally { examineProp.SetValue(null, savedHost, null); }
+return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
