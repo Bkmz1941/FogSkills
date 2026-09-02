@@ -2016,7 +2016,9 @@ Frame` (скругление и рамка), `UiFactory.Tab`, `ScrollPanel`, `Ca
    она рвётся пятнами (первая версия так и упала).
 3. Имена картинок — латиница, `объект_состояние`: `egg_fried`,
    `sausage_burnt`, `cup_clean`, `cup_dirty`, `coffee_mug`,
-   `recipe_breakfast`. Лежат в `Assets/Game/Resources/Wiki/`, в контенте
+   `recipe_breakfast`; обложки продуктов — упаковки (`egg_pack`,
+   `sausage_pack` из `pack_of_eggs.jpg`/`pack_of_sausages.jpg`; Илья
+   2026-09-02: «перенеси в игру как основное изображение»). Лежат в `Assets/Game/Resources/Wiki/`, в контенте
    ссылка без расширения (`image = "cup_dirty"`); Unity импортирует с
    `alphaIsTransparency`, без мипмапов. Старый JPG/PNG с тем же именем
    удалить вместе с `.meta`, иначе `Resources.Load` возьмёт любой.
