@@ -378,3 +378,41 @@ _01.09._
 они переводятся при показе; (3) после правки строк — `python3 loc_extract.py`
 и заполнить пустые значения в `en.json`; тест `LocalizationTests` не пропустит
 дыру.
+
+## Сборка игры под Linux и стартовый уровень (2026-09-02)
+
+**Как собрать.** `Assets/Editor/BuildLinux.cs`: меню Build → «Linux Build» (дев,
+`BuildOptions.Development`, выход `Builds/Linux/Tavern.x86_64`) и «Linux Build
+(prod)» (`BuildOptions.None`, `Builds/LinuxProd/Tavern.x86_64`). Из сессии, без
+рук в редакторе: положить файл-триггер `BuildRequests/linux.request` (дев) или
+`BuildRequests/linux_prod.request` (прод). Вотчер `BuildLinuxWatcher` раз в 2 с
+видит файл, ждёт, пока нет play, компиляции и другой сборки, делает
+`AssetDatabase.Refresh` (иначе правки .cs, сделанные снаружи, в сборку не
+попадут), удаляет триггер и строит. Результат: маркер
+`BuildRequests/linux.done|failed` (или `linux_prod.*`) со строкой
+«Succeeded: путь | размер | errors N, warnings M | секунды». Инкрементальная
+сборка 15–20 с, дев ≈ 320 МБ, прод ≈ 245 МБ. Play в редакторе сборку блокирует,
+сначала выйти из play. Запуск из любого места: полный путь к `Tavern.x86_64`;
+переносить папку сборки целиком (`Tavern_Data`, `UnityPlayer.so`, `libdecor*`).
+
+**Откуда берётся уровень при старте** (`GridCursor.Levels.TryAutoLoad`):
+1. Редактор и ДЕВ-сборка (`Application.isEditor || Debug.isDebugBuild`): уровень
+   «по умолчанию» из PlayerPrefs `DevDefaultLevel` (ставится в меню уровней,
+   `HudUI.Levels`), если есть его сейв в `persistentDataPath/levels/<имя>.json`.
+   На этой машине это `~/.config/unity3d/DefaultCompany/Tavern/levels/`, папка
+   ОБЩАЯ для редактора и сборок (та же компания и продукт), PlayerPrefs тоже.
+2. Иначе, и ВСЕГДА в прод-сборке: уровень с именем сцены (`level1`) из тех же
+   сейвов; нет сейва — поставочный из `Resources/Levels/<слаг>/level.json`
+   (`LevelIO.LoadBundled`, в билд попадает через Resources); нет и его — первый
+   из `ListBundled()`. Сейв всегда перекрывает поставочный (`LevelIO.Load`).
+
+⭐ Грабля 2026-09-02 (Илья: «уровень не актуальный, в редакторе вижу другой»):
+редактор работал на «Test #1» (дев-уровень по умолчанию), а прод-сборка открыла
+`level1.json`, лог `Player.log` это показал. Правило: чтобы сборка показывала
+то же, что редактор, собирать ДЕВ-сборку (`linux.request`); прод на этой машине
+откроет `level1`, пока лежит его сейв. Поставочная копия «Test #1»
+(`Resources/Levels/test_1/level.json`) обновляется руками копированием сейва
+(`Test #1.json` → `level.json`, `sceneName` внутри уже «Test #1»); обновлена
+02.09, до того лежала от 30.08. Открытый вопрос в OPEN.md: должна ли прод-сборка
+предпочитать поставочный уровень сейву по имени сцены.
+

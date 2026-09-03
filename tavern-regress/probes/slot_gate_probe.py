@@ -12,6 +12,8 @@ if (!UnityEngine.Application.isPlaying || Cozy.Grid.GridCursor.I == null) return
 var cabDef = Cozy.Grid.FurnitureCatalog.ById("home_wall_cabinet_corner_wide");
 var cupDef = Cozy.Grid.FurnitureCatalog.ById("coffee_cup_blue");
 if (cabDef == null || cupDef == null) return "КРАСНОЕ: нет дефов шкафа или чашки";
+var before = new System.Collections.Generic.HashSet<int>();
+foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None)) before.Add(io.GetInstanceID());
 var cab = Cozy.Grid.GridCursor.I.SpawnWorldObject(cabDef, new UnityEngine.Vector3(-60f, 1.8f, -60f), 0f);
 if (cab == null) return "КРАСНОЕ: шкаф не заспавнился";
 var bad = new System.Text.StringBuilder();
@@ -40,8 +42,8 @@ try
 }
 finally
 {
-    if (cup != null) UnityEngine.Object.Destroy(cup.gameObject);
-    UnityEngine.Object.Destroy(cab.gameObject);
+    foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+        if (!before.Contains(io.GetInstanceID())) UnityEngine.Object.DestroyImmediate(io.gameObject);
 }
 '''
 

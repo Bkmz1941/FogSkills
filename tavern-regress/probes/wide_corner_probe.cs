@@ -39,7 +39,8 @@ try {
   sb.Append("east: " + probe(wide, new UnityEngine.Vector3(-10.66f, 2.4f, -12.0f), new UnityEngine.Vector3(1f, -0.35f, 0.1f)) + "\n");
   sb.Append("north: " + probe(wide, new UnityEngine.Vector3(-12.0f, 2.4f, -10.66f), new UnityEngine.Vector3(0.1f, -0.35f, 1f)) + "\n");
   UnityEngine.Object.Destroy(body); body = null;
-  var io2 = mSpawn.Invoke(gc, new object[] { wide, new UnityEngine.Vector3(-11.93f, 2.05f, -12.63f), 90f }) as Cozy.Grid.InteractiveObject;
+  // поза «east» из строки выше: угловая посадка при плече 3.0 и крыле 1.62 (с 2026-09-03; при 4.0 × 2.62 было (-11.93, 2.05, -12.63))
+  var io2 = mSpawn.Invoke(gc, new object[] { wide, new UnityEngine.Vector3(-11.44f, 2.05f, -12.14f), 90f }) as Cozy.Grid.InteractiveObject;
   spawned = io2.gameObject;
   UnityEngine.Physics.SyncTransforms();
   var wbs = io2.WorldBounds;

@@ -108,7 +108,56 @@ try
     }
 }
 finally { examineProp.SetValue(null, savedHost, null); }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " :: "
+// 7. Коллайдер, который стартовая сфера луча осмотра уже задевает, не
+//    прозрачен (P161: кастрюля на плите вплотную к столешнице тумбы — тумба
+//    исчезала для каста, камера уезжала внутрь). Для каждого объекта с такой
+//    чужой преградой чистая дистанция в направлениях, входящих в её коробку,
+//    не больше входа в коробку (или пола хозяина).
+var mHostClear = typeof(Cozy.Character.CameraFollow).GetMethod("HostClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var mEnclosing = typeof(Cozy.Character.CameraFollow).GetMethod("EnclosingClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+float camR = (float)typeof(Cozy.Character.CameraFollow).GetField("ExamineCamRadius", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetRawConstantValue();
+var ovl = new UnityEngine.Collider[32];
+int touching = 0;
+try
+{
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null) continue;
+        var focus = io.WorldBounds.center;
+        int n = UnityEngine.Physics.OverlapSphereNonAlloc(focus, camR, ovl, UnityEngine.Physics.DefaultRaycastLayers, UnityEngine.QueryTriggerInteraction.Ignore);
+        var foreign = new System.Collections.Generic.List<UnityEngine.Bounds>();
+        for (int k = 0; k < n; k++)
+        {
+            var col = ovl[k];
+            if (Cozy.Grid.RayPick.IsPlayer(col) || col.transform.IsChildOf(io.transform) || io.transform.IsChildOf(col.transform)) continue;
+            var part = col.GetComponentInParent<Cozy.Grid.InteractiveObject>();
+            if (part != null && (Cozy.Grid.InteractiveObject.InContainer(part, io) || Cozy.Grid.InteractiveObject.Same(part.HostObject, io))) continue;
+            var r = col.GetComponent<UnityEngine.Renderer>(); if (r == null) r = col.GetComponentInChildren<UnityEngine.Renderer>();
+            if (r != null && !r.enabled) continue;
+            if (col.bounds.Contains(focus)) continue;
+            foreign.Add(col.bounds);
+        }
+        if (foreign.Count == 0) continue;
+        touching++;
+        examineProp.SetValue(null, io, null);
+        float floorD = (float)mHostClear.Invoke(null, new object[] { io });
+        bool leak = false;
+        foreach (float pitch in new float[] { -25f, 10f, 35f })
+        foreach (float yaw in new float[] { 0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f })
+        {
+            var dir = UnityEngine.Quaternion.Euler(pitch, yaw, 0f) * UnityEngine.Vector3.back;
+            float entry = float.MaxValue;
+            foreach (var b in foreign) { float e; if (b.IntersectRay(new UnityEngine.Ray(focus, dir), out e) && e < entry) entry = e; }
+            if (entry == float.MaxValue) continue;
+            float d = (float)mClear.Invoke(null, new object[] { focus, yaw, pitch, 3.0f, 0.15f });
+            float enclosing = (float)mEnclosing.Invoke(null, new object[] { io, focus, dir });
+            if (d > UnityEngine.Mathf.Max(entry, UnityEngine.Mathf.Max(floorD, enclosing)) + 0.01f) leak = true;
+        }
+        if (leak) bad.Append("стартовая преграда прозрачна для осмотра: " + io.Def.id + "; ");
+    }
+}
+finally { examineProp.SetValue(null, savedHost, null); }
+return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
