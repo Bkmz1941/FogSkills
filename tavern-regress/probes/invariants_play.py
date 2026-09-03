@@ -173,7 +173,28 @@ if (mSurfSup != null)
         io.transform.SetPositionAndRotation(p, rot);
         if (!held) bad.Append("корпус висит над пустотой: " + io.Def.id + " @ " + p.ToString("F2") + "; ");
     }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " :: "
+// 9. Порожек двери не делит верхнюю плоскость ни с чем (P181: светлый
+//    порожек и тёмная плита пола с верхом ровно 0.000 дрожали полосами).
+int thresholds = 0;
+foreach (var door in UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(UnityEngine.FindObjectsSortMode.None))
+{
+    foreach (var tr in door.GetComponentsInChildren<UnityEngine.Renderer>(true))
+    {
+        if (!tr.enabled || tr.transform.name != "Threshold") continue;
+        thresholds++;
+        var tb = tr.bounds;
+        foreach (var other in UnityEngine.Object.FindObjectsByType<UnityEngine.Renderer>(UnityEngine.FindObjectsSortMode.None))
+        {
+            if (other == tr || !other.enabled || other.transform.IsChildOf(door.transform)) continue;
+            var ob = other.bounds;
+            if (UnityEngine.Mathf.Abs(ob.max.y - tb.max.y) > 0.0002f) continue;
+            if (!(tb.min.x < ob.max.x - 0.001f && ob.min.x < tb.max.x - 0.001f)) continue;
+            if (!(tb.min.z < ob.max.z - 0.001f && ob.min.z < tb.max.z - 0.001f)) continue;
+            bad.Append("порожек делит плоскость с " + other.transform.name + " на " + tb.max.y.ToString("F4") + "; ");
+        }
+    }
+}
+return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
