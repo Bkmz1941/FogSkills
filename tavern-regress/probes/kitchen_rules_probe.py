@@ -1,7 +1,8 @@
 """Кухонные правила постановки и раскладки (P159, P166, P171, тарелка 03.09).
 
-Спавнит в стороне от уровня кастрюлю и сковороду: сковорода над кастрюлей —
-запрет «на посуду» по габариту. Считает раскладку тарелки чистой функцией:
+Спавнит в стороне от уровня кастрюлю и сковороду: сковорода над кастрюлей и
+краем дна на её борту — запрет «на посуду» по площади дна (P183), а в стороне
+от кастрюли постановка обязана остаться зелёной. Считает раскладку тарелки чистой функцией:
 четыре круглых кольцом, пять брёвен в три ленты и два сверху. Поливает пустую
 тарелку кетчупом: лужица внутри плоского дна. Всё спавненное удаляется.
 """
@@ -31,6 +32,15 @@ try
     var onVessel = t.GetMethod("OnVessel", bf);
     bool blocked = (bool)onVessel.Invoke(gc, new object[] { pan.gameObject, origin.x, top, origin.z, 0f, pan.transform });
     if (!blocked) bad.Append("сковорода над кастрюлей не считается «на посуде»; ");
+    // Край дна на борту кастрюли: пивот ВНЕ её габарита, точечные пробы туда
+    // не попадали и постановка была зелёной (P183).
+    float edge = pot.WorldBounds.extents.x + 0.07f;
+    bool edgeBlocked = (bool)onVessel.Invoke(gc, new object[] { pan.gameObject, origin.x - edge, top, origin.z, 0f, pan.transform });
+    if (!edgeBlocked) bad.Append("сковорода краем дна на борту кастрюли не считается «на посуде»; ");
+    // Рядом на столе, дно мимо кастрюли — постановка обязана остаться зелёной.
+    float clear = pot.WorldBounds.extents.x + 0.6f;
+    bool asideBlocked = (bool)onVessel.Invoke(gc, new object[] { pan.gameObject, origin.x - clear, top, origin.z, 0f, pan.transform });
+    if (asideBlocked) bad.Append("сковорода в стороне от кастрюли зря считается «на посуде»; ");
     pan.transform.position = origin + new UnityEngine.Vector3(1.5f, 0f, 0f);
 
     var fried = Cozy.Grid.CookArrange.FromSize(new UnityEngine.Vector3(0.123f, 0.025f, 0.125f));
@@ -66,7 +76,7 @@ try
             if (r > floor) bad.Append("лужица кетчупа за плоским дном r=" + r.ToString("F3") + " > " + floor.ToString("F3") + "; ");
         }
     }
-    return bad.Length == 0 ? "сковорода на кастрюлю красная, тарелка кольцом и лентами, кетчуп внутри дна :: держится" : "КРАСНОЕ: " + bad.ToString();
+    return bad.Length == 0 ? "сковорода на кастрюлю и краем на борт красная, в стороне зелёная, тарелка кольцом и лентами, кетчуп внутри дна :: держится" : "КРАСНОЕ: " + bad.ToString();
 }
 finally
 {
