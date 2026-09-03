@@ -157,7 +157,23 @@ try
     }
 }
 finally { examineProp.SetValue(null, savedHost, null); }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " :: "
+// 8. Предмет на ОТКРЫТОЙ поверхности опирается на неё КОРПУСОМ, а не только
+//    пивотом (P177: сковорода на угловой тумбе висела диском и ручкой над
+//    внутренним углом и выглядела утонувшей в стенке тумбы).
+var mSurfSup = gc != null ? gc.GetType().GetMethod("SurfaceSupported", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance) : null;
+int onSurface = 0;
+if (mSurfSup != null)
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null || io.Def.mount != Cozy.Grid.ObjectMount.Surface || io.HostObject != null) continue;
+        var p = io.transform.position; var rot = io.transform.rotation;
+        if (Cozy.Grid.ContainerSlot.Under(p) != null) continue;
+        onSurface++;
+        bool held = (bool)mSurfSup.Invoke(gc, new object[] { io.gameObject, p.x, p.y, p.z, rot.eulerAngles.y, null });
+        io.transform.SetPositionAndRotation(p, rot);
+        if (!held) bad.Append("корпус висит над пустотой: " + io.Def.id + " @ " + p.ToString("F2") + "; ");
+    }
+return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
