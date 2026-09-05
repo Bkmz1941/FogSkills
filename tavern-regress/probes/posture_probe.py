@@ -7,7 +7,12 @@
 кнопку карточки с HudUI в роли IFeatureContext — то есть тем же путём, что у
 игрока, а не в обход.
 
-Зачем: рефакторинг трёх поз в одну базу обязан сохранить поведение. Протокол —
+Печатает вердикт: инвариант 73 (игрок в ОДНОЙ позе за раз — пока занят, кнопки
+входа всех прочих поз недоступны) плюс чистота выхода (поза снята, контроллер
+включён, бейдж занятости убран, фигура видима). Нарушение — строка «КРАСНОЕ» и
+ненулевой код возврата, поэтому пробу можно звать из check_all.py.
+
+Зачем ещё: рефакторинг трёх поз в одну базу обязан сохранить поведение. Протокол —
 `README.md`: замер «ДО» в файл, правка, замер «ПОСЛЕ» в другой файл, дифф
 построчно; между прогонами сцену не трогать.
 
@@ -71,8 +76,7 @@ System.Func<int> vis = () =>
 };
 System.Func<string> gstate = () =>
 {
-    string clip = Cozy.Grid.SitFeature.Clip;
-    if (clip == null) clip = Cozy.Grid.SleepFeature.Clip;
+    string clip = Cozy.Grid.PlayerPosture.Clip;
     if (clip == null) clip = "-";
     return "спрятан=" + Cozy.Grid.HideFeature.PlayerHidden + " сидит=" + Cozy.Grid.SitFeature.PlayerSeated
         + " лежит=" + Cozy.Grid.SleepFeature.PlayerLying + " клип=" + clip
@@ -110,6 +114,7 @@ toStart = () =>
 };
 
 sb.Append("хостов поз: " + hosts.Count + "\n");
+var bad = new System.Collections.Generic.List<string>();
 Cozy.Grid.InteractiveObject pulled = null;
 UnityEngine.Vector3 pulledHome = UnityEngine.Vector3.zero;
 try
@@ -164,7 +169,9 @@ try
                 {
                     string k2 = kind(g);
                     if (k2 == "") continue;
-                    sb.Append("  чужой " + key(o) + " [" + k2 + "]: " + btns(g) + "\n");
+                    string line = btns(g);
+                    sb.Append("  чужой " + key(o) + " [" + k2 + "]: " + line + "\n");
+                    if (line.Contains("+")) bad.Add("занят " + key(h) + ", а у " + key(o) + " [" + k2 + "] кнопка доступна: " + line);
                     shown++;
                 }
                 if (shown >= 8) break;
@@ -173,7 +180,13 @@ try
             foreach (var b in f.Buttons(hud)) { if (b.Enabled) { b.OnClick(); left = true; } break; }
             UnityEngine.Physics.SyncTransforms();
             sb.Append("  вышел(" + left + "): " + gstate() + "\n");
-            sb.Append("  вышел: кнопки=" + btns(f) + " бейджи=" + badges(h) + "\n");
+            string afterBadges = badges(h);
+            sb.Append("  вышел: кнопки=" + btns(f) + " бейджи=" + afterBadges + "\n");
+            if (Cozy.Grid.HideFeature.PlayerHidden || Cozy.Grid.SitFeature.PlayerSeated || Cozy.Grid.SleepFeature.PlayerLying)
+                bad.Add("после выхода из " + key(h) + " игрок всё ещё в позе");
+            if (cc != null && !cc.enabled) bad.Add("после выхода из " + key(h) + " контроллер выключен");
+            if (afterBadges.Contains("занят")) bad.Add("после выхода из " + key(h) + " остался бейдж занятости");
+            if (vis() == 0) bad.Add("после выхода из " + key(h) + " фигура осталась невидимой");
             if (acc != null && acc.Open != accOpen0) acc.SetOpen(accOpen0);
             if (pulled != null) { pulled.transform.position = hostPos0; UnityEngine.Physics.SyncTransforms(); pulled = null; }
         }
@@ -196,6 +209,10 @@ finally
     toStart();
 }
 sb.Append("\nитог: " + gstate() + "\n");
+foreach (var b in bad) sb.Append("   нарушение: " + b + "\n");
+sb.Append(bad.Count == 0
+    ? ":: инвариант 73 держится, выход из позы чист\n"
+    : ":: КРАСНОЕ: нарушений " + bad.Count + ", подробности строками выше\n");
 return sb.ToString();
 '''
 
@@ -215,6 +232,8 @@ def main():
         print('КРАСНОЕ: ' + json.dumps(data, ensure_ascii=False)[:500])
         sys.exit(1)
     print(res)
+    if 'КРАСНОЕ' in res:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
