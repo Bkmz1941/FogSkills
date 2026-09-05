@@ -12,7 +12,7 @@ foreach (var b in new HumanBodyBones[] { HumanBodyBones.Hips, HumanBodyBones.Lef
     var t = anim.GetBoneTransform(b);
     sb.Append(b + ": y=" + t.position.y.ToString("0.00") + " от столешницы " + (t.position.y - top).ToString("+0.00;-0.00") + "\n");
 }
-Cozy.Grid.SitFeature.Leave();
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
 var parts = System.IO.File.ReadAllText("/tmp/sit_snap_state.txt").Split(' ');
 chair.transform.SetPositionAndRotation(new Vector3(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2])), Quaternion.Euler(0f, float.Parse(parts[3]), 0f));
 Physics.SyncTransforms();

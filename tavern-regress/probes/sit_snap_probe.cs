@@ -52,7 +52,7 @@ try
     Physics.SyncTransforms();
     player.transform.position = savedPlayer;
     sb.Append(Cozy.Grid.SitFeature.Explain(chair) + "\n");
-    Cozy.Grid.SitFeature.SitOn(chair);
+    Cozy.Grid.FeatureHost.Get<Cozy.Grid.SitFeature>(chair).Enter();
     sb.Append("seated=" + Cozy.Grid.SitFeature.PlayerSeated + " clip=" + Cozy.Grid.SitFeature.Clip + "\n");
 }
 finally

@@ -27,21 +27,21 @@ var playerPos = player.transform.position;
 if (Cozy.Grid.SitFeature.PushedIn(chair)) chair.transform.position += dir * 0.6f;
 UnityEngine.Physics.SyncTransforms();
 sb.Append("стул " + chair.transform.position.ToString("0.00") + " pushed=" + Cozy.Grid.SitFeature.PushedIn(chair) + "\n");
-Cozy.Grid.SitFeature.SitOn(chair);
+Cozy.Grid.FeatureHost.Get<Cozy.Grid.SitFeature>(chair).Enter();
 float top = table.WorldBounds.max.y;
 var zone = new UnityEngine.Bounds(player.transform.position + player.transform.forward * 0.6f + UnityEngine.Vector3.up * (top + 0.1f - player.transform.position.y), new UnityEngine.Vector3(0.2f, 0.2f, 0.2f));
 var aside = new UnityEngine.Bounds(zone.center + player.transform.right * 1.5f, zone.size);
 sb.Append("seated=" + Cozy.Grid.SitFeature.PlayerSeated + " clip=" + Cozy.Grid.SitFeature.Clip + " blocksZone=" + Cozy.Grid.SitFeature.BlocksPlacement(zone) + " blocksAside=" + Cozy.Grid.SitFeature.BlocksPlacement(aside) + "\n");
-Cozy.Grid.SitFeature.Leave();
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
 if (small != null)
 {
     var objPos = small.transform.position;
     var front = -chair.transform.forward; front.y = 0f; front.Normalize();
     small.transform.position = new UnityEngine.Vector3(chair.transform.position.x, top + 0.05f, chair.transform.position.z) + front * 0.55f;
     UnityEngine.Physics.SyncTransforms();
-    Cozy.Grid.SitFeature.SitOn(chair);
+    Cozy.Grid.FeatureHost.Get<Cozy.Grid.SitFeature>(chair).Enter();
     sb.Append("с предметом в зоне: clip=" + Cozy.Grid.SitFeature.Clip + "\n");
-    Cozy.Grid.SitFeature.Leave();
+    if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
     small.transform.position = objPos;
 }
 chair.transform.position = chairPos;
