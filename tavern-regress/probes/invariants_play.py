@@ -194,7 +194,34 @@ foreach (var door in UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(U
         }
     }
 }
-return "объектов=" + checkedObjects + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " :: "
+// 10. Стена не проходит сквозь корпус объекта у стены (P220: шкаф-купе и
+//     кровать ставились поперёк стены и торцом в боковую). Допуск есть только
+//     со спины — обшивка, ≤ 12 см; с боков и спереди стена в коробке = брак.
+var mDeep = gc != null ? gc.GetType().GetMethod("WallDeepInside", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static) : null;
+var mBox = gc != null ? gc.GetType().GetMethod("LocalBox", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static) : null;
+int nearWall = 0;
+if (mDeep != null && mBox != null)
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null) continue;
+        var d = io.Def;
+        if (!(d.seatToWall || d.anchor == Cozy.Grid.ObjectAnchor.Back || d.mount == Cozy.Grid.ObjectMount.Wall)) continue;
+        object[] boxArgs = new object[] { io.gameObject, null, null };
+        if (!(bool)mBox.Invoke(null, boxArgs)) continue;
+        var c0 = (UnityEngine.Vector3)boxArgs[1]; var half = (UnityEngine.Vector3)boxArgs[2];
+        var wb = io.WorldBounds;
+        var cols = UnityEngine.Physics.OverlapBox(wb.center, wb.extents, UnityEngine.Quaternion.identity, ~0, UnityEngine.QueryTriggerInteraction.Ignore);
+        bool any = false;
+        foreach (var col in cols)
+        {
+            if (col.transform.IsChildOf(io.transform) || !Cozy.Grid.BuildQuery.WallLike(col)) continue;
+            any = true;
+            if ((bool)mDeep.Invoke(null, new object[] { col, io.gameObject, c0, half }))
+            { bad.Append("стена в корпусе: " + d.id + " @ " + io.transform.position.ToString("F1") + "; "); break; }
+        }
+        if (any) nearWall++;
+    }
+return "объектов=" + checkedObjects + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
