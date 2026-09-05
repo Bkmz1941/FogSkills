@@ -42,11 +42,18 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
     // 2. Жидкости не больше ёмкости.
     if (io.Liquid != null && io.Liquid.Litres > io.Liquid.Capacity + 0.001f)
         bad.Append("перелив: " + io.Def.id + "; ");
-    // 3. Ни одного объекта без видимых мешей.
+    // 3. Ни одного объекта без видимых мешей — кроме погашенных этажным или
+    //    комнатным гейтом (FloorPieceView.Visible == false): с 1 этажа спальня
+    //    и должна быть скрыта, её ловят правила 11–12, а не это.
     int visible = 0;
     foreach (var r in io.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
         if (r.enabled && r.gameObject.activeInHierarchy && !r.name.StartsWith("Outline")) visible++;
-    if (visible == 0) bad.Append("невидимый объект: " + io.Def.id + "; ");
+    //    Метки спавна (игрока и монстров) — не поломка: их модель включена
+    //    только при SpawnPoint.ShowVisual (дебаг), вне дебага они и должны
+    //    быть без мешей (разбор ilya-44, 06.09).
+    var gate = io.GetComponent<Cozy.Grid.FloorPieceView>();
+    bool marker = io.Def.id == Cozy.Grid.SpawnPoint.ObjectId || io.Def.id == Cozy.Grid.MonsterSpawnPoint.ObjectId;
+    if (visible == 0 && (gate == null || gate.Visible) && !(marker && !Cozy.Grid.SpawnPoint.ShowVisual)) bad.Append("невидимый объект: " + io.Def.id + "; ");
     // 4. Вложенный предмет знает своего хозяина: без Container правило
     //    «в закрытой секции не трогают» слепнет.
     if (io.transform.parent != null && io.Container == null
@@ -113,8 +120,7 @@ finally { examineProp.SetValue(null, savedHost, null); }
 //    исчезала для каста, камера уезжала внутрь). Для каждого объекта с такой
 //    чужой преградой чистая дистанция в направлениях, входящих в её коробку,
 //    не больше входа в коробку (или пола хозяина).
-var mHostClear = typeof(Cozy.Character.CameraFollow).GetMethod("HostClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-var mEnclosing = typeof(Cozy.Character.CameraFollow).GetMethod("EnclosingClear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var mHostFloor = typeof(Cozy.Character.CameraFollow).GetMethod("HostFloor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 float camR = (float)typeof(Cozy.Character.CameraFollow).GetField("ExamineCamRadius", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetRawConstantValue();
 var ovl = new UnityEngine.Collider[32];
 int touching = 0;
@@ -140,7 +146,6 @@ try
         if (foreign.Count == 0) continue;
         touching++;
         examineProp.SetValue(null, io, null);
-        float floorD = (float)mHostClear.Invoke(null, new object[] { io });
         bool leak = false;
         foreach (float pitch in new float[] { -25f, 10f, 35f })
         foreach (float yaw in new float[] { 0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f })
@@ -150,8 +155,8 @@ try
             foreach (var b in foreign) { float e; if (b.IntersectRay(new UnityEngine.Ray(focus, dir), out e) && e < entry) entry = e; }
             if (entry == float.MaxValue) continue;
             float d = (float)mClear.Invoke(null, new object[] { focus, yaw, pitch, 3.0f, 0.15f });
-            float enclosing = (float)mEnclosing.Invoke(null, new object[] { io, focus, dir });
-            if (d > UnityEngine.Mathf.Max(entry, UnityEngine.Mathf.Max(floorD, enclosing)) + 0.01f) leak = true;
+            float floorD = (float)mHostFloor.Invoke(null, new object[] { io, focus, dir });
+            if (d > UnityEngine.Mathf.Max(entry, floorD) + 0.01f) leak = true;
         }
         if (leak) bad.Append("стартовая преграда прозрачна для осмотра: " + io.Def.id + "; ");
     }
@@ -221,7 +226,104 @@ if (mDeep != null && mBox != null)
         }
         if (any) nearWall++;
     }
-return "объектов=" + checkedObjects + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " :: "
+// 11. Скрытый этажным/комнатным гейтом объект НЕ глотает луч (P231: с 1 этажа
+//     выключенные коробки спальни были первым хитом на пути к холодильнику).
+int hiddenObjs = 0;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+    if (io == null || io.Def == null || skip == null) continue;
+    var fv = io.GetComponent<Cozy.Grid.FloorPieceView>();
+    if (fv == null || fv.Visible) continue;
+    var col = io.GetComponent<UnityEngine.Collider>();
+    if (col == null) continue;
+    hiddenObjs++;
+    if (!(bool)skip.Invoke(null, new object[] { col, (Cozy.Grid.IInteractable)io }))
+        bad.Append("скрытый объект глотает луч: " + io.Def.id + "; ");
+}
+// 12. Настенный объект гаснет ТОЛЬКО со стеной своего этажа (P232: шкафчик на
+//     2.05 м матчил стену 2 этажа и пропадал при взгляде с 1 этажа).
+int wallMounted = 0;
+var fYMin = typeof(Cozy.Grid.WallCutaway).GetField("_yMin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+float cellSz = Cozy.Grid.FurnitureModel.CellSize();
+foreach (var wm in UnityEngine.Object.FindObjectsByType<Cozy.Grid.WallMountedCut>(UnityEngine.FindObjectsSortMode.None))
+{
+    wallMounted++;
+    var fv = wm.GetComponent<Cozy.Grid.FloorPieceView>();
+    if (fv == null || !fv.WallCut || fYMin == null) continue;
+    var back = wm.transform.forward; var p = wm.transform.position;
+    bool axisX = UnityEngine.Mathf.Abs(back.x) > UnityEngine.Mathf.Abs(back.z);
+    float plane = axisX ? p.x + UnityEngine.Mathf.Sign(back.x) * cellSz * 0.5f : p.z + UnityEngine.Mathf.Sign(back.z) * cellSz * 0.5f;
+    float along = axisX ? p.z : p.x;
+    float floorY = UnityEngine.Mathf.Floor((p.y + cellSz * 0.1f) / cellSz) * cellSz;
+    bool ownFloor = false;
+    foreach (var wc in Cozy.Grid.WallCutaway.All)
+        if (wc != null && wc.MatchesAdjacent(axisX, plane, along, floorY, cellSz)
+            && (wc.CutShownNear(along, cellSz * 0.6f) || wc.HiddenAbove)
+            && UnityEngine.Mathf.Abs((float)fYMin.GetValue(wc) - floorY) < cellSz * 0.5f) { ownFloor = true; break; }
+    if (!ownFloor)
+    {
+        var owner = wm.GetComponent<Cozy.Grid.InteractiveObject>();
+        bad.Append("настенный объект погашен чужой стеной: " + (owner != null && owner.Def != null ? owner.Def.id : wm.name) + " @ " + p.ToString("F1") + "; ");
+    }
+}
+// 13. Фигура в инвентаре видна и из режима осмотра (P240: PlayerGhost гасил
+//     рендереры игрока, копия Visual для куклы наследовала выключенные).
+int dolls = 0;
+var fModel = typeof(Tavern.UI.ItemPreview3D).GetField("_model", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+foreach (var pv in UnityEngine.Object.FindObjectsByType<Tavern.UI.ItemPreview3D>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (pv.name != "ModelPreview3D" || fModel == null) continue;
+    var model = fModel.GetValue(pv) as UnityEngine.Transform;
+    if (model == null) continue;
+    dolls++;
+    int on = 0;
+    foreach (var r in model.GetComponentsInChildren<UnityEngine.Renderer>()) if (r.enabled) on++;
+    if (on == 0) bad.Append("фигура в инвентаре без включённых рендереров (призрак осмотра); ");
+}
+// 14. Ряд слота экипировки не ниже своей заявленной высоты (P241: стек с
+//     childControlHeight=false глушил preferredHeight, плитки 130 в рядах 100).
+int slotRows = 0;
+foreach (var le in UnityEngine.Object.FindObjectsByType<UnityEngine.UI.LayoutElement>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (!le.name.StartsWith("Slot_") || le.transform.parent == null || le.transform.parent.name != "Slots") continue;
+    slotRows++;
+    var rrt = (UnityEngine.RectTransform)le.transform;
+    if (rrt.rect.height < le.preferredHeight - 0.5f)
+        bad.Append("ряд слота ниже preferredHeight: " + le.name + " " + rrt.rect.height.ToString("F0") + "<" + le.preferredHeight.ToString("F0") + "; ");
+}
+// 15. Камера осмотра не заходит в СОБСТВЕННЫЙ корпус объекта (P242: шкаф-купе,
+//     минимум зума меньше половины ширины, круг от сдвинутого под карточку
+//     фокуса не защищал). Для каждого объекта: фокус со сдвигом под карточку,
+//     минимум зума с 16 ракурсов и 4 тангажей, камера снаружи коробки.
+int hosts = 0;
+var mDistOf = typeof(Tavern.UI.HudUI).GetMethod("ExamineDistanceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var pColumn = typeof(Tavern.UI.HudUI).GetProperty("ExamineCardColumn", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+float zoomMin = (float)typeof(Cozy.Character.CameraFollow).GetField("ExamineZoomMin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetRawConstantValue();
+if (cam != null && mDistOf != null && pColumn != null)
+{
+    float column = (float)pColumn.GetValue(null, null);
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null || io.Container != null) continue;
+        var box = io.WorldBounds; box.Expand(-0.02f);
+        if (box.size.x <= 0f || box.size.y <= 0f || box.size.z <= 0f) continue;
+        hosts++;
+        var center = io.WorldBounds.center;
+        float baseDist = (float)mDistOf.Invoke(null, new object[] { io, center, 0f, 15f });
+        var focus = Tavern.UI.ExamineFraming.CardShift(center, 0f, 15f, baseDist, cam.fieldOfView, cam.aspect, column);
+        bool inside = false;
+        foreach (float pitch in new float[] { -25f, 15f, 60f, 89f })
+        foreach (float yaw in new float[] { 0f, 22.5f, 45f, 67.5f, 90f, 112.5f, 135f, 157.5f, 180f, 202.5f, 225f, 247.5f, 270f, 292.5f, 315f, 337.5f })
+        {
+            float d = UnityEngine.Mathf.Max(baseDist * zoomMin, Cozy.Character.CameraFollow.ExamineFloor(io, focus, yaw, pitch));
+            d = UnityEngine.Mathf.Min(d, Cozy.Character.CameraFollow.ExamineCap(io, focus, yaw, pitch));
+            var pos = focus + UnityEngine.Quaternion.Euler(pitch, yaw, 0f) * new UnityEngine.Vector3(0f, 0f, -d);
+            if (box.Contains(pos)) inside = true;
+        }
+        if (inside) bad.Append("камера осмотра внутри своего объекта: " + io.Def.id + "; ");
+    }
+}
+return "объектов=" + checkedObjects + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
