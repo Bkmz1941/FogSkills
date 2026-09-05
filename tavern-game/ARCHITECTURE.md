@@ -78,6 +78,7 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
 | Порог «жидкости меньше капли» | `LiquidVolume.Drop` | `Grid/LiquidVolume.cs` |
 | Стена/стеноподобное под лучом | `BuildQuery.WallLike/WallLikeAt/CubeBlock` | `Grid/BuildQuery.cs` |
 | Ссылка на игрока | `PlayerRef` | `Grid/PlayerRef.cs` |
+| Поза игрока на объекте (спрятаться, сесть, лечь) | `PlayerPosture` — ОДНО состояние «объект держит игрока» (`Busy`, `Clip`, `Frozen`, `Holds`, `ReleaseIfHost`, `LeaveOnMove`); база `PostureFeature` — общий порядок входа и выхода, наследник даёт подписи и `OnEnter`/`OnLeave`. Новая поза не требует правок в старых | `Grid/Features/PostureFeature.cs` |
 | Квантование следа по подсетке, доводка предмета внутрь площадки | `PlaceMath.SubWidth/SubSnap/SlideInside` — чистые функции без сцены, покрыты тестами | `Grid/PlaceMath.cs` |
 | Список всех объектов каталога | `FurnitureCatalog.All()` — рефлексия по фабрикам, кэш | `Grid/FurnitureCatalog.cs` |
 | Шейдеры | `ShaderLib.Lit/Unlit/Get` — никогда `Shader.Find` в рантайме | |

@@ -1061,9 +1061,41 @@ Humanoid-аватар и клипы считают от исходного ск�
   как у Idle_Calm). Старые клипы (Idle_Calm, Walk_Calm, Jog_Calm) в реестре
   со своими путями. Илья: «чтобы в след раз открылась в блендере именно» —
   `python3 anim_kit.py open Sit_Idle`.
+### ⭐ Позы игрока — одно состояние `PlayerPosture` (2026-09-05, ilya-44)
+
+«Спрятаться», «Сесть» и «Лечь» — это ОДИН механизм «объект держит игрока», а
+не три. Живёт в `Assets/Modules/Grid/Features/PostureFeature.cs`:
+
+- `PlayerPosture` — единственная правда: `Current` (какая фича держит),
+  `Busy`, `Clip` (клип позы для `CharacterAvatar`), `Veiled` (экран затемнён),
+  `Frozen = Busy || Veiled` (движение стоит), `Holds(host)` (этот объект занят
+  игроком — по этому HUD прячет «Осмотреть»), `ReleaseIfHost(host)` (объект
+  исчез — поднять), `LeaveOnMove()` (ось WASD).
+- `PostureFeature` — общий порядок: взаимное исключение, `CharacterController`
+  вкл/выкл, соседние фичи хозяина, бейдж «занято», `NotifyChanged` карточке.
+  Наследник даёт только своё: `EnterLabel`/`LeaveLabel`/`BadgeLabel`,
+  `CanEnter`, `OnEnter`/`OnLeave`, при нужде `ExtraButtons` (у кровати
+  «Спать»), `AfterEnter` (у стула — закрыть карточку), `PostureClip`,
+  `LeavesOnMove` (у укрытия `false` — оттуда выходят только кнопкой).
+- Общие примитивы там же, вместо копий по фичам: `PivotOffset` (корень над
+  подошвами), `Flat` (горизонтальное направление с запасным), `VisualScale`,
+  `LocalBody` (коробка корпуса в осях хозяина по ВКЛЮЧЁННЫМ рендерерам),
+  `FirstFreeSpot` (первый свободный кандидат, иначе спираль `FreeSpotNear`).
+- Совместимые имена оставлены там, где у них свой смысл:
+  `HideFeature.PlayerHidden`/`Spot` (монстры и луч), `SitFeature.PlayerSeated`/
+  `Seat`/`Clip`/`HandsOnTable`/`BlocksPlacement`/`PushedIn`/`Explain`,
+  `SleepFeature.PlayerLying`/`Bed`/`Clip`.
+- Что это починило: до объединения «Спрятаться» была доступна лёжа и сидя и
+  давала две позы сразу (P244, инвариант 73). Защита — проба
+  `tavern-regress/probes/posture_probe.py`.
+- ⚠️ `LocalBody` считает по ВКЛЮЧЁННЫМ рендерерам, а этажный гейт гасит чужой
+  этаж: замер стула с первого этажа, пока игрок на втором, уходит в запасные
+  0.3 м и точка вставания смещается на 5 см. В игре не стреляет (сидят на
+  своём этаже), но пробы гонять из одинаковой позиции игрока.
+
 - **«Сесть» в игре — `Assets/Modules/Grid/Features/SitFeature.cs`
-  (2026-09-02, ilya-43).** Вешается на любой деф с `chair` (см.
-  `InteractiveObject.Build`), шаблон — `HideFeature`. Кнопки «Сесть»/«Встать»
+  (2026-09-02, ilya-43; с 05.09 — наследник `PostureFeature`).** Вешается на
+  любой деф с `chair` (см. `InteractiveObject.Build`). Кнопки «Сесть»/«Встать»
   в карточке стула; бейдж «Стул: занят». «Сесть» закрывает карточку и
   снимает выделение стула (`ctx.CloseCard()`, Илья: «когда сели, надо
   сбросить выделение стула»), «Встать» лишь обновляет панель. `SitOn(chair)`: корень игрока на
