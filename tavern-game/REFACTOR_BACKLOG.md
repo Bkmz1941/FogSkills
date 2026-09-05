@@ -93,8 +93,15 @@ LiveFade) — в `history/refactor-log.md`.
 `ObjectGroup.BreakOf`, `CharacterStats.ChangeRest`, `CharacterProfile.Total`,
 `Nutrition.ThirstRoomL`, `LiquidVolume.SetHeat`, `LiquidVolume.KindHasTaste`,
 `ObjectSheet.KindsOf`, `ObjectSheet.CollectDef`, `SitFeature.Explain`,
-`WikiScreenUI.OpenFor`, `SeeThroughView.DetachMarked`, `DisposeKinds.KnownList`,
-`ObjectFeature.FeatureHost`, `GhostStyle.DotC/DotOverlay`.
+`WikiScreenUI.OpenFor`, `DisposeKinds.KnownList`, `ObjectFeature.FeatureHost`,
+`GhostStyle.DotC/DotOverlay`.
+
+**Не мёртвый, а СПЯЩИЙ — не удалять** (уточнение ilya-6b, 05.09):
+`SeeThroughView.DetachMarked` вместе с `Ensure` и `Detach` — три половинки
+просвечивания СКРЫТЫХ ПРЕДМЕТОВ, выключенного гейтом `HiddenItems = false` до
+переделки (вопрос Илье в OPEN.md). Метку `SeeThroughMark` ставит только `Ensure`,
+он же и закрыт гейтом — значит меток в мире не появляется и снимать нечего.
+Оживут вместе; удалить = написать заново при переделке.
 
 Правило по итогам P210: мёртвый метод — не всегда просто мусор. `EndZoneEdit`
 из этого же списка оказался невыключенным режимом и настоящим багом. Прежде чем
