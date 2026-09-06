@@ -25,10 +25,15 @@
 0.6 от стола (как `sit_probe.cs`) и возвращает на место — иначе ветка «Сесть»
 не измеряется вовсе.
 
+Отдельной парой вызовов проверяется правило осмотра: пока игрок ЗАНЯЛ
+осматриваемый объект (лёг на осматриваемую кровать), фигура не прячется —
+иначе «Лечь» из осмотра выглядит как «ничего не произошло». Два вызова нужны
+потому, что призрак осмотра снимается в следующем кадре.
+
 Поза игрока, позиция выдвинутого стула, состояние створок укрытия и активная
-поза возвращаются в finally.
+поза возвращаются в finally. Правило осмотра — инвариант 75.
 """
-import json, subprocess, sys
+import json, subprocess, sys, time
 
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 
@@ -217,22 +222,97 @@ return sb.ToString();
 '''
 
 
-def main():
+EXAMINE_SETUP = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
+Cozy.Grid.InteractiveObject bed = null;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+    if (io != null && io.Def != null && io.Def.bed) bed = io;
+if (bed == null) return "кровати в уровне нет";
+var pl = Cozy.Grid.PlayerRef.GameObject;
+var cc = pl.GetComponent<UnityEngine.CharacterController>();
+var spot = bed.WorldBounds.center + bed.transform.right * 2.2f;
+cc.enabled = false;
+pl.transform.SetPositionAndRotation(new UnityEngine.Vector3(spot.x, bed.transform.position.y + 1.0f, spot.z),
+    UnityEngine.Quaternion.LookRotation(-bed.transform.right, UnityEngine.Vector3.up));
+cc.enabled = true;
+UnityEngine.Physics.SyncTransforms();
+var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+var bf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+typeof(Tavern.UI.HudUI).GetMethod("OpenExamine", bf).Invoke(hud, new object[] { bed as Cozy.Grid.IExaminable });
+bool laid = Cozy.Grid.FeatureHost.Get<Cozy.Grid.SleepFeature>(bed).Enter();
+return "осмотр открыт, лёг=" + laid;
+'''
+
+EXAMINE_CHECK = r'''
+var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+var bf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var ep = typeof(Tavern.UI.HudUI).GetField("_examinePanel", bf).GetValue(hud) as UnityEngine.GameObject;
+var labels = new System.Collections.Generic.List<string>();
+if (ep != null)
+    foreach (var one in ep.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+    {
+        var tmp = one.GetComponentInChildren<TMPro.TMP_Text>(true);
+        var lab = tmp != null ? tmp.text : "";
+        if (!string.IsNullOrEmpty(lab) && lab != "i") labels.Add(lab);
+    }
+var pl = Cozy.Grid.PlayerRef.GameObject;
+int vis = 0;
+foreach (var r in pl.GetComponentsInChildren<UnityEngine.Renderer>()) if (r.enabled) vis++;
+bool lying = Cozy.Grid.SleepFeature.PlayerLying;
+bool ghost = Cozy.Character.PlayerGhost.Active;
+var bad = new System.Text.StringBuilder();
+if (ep == null) bad.Append("осмотр закрылся; ");
+if (!lying) bad.Append("поза не удержалась в осмотре; ");
+if (ghost) bad.Append("фигура спрятана призраком осмотра, хотя лежит на осматриваемой кровати; ");
+if (vis == 0) bad.Append("ни одного видимого рендерера у лежащего; ");
+if (labels.Count < 2) bad.Append("в карточке осмотра нет пары кнопок «встать» и «спать»; ");
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
+var m = typeof(Tavern.UI.HudUI).GetMethod("CloseExamine", bf);
+if (m != null) m.Invoke(hud, new object[] { false });
+return "осмотр: кнопки=[" + string.Join(",", labels.ToArray()) + "] лежит=" + lying
+    + " призрак=" + ghost + " видимых=" + vis
+    + (bad.Length == 0 ? " :: правило осмотра держится" : " :: КРАСНОЕ: " + bad.ToString());
+'''
+
+
+def call(code):
     out = subprocess.run(['python3', MCP, 'execute_code',
-                          json.dumps({"action": "execute", "code": CODE})],
+                          json.dumps({"action": "execute", "code": code})],
                          capture_output=True, text=True, timeout=300)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else ''
     try:
         data = json.loads(line)
     except Exception:
-        print('КРАСНОЕ: мост не ответил\n' + (out.stdout or out.stderr)[-500:])
-        sys.exit(1)
+        return None, 'мост не ответил: ' + (out.stdout or out.stderr)[-300:]
     res = (data.get('data') or {}).get('result')
     if not res:
-        print('КРАСНОЕ: ' + json.dumps(data, ensure_ascii=False)[:500])
+        return None, json.dumps(data, ensure_ascii=False)[:400]
+    return res, None
+
+
+def main():
+    res, err = call(CODE)
+    if err:
+        print('КРАСНОЕ: ' + err)
         sys.exit(1)
     print(res)
-    if 'КРАСНОЕ' in res:
+    setup, err = call(EXAMINE_SETUP)
+    if err:
+        print('КРАСНОЕ (осмотр, подготовка): ' + err)
+        sys.exit(1)
+    print('\n' + setup)
+    time.sleep(1.0)
+    check, err = call(EXAMINE_CHECK)
+    if err:
+        print('КРАСНОЕ (осмотр, проверка): ' + err)
+        sys.exit(1)
+    print(check)
+    red = 'КРАСНОЕ' in res or 'КРАСНОЕ' in check
+    print(':: позы %s; осмотр %s' % (
+        'КРАСНОЕ' if 'КРАСНОЕ' in res else 'ок',
+        'КРАСНОЕ' if 'КРАСНОЕ' in check else 'ок'))
+    if red:
         sys.exit(1)
 
 
