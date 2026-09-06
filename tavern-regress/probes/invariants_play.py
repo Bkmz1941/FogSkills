@@ -339,11 +339,21 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
         if (r.enabled && !r.name.StartsWith("Outline") && r.GetComponentInParent<Cozy.Grid.InteractiveObject>() == io)
             ownRends.Add(r);
     if (ownRends.Count == 0) continue;
+    // Щупаем ЦЕНТР следа, а не сетку. Сетка 3x3 пробовалась 06.09 и дала две
+    // ложные тревоги: у углового кухонного блока коллайдер столешницы честно
+    // накрывает ВЫРЕЗ под раковину (видимого меша там нет, но класть туда и
+    // правда некуда), у плиты в выборку попадали коллайдеры СТОЯЩЕЙ НА НЕЙ
+    // посуды. Центр ловит тот случай, ради которого правило заведено (высокая
+    // часть вроде изголовья поднимает опору на всей площади), и молчит там,
+    // где всё честно.
     var mid = io.WorldBounds.center;
     float colTop = float.NegativeInfinity, rendTop = float.NegativeInfinity;
     foreach (var col in io.GetComponentsInChildren<UnityEngine.Collider>())
     {
         if (col.isTrigger) continue;
+        // Только СВОИ коллайдеры: у плиты дети — сковорода и кастрюля, их
+        // верх к её поверхности отношения не имеет.
+        if (col.GetComponentInParent<Cozy.Grid.InteractiveObject>() != io) continue;
         var cb = col.bounds;
         if (mid.x < cb.min.x || mid.x > cb.max.x || mid.z < cb.min.z || mid.z > cb.max.z) continue;
         if (cb.max.y > colTop) colTop = cb.max.y;
