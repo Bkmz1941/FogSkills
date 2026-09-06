@@ -7,7 +7,8 @@ Headless Blender: берутся ИГРОВЫЕ файлы — тело `HumanCh
 кадры рендерятся с трёх сторон и считаются красные пиксели. Замер по плотным
 сеткам файла одежды врал: в игре другие сетки и веса (P205, P208).
 
-Запуск: python3 ~/.claude/skills/tavern-regress/probes/worn_jeans_pose_probe.py
+Запуск: python3 ~/.claude/skills/tavern-regress/probes/worn_jeans_pose_probe.py [JeansM|HomePantsM|TShirtM]
+Для TShirtM красная кожа — торс под футболкой (|x|<0.21, z 0.98..1.47) и плечи под рукавами (|x| 0.21..0.30, z 1.36..1.55), камера на z 1.2.
 """
 import glob, os, subprocess, sys, tempfile
 
@@ -15,11 +16,13 @@ BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
 CLOTHES = '/media/ilya/T714/Unity/Tavern-fresh/BlenderWork/Library/humanClothes.blend'
 RES = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/'
 LIMIT = 40
+GARMENT = sys.argv[1] if len(sys.argv) > 1 else 'JeansM'
 INNER = r'''
 import bpy, math
 from mathutils import Vector
 OUT = %r
 RES = %r
+GARMENT = %r
 def import_fbx(path):
     before = set(o.name for o in bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=path)
@@ -48,7 +51,7 @@ figs = []
 for suffix, x, tag in (('_Walk_Cut', 4.8, 'walk'), ('_Idle_Cut', 2.4, 'idle')):
     arm = bpy.data.objects['Armature' + suffix]
     body_all = import_fbx(RES + 'Models/HumanCharacterDummy_M_Skin.fbx')
-    jeans_all = import_fbx(RES + 'Clothes/JeansM.fbx')
+    jeans_all = import_fbx(RES + 'Clothes/' + GARMENT + '.fbx')
     body = [o for o in body_all if o.type == 'MESH']; jeans = [o for o in jeans_all if o.type == 'MESH']
     bind(body, arm); bind(jeans, arm)
     for o in [o for o in body_all + jeans_all if o.type == 'ARMATURE']:
@@ -57,8 +60,13 @@ for suffix, x, tag in (('_Walk_Cut', 4.8, 'walk'), ('_Idle_Cut', 2.4, 'idle')):
     me = skin.data; me.materials.clear(); me.materials.append(tan); me.materials.append(red)
     mw = arm.matrix_world
     for p in me.polygons:
-        zz = (skin.matrix_world @ p.center).z
-        p.material_index = 1 if 0.19 < zz < 1.06 else 0
+        c = skin.matrix_world @ p.center
+        zz = c.z; xx = abs(c.x - arm.location.x)
+        if GARMENT.startswith('TShirt'):
+            red_face = (0.98 < zz < 1.47 and xx < 0.21) or (1.36 < zz < 1.55 and 0.21 <= xx < 0.30)
+        else:
+            red_face = 0.19 < zz < 1.06
+        p.material_index = 1 if red_face else 0
     figs.append((tag, x))
 bpy.context.view_layer.update()
 cd = bpy.data.cameras.new('_PokeCam'); cam = bpy.data.objects.new('_PokeCam', cd); sc.collection.objects.link(cam); cd.lens = 50
@@ -72,7 +80,7 @@ shots = [('walk', 4.8, f, yaw, pitch) for f in (8, 20, 32, 44, 56, 68) for yaw, 
 shots += [('idle', 2.4, 40, yaw, pitch) for yaw, pitch in ((-25, 6), (90, 10), (200, 30))]
 for tag, x, f, yaw, pitch in shots:
     sc.frame_set(f)
-    look((x, 0.0, 0.7), 2.0, math.radians(yaw), math.radians(pitch))
+    look((x, 0.0, 1.2 if GARMENT.startswith('TShirt') else 0.7), 2.0, math.radians(yaw), math.radians(pitch))
     sc.render.filepath = '%%s/%%s_%%d_%%d.png' %% (OUT, tag, f, yaw)
     bpy.ops.render.render(write_still=True)
 print('RENDERED', len(shots))
@@ -81,7 +89,7 @@ print('RENDERED', len(shots))
 def main():
     out = tempfile.mkdtemp(prefix='poke_')
     with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as f:
-        f.write(INNER % (out, RES))
+        f.write(INNER % (out, RES, GARMENT))
         path = f.name
     try:
         run = subprocess.run(['systemd-run', '--user', '--scope', '-q', '-p', 'MemoryMax=8G',

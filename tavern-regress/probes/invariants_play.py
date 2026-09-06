@@ -432,7 +432,59 @@ if (pwT != null && !moving)
         if (env.Length > 0) bad.Append("объект упёрся в окружение на своём месте: " + d.id + " @ " + p0.ToString("F1") + " [" + env + "]; ");
     }
 }
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
+// 18. Верх стены не ниже верха плиты или куба, который перекрывает её в плане:
+// полноклеточная плита идёт ДО линии сетки, а стена стоит по центру линии, и
+// стоит верху стены оказаться ниже — плита накрывает половину её толщины, и
+// сверху стена читается вдвое тоньше (Илья 2026-09-06).
+int wallTops = 0;
+{
+    var blocksAll = new System.Collections.Generic.List<Cozy.Grid.GridBlock>(Cozy.Grid.GridBlock.All);
+    foreach (var wb0 in blocksAll)
+    {
+        if (wb0.role != Cozy.Grid.GridRole.Wall || wb0.railing || wb0.fence) continue;
+        var rw0 = wb0.Rend; if (rw0 == null) continue;
+        var bw0 = rw0.bounds; wallTops++;
+        foreach (var sb0 in blocksAll)
+        {
+            if (sb0 == wb0 || sb0.role != Cozy.Grid.GridRole.Floor) continue;
+            var rs0 = sb0.Rend; if (rs0 == null) continue;
+            var bs0 = rs0.bounds;
+            float up = bs0.max.y - bw0.max.y;
+            if (up <= 0.0005f || up > 0.05f) continue;
+            if (bs0.min.x > bw0.max.x - 0.01f || bs0.max.x < bw0.min.x + 0.01f) continue;
+            if (bs0.min.z > bw0.max.z - 0.01f || bs0.max.z < bw0.min.z + 0.01f) continue;
+            bad.Append("плита накрывает верх стены: стена " + bw0.center.ToString("F1")
+                + " верх " + bw0.max.y.ToString("F3") + " ниже плиты " + bs0.max.y.ToString("F3") + "; ");
+            break;
+        }
+    }
+}
+// 19. Ветер не рисуется в помещении: пока включён глобальный ветер, ни один
+// видимый порыв не стоит в клетке, где есть пол здания (Илья 2026-09-06:
+// «если глобально, внутри зданий не должно быть»).
+int gusts = 0;
+if (Cozy.Grid.Weather.Wind)
+{
+    foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.WindGusts>(UnityEngine.FindObjectsSortMode.None))
+    {
+        if (!rig.Global) continue;
+        foreach (var gr in rig.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
+        {
+            if (!gr.enabled) continue;
+            gusts++;
+            var gp = gr.transform.position;
+            var gg = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground) ?? Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Floor);
+            float gcs = gg != null ? gg.CellSize : 3f;
+            var go2 = gg != null ? gg.Origin : UnityEngine.Vector3.zero;
+            var gcell = Cozy.Grid.GridSnap.Cell(gp, go2, gcs);
+            var gmid = new UnityEngine.Vector3(go2.x + gcell.x * gcs, gp.y, go2.z + gcell.y * gcs);
+            if (Cozy.Grid.LightZones.ZoneAt(gmid) == Cozy.Grid.LightZones.Indoor)
+                bad.Append("ветер в помещении: " + gp.ToString("F1") + "; ");
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 

@@ -145,3 +145,8 @@ LiveFade) — в `history/refactor-log.md`.
 `Profiler.GetMonoUsedSizeLong` с контролем: в занятой точке `PieceAtCapsule`
 63 → 0 байт за вызов, `FreeSpotNear` 376 → 0. Пустая капсула не аллоцировала и
 раньше. Ответы сверены по 512 точкам сетки и 36 поискам — ноль расхождений.
+
+- `palm` (доворот кисти вокруг своей оси, чтобы ладонь смотрела в заданную
+  сторону) живёт в двух копиях: `lie_idle.Lying.palm` и
+  `model_poses.Figure.palm`. Вынести в `anim_common` рядом с `aim`
+  (2026-09-06, ilya-84).
