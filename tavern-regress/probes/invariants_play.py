@@ -323,7 +323,45 @@ if (cam != null && mDistOf != null && pColumn != null)
         if (inside) bad.Append("камера осмотра внутри своего объекта: " + io.Def.id + "; ");
     }
 }
-return "объектов=" + checkedObjects + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
+// 16. Коллайдер не поднимает опору выше видимой поверхности (P250: у кровати
+//     один бокс на весь объект имел верх по изголовью, и вещи, положенные на
+//     постель, повисали на полметра выше одеяла). В центре следа берём самый
+//     высокий СВОЙ нетриггерный коллайдер и самый высокий СВОЙ рендерер:
+//     первый не должен торчать над вторым. Триггеры не в счёт — постановка их
+//     игнорирует; допуск 10 см на кромки и скруглённые боксы.
+int surfaces = 0;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+    if (io == null || io.Def == null || io.Container != null) continue;
+    if (io.Def.mount == Cozy.Grid.ObjectMount.Ceiling) continue;
+    var ownRends = new System.Collections.Generic.List<UnityEngine.Renderer>();
+    foreach (var r in io.GetComponentsInChildren<UnityEngine.Renderer>())
+        if (r.enabled && !r.name.StartsWith("Outline") && r.GetComponentInParent<Cozy.Grid.InteractiveObject>() == io)
+            ownRends.Add(r);
+    if (ownRends.Count == 0) continue;
+    var mid = io.WorldBounds.center;
+    float colTop = float.NegativeInfinity, rendTop = float.NegativeInfinity;
+    foreach (var col in io.GetComponentsInChildren<UnityEngine.Collider>())
+    {
+        if (col.isTrigger) continue;
+        var cb = col.bounds;
+        if (mid.x < cb.min.x || mid.x > cb.max.x || mid.z < cb.min.z || mid.z > cb.max.z) continue;
+        if (cb.max.y > colTop) colTop = cb.max.y;
+    }
+    foreach (var r in ownRends)
+    {
+        var rb = r.bounds;
+        if (mid.x < rb.min.x || mid.x > rb.max.x || mid.z < rb.min.z || mid.z > rb.max.z) continue;
+        if (rb.max.y > rendTop) rendTop = rb.max.y;
+    }
+    if (float.IsNegativeInfinity(colTop) || float.IsNegativeInfinity(rendTop)) continue;
+    surfaces++;
+    if (colTop > rendTop + 0.10f)
+        bad.Append("коллайдер выше видимой поверхности: " + io.Def.id + " (+"
+            + (colTop - rendTop).ToString("0.00") + " м); ");
+}
+
+return "объектов=" + checkedObjects + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
