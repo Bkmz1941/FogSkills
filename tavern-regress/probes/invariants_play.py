@@ -371,7 +371,67 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
             + (colTop - rendTop).ToString("0.00") + " м); ");
 }
 
-return "объектов=" + checkedObjects + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
+// 17. Свободно стоящий объект уровня не упирается в ОКРУЖЕНИЕ на своём месте:
+//     стены, полы, метки в его коробке = правила постановки сломали то, что уже
+//     стоит (06.09: шкаф-купе краснел у стены спальни, причина искалась вслепую).
+//     Чужая мебель в коробке не в счёт: стулья задвигают под стол позже стола.
+int posed = 0;
+var gcT = gc != null ? gc.GetType() : null;
+var BFp = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
+var pwT = gcT != null ? gcT.GetNestedType("PoseWork", BFp) : null;
+bool moving = gcT != null && (gcT.GetField("_movingObj", BFp).GetValue(gc) != null || (bool)gcT.GetField("_handMove", BFp).GetValue(gc));
+if (pwT != null && !moving)
+{
+    var steps = new[] { "SnapToNeighbours", "SnapToWall", "SnapKitLine", "ResolvePoseHeight" };
+    var mBoxP = gcT.GetMethod("LocalBox", BFp); var mObsP = gcT.GetMethod("Obstacle", BFp);
+    float liftMax = (float)gcT.GetField("OverlapLift", BFp).GetValue(null); float skinP = (float)gcT.GetField("OverlapSkin", BFp).GetValue(null);
+    var player = Cozy.Grid.PlayerRef.GameObject;
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null) continue;
+        var d = io.Def;
+        if (!d.FreeYaw || d.mount != Cozy.Grid.ObjectMount.Floor || d.hostPart || d.builtIn || d.walkOver || !string.IsNullOrEmpty(d.snapToId) || d.passThrough) continue;
+        var wb = io.WorldBounds; wb.Expand(1f);
+        if (player != null && wb.Contains(player.transform.position)) continue;
+        var p0 = io.transform.position; var r0 = io.transform.rotation; float yaw0 = io.transform.eulerAngles.y;
+        float fy = UnityEngine.Mathf.Floor((p0.y + cellSz * 0.1f) / cellSz) * cellSz;
+        object w = System.Activator.CreateInstance(pwT);
+        System.Action<string, object> S = (n, v) => pwT.GetField(n).SetValue(w, v);
+        S("Def", d); S("Body", io.gameObject); S("Exclude", io.transform); S("FloorY", fy); S("Hit", new UnityEngine.Vector3(p0.x, fy, p0.z));
+        S("Kit", !string.IsNullOrEmpty(d.kit)); S("Free", true); S("WallMount", false); S("X", p0.x); S("Z", p0.z); S("Yaw", yaw0); S("FreeWall", false);
+        object[] args = new object[] { w };
+        string env = "";
+        try
+        {
+            foreach (var st in steps) gcT.GetMethod(st, BFp).Invoke(gc, args);
+            w = args[0];
+            var pos = new UnityEngine.Vector3((float)pwT.GetField("X").GetValue(w), (float)pwT.GetField("Y").GetValue(w), (float)pwT.GetField("Z").GetValue(w));
+            object[] bx = new object[] { io.gameObject, null, null };
+            if ((bool)mBoxP.Invoke(null, bx))
+            {
+                var c = (UnityEngine.Vector3)bx[1]; var half = (UnityEngine.Vector3)bx[2];
+                var rot = UnityEngine.Quaternion.Euler(0f, yaw0, 0f);
+                io.transform.SetPositionAndRotation(pos, rot);
+                UnityEngine.Physics.SyncTransforms();
+                float lift = UnityEngine.Mathf.Min(liftMax, half.y * 0.5f);
+                var centre = io.transform.TransformPoint(c) + UnityEngine.Vector3.up * lift;
+                var h = new UnityEngine.Vector3(UnityEngine.Mathf.Max(0.005f, half.x - skinP), UnityEngine.Mathf.Max(0.005f, half.y - lift), UnityEngine.Mathf.Max(0.005f, half.z - skinP));
+                bool wallOk = d.mount == Cozy.Grid.ObjectMount.Wall || d.seatToWall || d.SticksToWall;
+                foreach (var col in UnityEngine.Physics.OverlapBox(centre, h, rot, ~0, UnityEngine.QueryTriggerInteraction.Ignore))
+                {
+                    if (col.transform.IsChildOf(io.transform) || col.GetComponentInParent<Cozy.Grid.InteractiveObject>() != null) continue;
+                    if (col.GetComponentInParent<Cozy.Grid.DoorPiece>() != null || col.GetComponentInParent<Cozy.Grid.WindowPiece>() != null) continue;
+                    if ((bool)mObsP.Invoke(gc, new object[] { col, io.gameObject, io.transform, null, wallOk, c, half, false }))
+                        env += col.name + " " + col.bounds.center.ToString("F1") + "/" + col.bounds.size.ToString("F2") + ",";
+                }
+            }
+        }
+        finally { io.transform.SetPositionAndRotation(p0, r0); UnityEngine.Physics.SyncTransforms(); }
+        posed++;
+        if (env.Length > 0) bad.Append("объект упёрся в окружение на своём месте: " + d.id + " @ " + p0.ToString("F1") + " [" + env + "]; ");
+    }
+}
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
