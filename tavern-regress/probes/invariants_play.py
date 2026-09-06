@@ -315,12 +315,13 @@ if (cam != null && mDistOf != null && pColumn != null)
         foreach (float pitch in new float[] { -25f, 15f, 60f, 89f })
         foreach (float yaw in new float[] { 0f, 22.5f, 45f, 67.5f, 90f, 112.5f, 135f, 157.5f, 180f, 202.5f, 225f, 247.5f, 270f, 292.5f, 315f, 337.5f })
         {
-            float d = UnityEngine.Mathf.Max(baseDist * zoomMin, Cozy.Character.CameraFollow.ExamineFloor(io, focus, yaw, pitch));
-            d = UnityEngine.Mathf.Min(d, Cozy.Character.CameraFollow.ExamineCap(io, focus, yaw, pitch));
+            float want = UnityEngine.Mathf.Max(baseDist * zoomMin, Cozy.Character.CameraFollow.ExamineFloor(io, focus, yaw, pitch));
+            float d = Cozy.Character.CameraFollow.ExamineOutside(io, focus, yaw, pitch, want);
             var pos = focus + UnityEngine.Quaternion.Euler(pitch, yaw, 0f) * new UnityEngine.Vector3(0f, 0f, -d);
             if (box.Contains(pos)) inside = true;
+            if (d < baseDist * zoomMin - 0.01f) inside = true;
         }
-        if (inside) bad.Append("камера осмотра внутри своего объекта: " + io.Def.id + "; ");
+        if (inside) bad.Append("камера осмотра в корпусе или ближе предельного зума: " + io.Def.id + "; ");
     }
 }
 // 16. Коллайдер не поднимает опору выше видимой поверхности (P250: у кровати
