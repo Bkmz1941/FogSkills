@@ -1,0 +1,9 @@
+#!/bin/sh
+# dci — короткий docker images: id, репозиторий, тег, размер, возраст.
+# Аргументы пробрасываются в docker images:
+#   dci                         все образы
+#   di 'old-cms*'               по маске репозитория
+#   di --filter dangling=true   только висячие
+#   di -a                       вместе с промежуточными слоями
+
+exec docker images --format 'table {{.ID}}\t{{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}' "$@"

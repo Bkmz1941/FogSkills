@@ -1,0 +1,56 @@
+#!/bin/sh
+# dcps — короткий docker ps: id, имя, статус, внутренний IP, порты, образ.
+# Аргументы пробрасываются в docker ps:
+#   dcps                       все запущенные
+#   dcps -a                    вместе с остановленными
+#   dcps --filter name=old-cms только нужный стек
+#
+# Имя dcps, а не dc: dc — это системный GNU-калькулятор в /bin, и он выигрывал
+# по PATH, из-за чего команда молча ждала ввода вместо вывода таблицы.
+#
+# В колонке IMAGE печатается только имя и тег, без пути до реестра:
+#   registry.agg.one/old-cms/monolith:f8e4cfe0b150b26a98f8b5ec017c0de08dd00e15
+#   -> monolith:f8e4cfe0b150…
+# Длинный шестнадцатеричный тег (git-SHA) режется до 12 символов, как docker
+# делает с id. Осмысленные теги вроде 6.0.16-bullseye не трогаются.
+# Многоточие в конце означает, что имя урезано и настоящее длиннее. Полное:
+#   docker ps --format '{{.Names}}\t{{.Image}}'
+#
+# Контейнер может быть в нескольких сетях — тогда IP перечислены через запятую.
+# У остановленного контейнера IPAddress пустой, и docker 29 рендерит его как
+# литерал "invalid IP" — поэтому фильтруем не пустые строки, а всё, что не
+# похоже на адрес.
+# Пустой PORTS подменяется на "-" прямо в шаблоне: column -t не терпит пустых
+# ячеек, таблица от них съезжает.
+
+TAB=$(printf '\t')
+
+{
+    printf 'CONTAINER ID\tNAMES\tSTATUS\tIP\tPORTS\tIMAGE\n'
+
+    docker ps --format '{{.ID}}\t{{.Names}}\t{{.Status}}\t{{if .Ports}}{{.Ports}}{{else}}-{{end}}\t{{.Image}}' "$@" |
+    while IFS="$TAB" read -r id name status ports image; do
+        ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$id" 2>/dev/null |
+             tr -s ' ' '\n' | grep -E '^[0-9a-fA-F.:]+$' | paste -sd, -)
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$status" "${ip:--}" "$ports" "$image"
+    done |
+    awk -F"$TAB" '
+        BEGIN { OFS = "\t" }
+        {
+            img = $NF
+            orig = img
+            sub(/^.*\//, "", img)
+            p = 0
+            for (i = length(img); i > 0; i--)
+                if (substr(img, i, 1) == ":") { p = i; break }
+            if (p > 0) {
+                name = substr(img, 1, p - 1)
+                tag  = substr(img, p + 1)
+                if (length(tag) >= 32 && tag ~ /^[0-9a-f]+$/) tag = substr(tag, 1, 12)
+                img = name ":" tag
+            }
+            if (img != orig) img = img "\xe2\x80\xa6"
+            $NF = img
+            print
+        }'
+} | column -t -s "$TAB"
