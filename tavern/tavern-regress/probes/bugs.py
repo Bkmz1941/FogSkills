@@ -37,9 +37,9 @@ FIELD = re.compile(r'^- \*\*(Симптом|Причина|Решение|Пра
 PREF = re.compile(r'P\d{3}')
 
 
-def parse_pitfalls():
+def parse_pitfalls(path=None):
     entries, cur, fenced, last = [], None, False, None
-    for line in PITFALLS.read_text(encoding='utf-8').splitlines():
+    for line in (path or PITFALLS).read_text(encoding='utf-8').splitlines():
         if line.startswith('```'):
             fenced = not fenced
             continue
@@ -98,6 +98,7 @@ def lint(entries, rows):
     nums = [int(e['id'][1:]) for e in entries]
     if nums and nums != sorted(nums):
         warnings.append('номера идут не по порядку')
+    problems += lint_copies(entries)
     seen_n = set()
     for r in rows:
         if r['n'] in seen_n:
@@ -110,6 +111,26 @@ def lint(entries, rows):
             if ref not in seen:
                 problems.append(f"инвариант {r['n']}: ссылка на {ref}, которого нет")
     return problems, warnings
+
+
+def lint_copies(entries):
+    """Скилы-спутники держат ВЫБОРКУ из общего реестра дословной копией.
+    Копия, разошедшаяся с оригиналом, — это две правды об одном баге, и
+    расходятся они молча. Проверяется каждый `*/PITFALLS.md`, кроме общего."""
+    origin = {e['id']: '\n'.join(e['raw']).strip() for e in entries}
+    out = []
+    root = PITFALLS.resolve().parent.parent
+    for path in sorted(root.glob('*/PITFALLS.md')):
+        if path.resolve() == PITFALLS.resolve():
+            continue
+        skill = path.parent.name
+        for e in parse_pitfalls(path):
+            body = '\n'.join(e['raw']).strip()
+            if e['id'] not in origin:
+                out.append(f"{skill}: копия {e['id']} есть, а в общем реестре её нет")
+            elif body != origin[e['id']]:
+                out.append(f"{skill}: копия {e['id']} разошлась с оригиналом")
+    return out
 
 
 def show_area(area, entries, rows):

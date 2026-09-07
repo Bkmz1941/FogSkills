@@ -10,8 +10,9 @@ DOMAIN = ['tavern-game/BUILD.md', 'tavern-game/VIEW.md', 'tavern-game/WEATHER.md
           'tavern-game/CHARACTER.md',
           'tavern-game/MONSTERS.md', 'tavern-game/UI.md', 'tavern-game/ARCHITECTURE.md',
           'tavern-game/ATTRIBUTES.md', 'tavern-cooking/COOKING.md']
-SKILLS = ['tavern-game/SKILL.md', 'tavern-cooking/SKILL.md', 'tavern-regress/SKILL.md',
-          'tavern-ideas/SKILL.md']
+# Список НЕ зашивается: скилы заводятся и вырезаются (одежда, руки — 07–08.09),
+# а зашитый список молча перестаёт считать новые и врёт про бюджет.
+SKILLS = None  # заполняется поиском при запуске
 DATE = re.compile(r'20\d\d-\d\d-\d\d|\b\d\d\.\d\d\b')
 BIG_KB = 40
 SKILLS_BUDGET_KB = 50
@@ -54,10 +55,17 @@ def main():
     total = 0
     for rel in DOMAIN:
         total += len(report(rel))
-    skills_kb = sum((SK / s).stat().st_size for s in SKILLS) // 1024
-    line = f'SKILL.md четырёх скилов вместе: {skills_kb} КБ (грузятся в каждую сессию)'
-    if skills_kb > SKILLS_BUDGET_KB:
-        line += f' — больше бюджета {SKILLS_BUDGET_KB} КБ'
+    # Считаем ДВЕ разные вещи, потому что грузятся они по-разному: `tavern-game`
+    # поднимается в любой сессии по игре, остальные — только когда их позвали.
+    # Бюджет — на всегда-часть; смешивать их в одно число значит врать себе.
+    skills = sorted(SK.glob('tavern-*/SKILL.md'))
+    always = [f for f in skills if f.parent.name == 'tavern-game']
+    always_kb = sum(f.stat().st_size for f in always) // 1024
+    rest_kb = sum(f.stat().st_size for f in skills) // 1024 - always_kb
+    line = (f'SKILL.md: всегда {always_kb} КБ (tavern-game), по требованию ещё '
+            f'{rest_kb} КБ на {len(skills) - len(always)} скилов')
+    if always_kb > SKILLS_BUDGET_KB:
+        line += f' — всегда-часть больше бюджета {SKILLS_BUDGET_KB} КБ'
         total += 1
     print(line)
     print(f'предупреждений: {total}')
