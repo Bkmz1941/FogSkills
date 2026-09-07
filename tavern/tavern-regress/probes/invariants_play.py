@@ -539,7 +539,43 @@ if (Cozy.Grid.Weather.Rain)
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " гейт спавна=" + spawnGate + " :: "
+// 22. Своя кисть не заслоняет свой фонарь: вылет пальцев за источник по оси
+// луча меньше ближней плоскости теней спота (P267, инвариант 90). Снипет
+// замера жил в tavern-hands/HANDS.md, автопробы не было.
+int handLamp = 0;
+{
+    var frig = UnityEngine.Object.FindFirstObjectByType<Cozy.Character.FlashlightRig>();
+    var fanim = frig != null ? frig.GetComponentInChildren<UnityEngine.Animator>() : null;
+    var flamp = frig != null ? frig.transform.Find("Flashlight") : null;
+    var flight = flamp != null ? flamp.GetComponentInChildren<UnityEngine.Light>(true) : null;
+    if (fanim != null && fanim.isHuman && flight != null)
+    {
+        var fhand = fanim.GetBoneTransform(UnityEngine.HumanBodyBones.RightHand);
+        var ffore = fanim.GetBoneTransform(UnityEngine.HumanBodyBones.RightLowerArm);
+        if (fhand != null && ffore != null)
+        {
+            var faxis = (fhand.position - ffore.position).normalized;
+            float ftip = 0f;
+            var fbones = new UnityEngine.HumanBodyBones[] {
+                UnityEngine.HumanBodyBones.RightIndexDistal,
+                UnityEngine.HumanBodyBones.RightMiddleDistal,
+                UnityEngine.HumanBodyBones.RightRingDistal,
+                UnityEngine.HumanBodyBones.RightLittleDistal };
+            foreach (var fb in fbones)
+            {
+                var ft = fanim.GetBoneTransform(fb);
+                if (ft != null) ftip = UnityEngine.Mathf.Max(ftip, UnityEngine.Vector3.Dot(ft.position - fhand.position, faxis));
+            }
+            float fat = 0.06f + 0.08f;
+            handLamp = 1;
+            if (ftip - fat >= flight.shadowNearPlane)
+                bad.Append("кисть заслоняет свой фонарь: вылет " + (ftip - fat).ToString("F3")
+                    + " м при ближней плоскости " + flight.shadowNearPlane.ToString("F2") + "; ");
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
