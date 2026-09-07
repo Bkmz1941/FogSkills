@@ -93,7 +93,8 @@ grep по DESIGN_LOG.md.
    `ObjectDef`. Реестр — `ATTRIBUTES.md`; если атрибут есть, остановить Илью и
    поправить, а не заводить новый механизм.
 9. **Картинки для игры — `/home/ilya/Documents/Fog`** (Илья 2026-09-02), по
-   подпапкам темы: `Fog/Kitchen`, `Fog/System`, `Fog/Clothes`, `Fog/Equipment`.
+   подпапкам темы: `Kitchen`, `Clothes`, `Equipment`, `Dishes`, `System`,
+   `Blender`, `Videos`. В корне ничего не лежит — сверено 08.09.
    Скриншоты багов (`~/Pictures/Screenshots/`) — это НЕ ассеты, в игру их не
    тащить. Что делать с картинкой дальше — `UI.md`, «Справочник».
 
