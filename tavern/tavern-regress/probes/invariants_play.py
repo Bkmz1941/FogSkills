@@ -522,7 +522,7 @@ if (Cozy.Grid.Weather.Rain)
             rainCells++;
             var rp = rt.position;
             var rcell = rp - Cozy.Grid.RainDrops.Slide;
-            var rmid = new UnityEngine.Vector3(rcell.x, rfloor, rcell.z);
+            var rmid = new UnityEngine.Vector3(rcell.x, rcell.y, rcell.z);
             if (Cozy.Grid.LightZones.ZoneAt(rmid) == Cozy.Grid.LightZones.Indoor)
                 bad.Append("столб дождя стоит в клетке-доме: " + rmid.ToString("F1") + "; ");
             var rmf = rt.GetComponent<UnityEngine.MeshFilter>();
