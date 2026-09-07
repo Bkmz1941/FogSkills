@@ -502,7 +502,44 @@ if (Cozy.Grid.SpawnPoint.Instance != null && Cozy.Grid.GridCursor.I != null)
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " гейт спавна=" + spawnGate + " :: "
+// 21. Дождь: внутри дома капель нет, НАД домом идут (Илья 2026-09-07: «над
+// зданием не идет дождь, а должен»), и петля падения бесшовна — второй период
+// сетки точная копия первого со смещением на шаг («капли будто не долетают»).
+int rainCells = 0;
+if (Cozy.Grid.Weather.Rain)
+{
+    var rgd = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground) ?? Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Floor);
+    float rcs = rgd != null ? rgd.CellSize : 3f;
+    float rfloor = Cozy.View.ViewState.CurrentFloorY;
+    bool rUnderRoof = Cozy.Grid.LightZones.ZoneAt(Cozy.View.ViewState.PlayerPos) == Cozy.Grid.LightZones.Indoor;
+    foreach (var rrig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.RainDrops>(UnityEngine.FindObjectsSortMode.None))
+    {
+        foreach (UnityEngine.Transform rt in rrig.transform)
+        {
+            if (rt.name != "RainCell") continue;
+            var rr = rt.GetComponent<UnityEngine.MeshRenderer>();
+            if (rr == null || !rr.enabled) continue;
+            rainCells++;
+            var rp = rt.position;
+            if (Cozy.Grid.LightZones.ZoneAt(new UnityEngine.Vector3(rp.x, rp.y + rcs * Cozy.Grid.RainDrops.Sky, rp.z)) == Cozy.Grid.LightZones.Indoor)
+                bad.Append("дождь в помещении: " + rp.ToString("F1") + "; ");
+            if (rUnderRoof && Cozy.Grid.LightZones.ZoneAt(new UnityEngine.Vector3(rp.x, rfloor, rp.z)) == Cozy.Grid.LightZones.Indoor)
+                bad.Append("дождь над плитами виден изнутри: " + rp.ToString("F1") + "; ");
+            var rmf = rt.GetComponent<UnityEngine.MeshFilter>();
+            if (rmf == null || rmf.sharedMesh == null) continue;
+            var rv = rmf.sharedMesh.vertices;
+            if (rv.Length < 8) continue;
+            var rstep = rv[4] - rv[0];
+            bool torn = false;
+            for (int rk = 0; rk + 8 <= rv.Length && !torn; rk += 8)
+                for (int rj = 0; rj < 4; rj++)
+                    if ((rv[rk + 4 + rj] - rv[rk + rj] - rstep).magnitude > 0.001f) { torn = true; break; }
+            if (torn) bad.Append("петля дождя рвётся: второй период не копия первого; ");
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " гейт спавна=" + spawnGate + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
