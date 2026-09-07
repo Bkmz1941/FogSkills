@@ -6,7 +6,7 @@ python3 skills_lint.py --strict   код 1, если есть предупреж
 import re, sys, pathlib
 
 SK = pathlib.Path.home() / '.claude/skills'
-DOMAIN = ['tavern-game/BUILD.md', 'tavern-game/VIEW.md', 'tavern-game/WEATHER.md',
+DOMAIN = ['tavern-game/BUILD.md', 'tavern-game/VIEW.md', 'tavern-game/WEATHER.md', 'tavern-game/BLENDER.md',
           'tavern-game/CHARACTER.md',
           'tavern-game/MONSTERS.md', 'tavern-game/UI.md', 'tavern-game/ARCHITECTURE.md',
           'tavern-game/ATTRIBUTES.md', 'tavern-cooking/COOKING.md']
