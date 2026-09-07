@@ -245,6 +245,7 @@ return "осмотр открыт, лёг=" + laid;
 '''
 
 EXAMINE_CHECK = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
 var bf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
 var ep = typeof(Tavern.UI.HudUI).GetField("_examinePanel", bf).GetValue(hud) as UnityEngine.GameObject;
@@ -308,6 +309,12 @@ def main():
         print('КРАСНОЕ (осмотр, проверка): ' + err)
         sys.exit(1)
     print(check)
+    # Редактор не в play — зонду нечего мерить. Раньше EXAMINE_CHECK в edit mode
+    # не находил HudUI и рапортовал КРАСНОЕ: ложная регрессия ловилась каждый
+    # раз, когда прогон попадал в чужое окно stop → компиляция → play.
+    if 'не в play' in res or 'не в play' in setup or 'не в play' in check:
+        print(':: не прогнан — редактор не в play')
+        return
     red = 'КРАСНОЕ' in res or 'КРАСНОЕ' in check
     print(':: позы %s; осмотр %s' % (
         'КРАСНОЕ' if 'КРАСНОЕ' in res else 'ок',
