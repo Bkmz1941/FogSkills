@@ -14,6 +14,7 @@ claude-skills/
     tavern-regress/    инварианты, покрытие, зонды, check_all.py
     tavern-ideas/      вкус, отвергнутое, сырые мысли (только по зову)
     tavern-refactor/   как рефакторим: протокол, приёмы, цели
+    tavern-hands/      руки: предмет в руке (фонарь), наведение, фокус ПКМ, свет
   crash-heroes/    crash-games/      инфраструктура краш-игр
   lucky/           lucky-infra/      Lucky Server, деплой и CI
   olimp/           olimp-api/        CMS и API мобилок OlimpBet
@@ -59,7 +60,7 @@ cp tavern/tavern-regress/probes/pre-commit.sh .git/hooks/pre-commit
 ```bash
 R=/media/<user>/T714/claude-skills
 mkdir -p ~/.claude/skills
-for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor; do
+for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor tavern-hands; do
   ln -sfn $R/tavern/$s ~/.claude/skills/$s
 done
 ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
