@@ -1,60 +1,94 @@
 # claude-skills
 
-Скиллы для Claude Code, хранятся на этом внешнем диске (T714), чтобы работать на разных машинах. Это ЕДИНОЕ место хранения — в `~/.claude/skills` и в проектах лежат только симлинки сюда.
+Скиллы для Claude Code, хранятся на этом внешнем диске (T714), чтобы работать на
+разных машинах. Это ЕДИНОЕ место хранения — в `~/.claude/skills` и в проектах
+лежат только симлинки сюда.
 
-## Скиллы
+## Раскладка: папка на проект, скилы внутри
 
-Игра «Таверна» — четыре скила, у каждого своя роль (разделение 2026-09-01):
+```
+claude-skills/
+  tavern/          игра «Таверна»
+    tavern-game/       память решений и доменные справочники
+    tavern-cooking/    готовка: еда, рецепты, жидкости, посуда
+    tavern-regress/    инварианты, покрытие, зонды, check_all.py
+    tavern-ideas/      вкус, отвергнутое, сырые мысли (только по зову)
+    tavern-refactor/   как рефакторим: протокол, приёмы, цели
+  crash-heroes/    crash-games/      инфраструктура краш-игр
+  lucky/           lucky-infra/      Lucky Server, деплой и CI
+  poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
+  personal/        shinobi-council/  формат ответов «Совет шиноби»
+```
 
-- `tavern-game` — память решений: доменные справочники (BUILD/VIEW/CHARACTER/MONSTERS/UI/ARCHITECTURE/ATTRIBUTES), `PITFALLS.md` (история багов), `DESIGN_LOG.md` (хронология), `history/` (журналы аудитов и правок UI)
-- `tavern-cooking` — готовка (еда, рецепты, жидкости, посуда), модуль `Assets/Modules/Cooking`; всегда рядом с `tavern-game`
-- `tavern-regress` — контроль регрессий: инварианты, карта покрытия, `probes/check_all.py` одним прогоном, порядок разбора красного
-- `tavern-ideas` — идейный помощник: вкус Ильи, отвергнутое с причинами, приёмы движка; включается только по зову
+### ⚠️ Почему симлинки всё равно ПЛОСКИЕ
 
-Остальное:
+Claude Code **не сканирует `~/.claude/skills` вглубь**: скил обязан быть папкой
+первого уровня, и имя папки — это имя команды. Поэтому вложенность живёт только
+здесь, в репозитории, а в `~/.claude/skills` лежат плоские симлинки, каждый
+указывает внутрь своей проектной папки:
 
-- `crash-games`, `lucky-infra`, `poker-infra`, `debug-panel` — инфраструктура рабочих проектов
-- `shinobi-council` — формат ответов «Совет шиноби»
-- `admin-ui` — библиотека компонентов admin-ui
-- `vitriny-tz` — не подключён симлинком (архивный)
+```
+~/.claude/skills/tavern-game -> .../claude-skills/tavern/tavern-game
+~/.claude/skills/crash-games -> .../claude-skills/crash-heroes/crash-games
+```
+
+Отсюда два правила:
+
+1. **Переносишь скил в другую проектную папку — обязательно перелинкуй.** Иначе
+   симлинк повиснет и скил молча пропадёт из сессий, без всякой ошибки.
+2. **Внутри скилов пути пишутся через `~/.claude/skills/<имя>/`**, а не через
+   путь в репозитории. Все зонды так и написаны, поэтому перекладка папок их не
+   ломает.
 
 ## Перед коммитом
 
 ```bash
-cp tavern-regress/probes/pre-commit.sh .git/hooks/pre-commit
+cp tavern/tavern-regress/probes/pre-commit.sh .git/hooks/pre-commit
 ```
-Хук гоняет `bugs.py --lint` (красное останавливает коммит) и печатает здоровье доменных файлов.
+
+Хук гоняет `bugs.py --lint` (красное останавливает коммит) и печатает здоровье
+доменных файлов.
 
 ## Как подключить на новой машине
 
-Claude Code ищет скиллы в `~/.claude/skills/<имя>/`. Диск exFAT — симлинки НА нём создавать нельзя, но симлинки С домашней папки НА него работают:
+Диск exFAT — симлинки НА нём создавать нельзя, но симлинки С домашней папки НА
+него работают.
 
-### Linux
 ```bash
-for s in tavern-game tavern-cooking tavern-regress tavern-ideas crash-games lucky-infra poker-infra debug-panel shinobi-council admin-ui; do
-  ln -s /media/<user>/T714/claude-skills/$s ~/.claude/skills/$s
+R=/media/<user>/T714/claude-skills
+mkdir -p ~/.claude/skills
+for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor; do
+  ln -sfn $R/tavern/$s ~/.claude/skills/$s
+done
+ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
+ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
+ln -sfn $R/poker/poker-infra          ~/.claude/skills/poker-infra
+ln -sfn $R/personal/shinobi-council   ~/.claude/skills/shinobi-council
+```
+
+Замени `<user>` на своё имя пользователя. Точка монтирования может отличаться —
+проверь `df -h` или `lsblk`. На macOS диск обычно в `/Volumes/T714`, в WSL — в
+`/mnt/<буква>`.
+
+## Проверка
+
+```bash
+for l in ~/.claude/skills/*; do
+  [ -f "$l/SKILL.md" ] && echo "ok   $(basename $l)" || echo "БИТО $(basename $l)"
 done
 ```
 
-(Замени `<user>` на своё имя пользователя. Точка монтирования может отличаться — проверь `df -h` или `lsblk`.)
-
-### macOS
-```bash
-ln -s /Volumes/T714/claude-skills/shinobi-council ~/.claude/skills/shinobi-council
-```
-
-(macOS обычно монтирует внешние диски в `/Volumes/<имя>`.)
-
-### Windows (WSL)
-```bash
-ln -s /mnt/<буква>/claude-skills/shinobi-council ~/.claude/skills/shinobi-council
-```
-
-## Проверка
-```bash
-ls -la ~/.claude/skills/shinobi-council/SKILL.md
-```
-Если файл читается — Claude Code увидит скилл.
+Все строки `ok` — Claude Code увидит скилы. `БИТО` значит, что симлинк указывает
+в никуда: чаще всего скил переехал в другую проектную папку, реже — не подключён
+диск.
 
 ## Если переехал на машину без диска
-Симлинк "висит" (broken). Claude Code просто не загрузит скилл, ошибки не будет. Подключи диск — и снова работает.
+
+Симлинк «висит» (broken). Claude Code просто не загрузит скил, ошибки не будет.
+Подключи диск — и снова работает.
+
+## История
+
+- **2026-09-07** — разложено по проектным папкам, до этого всё лежало плоско в
+  корне. Тогда же удалены `debug-panel`, `admin-ui`, `vitriny-tz` — по решению
+  Ильи; восстановимы из истории git.
