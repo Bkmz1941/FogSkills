@@ -484,7 +484,25 @@ if (Cozy.Grid.Weather.Wind)
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " :: "
+// 20. Метка спавна ставится всегда: пока в мире живёт маркер, постановка
+// нового его ПЕРЕНОСИТ, а не краснеет (P263: гейт «второй не ставится» стал
+// вечным запретом, когда метка начала переживать загрузку уровня).
+int spawnGate = 0;
+if (Cozy.Grid.SpawnPoint.Instance != null && Cozy.Grid.GridCursor.I != null)
+{
+    var markDef = Cozy.Grid.FurnitureCatalog.ById(Cozy.Grid.SpawnPoint.ObjectId);
+    var gate = typeof(Cozy.Grid.GridCursor).GetMethod("FurniturePlaceBlocked",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    if (markDef != null && gate != null)
+    {
+        var mp = Cozy.Grid.SpawnPoint.Instance.transform.position;
+        spawnGate = 1;
+        if ((bool)gate.Invoke(Cozy.Grid.GridCursor.I, new object[] { markDef, mp.x, mp.y, mp.z, null }))
+            bad.Append("метку спавна некуда поставить: занято её же клеткой " + mp.ToString("F1") + "; ");
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " гейт спавна=" + spawnGate + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 

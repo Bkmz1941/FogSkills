@@ -16,8 +16,10 @@ claude-skills/
     tavern-refactor/   как рефакторим: протокол, приёмы, цели
   crash-heroes/    crash-games/      инфраструктура краш-игр
   lucky/           lucky-infra/      Lucky Server, деплой и CI
+  olimp/           olimp-api/        CMS и API мобилок OlimpBet
   poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
   personal/        shinobi-council/  формат ответов «Совет шиноби»
+  tools/           scripts/          наши шелл-скрипты (dps) и их раскатка
 ```
 
 ### ⚠️ Почему симлинки всё равно ПЛОСКИЕ
@@ -62,8 +64,10 @@ for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor;
 done
 ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
 ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
+ln -sfn $R/olimp/olimp-api            ~/.claude/skills/olimp-api
 ln -sfn $R/poker/poker-infra          ~/.claude/skills/poker-infra
 ln -sfn $R/personal/shinobi-council   ~/.claude/skills/shinobi-council
+ln -sfn $R/tools/scripts              ~/.claude/skills/scripts
 ```
 
 Замени `<user>` на своё имя пользователя. Точка монтирования может отличаться —
