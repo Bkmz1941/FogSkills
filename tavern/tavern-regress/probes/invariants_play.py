@@ -511,7 +511,7 @@ if (Cozy.Grid.Weather.Rain)
     var rgd = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground) ?? Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Floor);
     float rcs = rgd != null ? rgd.CellSize : 3f;
     float rfloor = Cozy.View.ViewState.CurrentFloorY;
-    bool rUnderRoof = Cozy.Grid.LightZones.ZoneAt(Cozy.View.ViewState.PlayerPos) == Cozy.Grid.LightZones.Indoor;
+    var rorg = rgd != null ? rgd.Origin : UnityEngine.Vector3.zero;
     foreach (var rrig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.RainDrops>(UnityEngine.FindObjectsSortMode.None))
     {
         foreach (UnityEngine.Transform rt in rrig.transform)
@@ -521,10 +521,10 @@ if (Cozy.Grid.Weather.Rain)
             if (rr == null || !rr.enabled) continue;
             rainCells++;
             var rp = rt.position;
-            if (Cozy.Grid.LightZones.ZoneAt(new UnityEngine.Vector3(rp.x, rp.y + rcs * Cozy.Grid.RainDrops.Sky, rp.z)) == Cozy.Grid.LightZones.Indoor)
-                bad.Append("дождь в помещении: " + rp.ToString("F1") + "; ");
-            if (rUnderRoof && Cozy.Grid.LightZones.ZoneAt(new UnityEngine.Vector3(rp.x, rfloor, rp.z)) == Cozy.Grid.LightZones.Indoor)
-                bad.Append("дождь над плитами виден изнутри: " + rp.ToString("F1") + "; ");
+            var rcell = rp - Cozy.Grid.RainDrops.Slide;
+            var rmid = new UnityEngine.Vector3(rcell.x, rfloor, rcell.z);
+            if (Cozy.Grid.LightZones.ZoneAt(rmid) == Cozy.Grid.LightZones.Indoor)
+                bad.Append("столб дождя стоит в клетке-доме: " + rmid.ToString("F1") + "; ");
             var rmf = rt.GetComponent<UnityEngine.MeshFilter>();
             if (rmf == null || rmf.sharedMesh == null) continue;
             var rv = rmf.sharedMesh.vertices;
