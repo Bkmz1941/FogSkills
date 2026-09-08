@@ -460,8 +460,11 @@ int wallTops = 0;
     }
 }
 // 19. Ветер не рисуется в помещении: пока включён глобальный ветер, ни один
-// видимый порыв не стоит в клетке, где есть пол здания (Илья 2026-09-06:
-// «если глобально, внутри зданий не должно быть»).
+// видимый порыв не стоит в клетке, НАД КОТОРОЙ ЕСТЬ ПЕРЕКРЫТИЕ (Илья 2026-09-06:
+// «если глобально, внутри зданий не должно быть», повторено 2026-09-08).
+// Вопрос сменён 08.09 с «есть ли пол здания» на «есть ли крыша» (P273, P276):
+// на первом этаже полом служит сама земля, плиты там нет, и старая проверка
+// пропускала ветер в комнату — замер дал 4 видимых порыва под перекрытием из 9.
 int gusts = 0;
 if (Cozy.Grid.Weather.Wind)
 {
@@ -473,12 +476,10 @@ if (Cozy.Grid.Weather.Wind)
             if (!gr.enabled) continue;
             gusts++;
             var gp = gr.transform.position;
-            var gg = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground) ?? Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Floor);
-            float gcs = gg != null ? gg.CellSize : 3f;
-            var go2 = gg != null ? gg.Origin : UnityEngine.Vector3.zero;
-            var gcell = Cozy.Grid.GridSnap.Cell(gp, go2, gcs);
-            var gmid = new UnityEngine.Vector3(go2.x + gcell.x * gcs, gp.y, go2.z + gcell.y * gcs);
-            if (Cozy.Grid.LightZones.ZoneAt(gmid) == Cozy.Grid.LightZones.Indoor)
+            // Спрашиваем ТОЙ ЖЕ функцией, что и гейт: своя проба в точке уже
+            // дважды соврала, поймав плиту соседней клетки сквозь стену
+            // (инвариант 88). Проверяется, что гейт применён, а не переписан.
+            if (Cozy.Grid.WindGusts.Indoors(gp))
                 bad.Append("ветер в помещении: " + gp.ToString("F1") + "; ");
         }
     }
