@@ -71,5 +71,28 @@ foreach (var view in UnityEngine.Object.FindObjectsByType<Cozy.Grid.FogView>(Fin
         }
     }
 }
+// Вторая половина правила — видимость: клетки не гасятся целиком, а срезаются
+// крышкой, и только те, что стоят НИЖЕ пола игрока. Гонять НА ОБОИХ ЭТАЖАХ:
+// на втором крышка есть, на первом её быть не должно, и замер на одном этаже
+// держит половину правила.
+int shown = 0, dark = 0, lidded = 0;
+float lowest = 1e9f;
+foreach (var view in UnityEngine.Object.FindObjectsByType<Cozy.Grid.FogView>(FindObjectsSortMode.None))
+{
+    var body = view.transform.Find("Fog");
+    if (body == null) continue;
+    if (!body.gameObject.activeSelf) { dark++; continue; }
+    shown++;
+    var mrs = body.GetComponentsInChildren<MeshRenderer>(true);
+    if (mrs.Length == 0) continue;
+    mrs[0].GetPropertyBlock(block);
+    Vector3 top = block.GetVector(hi);
+    if (top.y < 1000f) { lidded++; if (top.y < lowest) lowest = top.y; }
+}
+var who = Cozy.Grid.PlayerRef.GameObject;
+float floorY = who == null ? 0f : Cozy.Grid.GridManager.LevelY(who.transform.position.y, 3f);
 return "клубов " + puffs + ", комнат " + rooms.Count + ", в помещении " + bad
-     + (bad > 0 ? " (худший " + worst + ", вглубь " + deepest.ToString("F2") + " м) :: ПРОВАЛ" : " :: ОК");
+     + (bad > 0 ? " (худший " + worst + ", вглубь " + deepest.ToString("F2") + " м) :: ПРОВАЛ" : " :: ОК")
+     + "\nвидимость (игрок на полу y=" + floorY.ToString("F1") + "): показано " + shown
+     + ", погашено " + dark + ", с крышкой " + lidded + (lidded > 0 ? " на y=" + lowest.ToString("F2") : "")
+     + (dark > 0 ? " :: ПРОВАЛ, клетки гасятся целиком" : " :: ОК");
