@@ -730,7 +730,63 @@ int crowns = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " :: "
+// 30. Площадка слота — опора на ЛЮБОЙ высоте (P288): у тумбы-скамьи дно короба на
+// полу, площадка Slot_FloorL на 3 см — ниже «мёртвой зоны пола» FloorSkin. Через
+// открытую дверцу точка курсора и SurfaceTopAt ложатся на площадку; за закрытой — нет (P067).
+int floorSlots = 0;
+{
+    var fsDef = Cozy.Grid.FurnitureCatalog.ById("hallway_rack");
+    var fsGc = Cozy.Grid.GridCursor.I;
+    if (fsDef != null && fsGc != null)
+    {
+        var fsRack = fsGc.SpawnWorldObject(fsDef, new UnityEngine.Vector3(-70f, 0f, -90f), 0f);
+        if (fsRack != null)
+        {
+            try
+            {
+                UnityEngine.Physics.SyncTransforms();
+                var fsF = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                var fsCursor = typeof(Cozy.Grid.GridCursor).GetMethod("SurfaceCursorPoint", fsF);
+                var fsTop = typeof(Cozy.Grid.GridCursor).GetMethod("SurfaceTopAt", fsF);
+                Cozy.Grid.ContainerSlot fsSlot = null; UnityEngine.Transform fsDoor = null;
+                foreach (var fsS in fsRack.GetComponentsInChildren<Cozy.Grid.ContainerSlot>(true)) if (fsS.name == "Slot_FloorL") fsSlot = fsS;
+                foreach (var fsT in fsRack.GetComponentsInChildren<UnityEngine.Transform>(true)) if (fsT.name == "DoorL") fsDoor = fsT;
+                Cozy.Grid.AccessFeature fsGate = null;
+                foreach (var fsFeat in fsRack.Features) { var fsA = fsFeat as Cozy.Grid.AccessFeature; if (fsA != null && fsA.Title == "Дверца левая") fsGate = fsA; }
+                if (fsSlot == null || fsDoor == null || fsGate == null) bad.Append("у вешалки нет Slot_FloorL, DoorL или фичи «Дверца левая»; ");
+                else
+                {
+                    var fsPad = fsSlot.GetComponent<UnityEngine.Collider>().bounds;
+                    var fsDoorCol = fsDoor.GetComponent<UnityEngine.Collider>();
+                    var fsFront = fsDoor.position - fsRack.transform.position; fsFront.y = 0f; fsFront.Normalize();
+                    var fsTarget = fsPad.center + fsFront * 0.10f; fsTarget.y = fsPad.max.y;
+                    var fsOrigin = fsTarget + fsFront * 1.6f + UnityEngine.Vector3.up * 1.9f;
+                    var fsRay = new UnityEngine.Ray(fsOrigin, (fsTarget - fsOrigin).normalized);
+                    if (fsPad.max.y > 0.05f) bad.Append("площадка дна вешалки выше мёртвой зоны пола (" + fsPad.max.y.ToString("F3") + "), правило 30 не проверяется; ");
+                    foreach (var fsOpen in new[] { true, false })
+                    {
+                        fsGate.SetOpen(fsOpen);
+                        fsDoorCol.enabled = !fsOpen;
+                        UnityEngine.Physics.SyncTransforms();
+                        var fsArgs = new object[] { fsRay, 0f, null, null };
+                        bool fsFound = (bool)fsCursor.Invoke(fsGc, fsArgs);
+                        var fsPt = (UnityEngine.Vector3)fsArgs[3];
+                        float fsTopY = fsFound ? (float)fsTop.Invoke(fsGc, new object[] { fsPt.x, fsPt.z, 0f, null, fsPt.y }) : -1f;
+                        bool fsOnPad = fsFound && UnityEngine.Mathf.Abs(fsPt.y - fsPad.max.y) < 0.01f && UnityEngine.Mathf.Abs(fsTopY - fsPad.max.y) < 0.01f;
+                        if (fsOpen && !fsOnPad) bad.Append("дверца открыта, а дно тумбы не опора: курсор " + (fsFound ? fsPt.y.ToString("F3") : "нет") + ", верх " + fsTopY.ToString("F3") + "; ");
+                        if (!fsOpen && fsOnPad) bad.Append("дверца закрыта, а курсор ложится на дно тумбы; ");
+                        floorSlots++;
+                    }
+                    fsGate.SetOpen(false);
+                    fsDoorCol.enabled = true;
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(fsRack.gameObject); }
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
