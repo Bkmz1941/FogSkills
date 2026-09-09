@@ -3,7 +3,7 @@
 Каждая проверка — уже пойманный когда-то баг. Список правил: INVARIANTS.md (tavern-regress).
 Запускать после любой правки взаимодействия, наведения или контейнеров.
 """
-import json, subprocess
+import json, subprocess, sys
 
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 
@@ -595,6 +595,10 @@ int handLamp = 0;
 // пика. Проверка синхронная: Strike + ApplyLight, свет сравнивается с прежним,
 // потом вспышка снимается через _flashLeft и свет возвращается.
 int lightning = 0;
+// ⚠️ Молния бьётся ТОЛЬКО с флагом --strike (Илья 10.09: «почему иногда бьёт
+// молния? я не вызываю и не кликал — надо убрать»; P284): в общей play-сессии
+// удар слышит и видит Илья. Без флага правило пропускается, «молния=0».
+if (STRIKE_ALLOWED)
 {
     var lclock = Tavern.Core.GameClock.I;
     var lsunF = typeof(Tavern.Core.GameClock).GetField("_sun",
@@ -798,7 +802,7 @@ return "объектов=" + checkedObjects + " на своих местах=" +
 
 
 def main():
-    out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": CODE})],
+    out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": CODE.replace('STRIKE_ALLOWED', 'true' if '--strike' in sys.argv else 'false')})],
                          capture_output=True, text=True, timeout=280)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else '{}'
     data = json.loads(line)
