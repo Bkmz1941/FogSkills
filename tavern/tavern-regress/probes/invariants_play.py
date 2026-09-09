@@ -475,12 +475,20 @@ if (Cozy.Grid.Weather.Wind)
         {
             if (!gr.enabled) continue;
             gusts++;
-            var gp = gr.transform.position;
             // Спрашиваем ТОЙ ЖЕ функцией, что и гейт: своя проба в точке уже
             // дважды соврала, поймав плиту соседней клетки сквозь стену
             // (инвариант 88). Проверяется, что гейт применён, а не переписан.
-            if (Cozy.Grid.WindGusts.Indoors(gp))
-                bad.Append("ветер в помещении: " + gp.ToString("F1") + "; ");
+            // ⚠️ Меряется ЛЕНТА, а не узел (P278): узел — начало пути, лента
+            // сидит до path метров ниже по ветру, при сильном ветре до ~18 м.
+            // До 09.09 правило смотрело на узел и было зелёным при ленте в комнате.
+            var gmf = gr.GetComponent<UnityEngine.MeshFilter>();
+            var gv = gmf != null && gmf.sharedMesh != null ? gmf.sharedMesh.vertices : null;
+            if (gv == null || gv.Length < 2) continue;
+            var ghead = gr.transform.TransformPoint(gv[0]);
+            var gmid = gr.transform.TransformPoint(gv[gv.Length / 2]);
+            var gtail = gr.transform.TransformPoint(gv[gv.Length - 1]);
+            if (Cozy.Grid.WindGusts.Indoors(ghead) || Cozy.Grid.WindGusts.Indoors(gmid) || Cozy.Grid.WindGusts.Indoors(gtail))
+                bad.Append("ветер в помещении: лента " + ghead.ToString("F1") + " → " + gtail.ToString("F1") + " (узел " + gr.transform.position.ToString("F1") + "); ");
         }
     }
 }
