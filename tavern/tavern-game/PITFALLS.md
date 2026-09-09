@@ -242,7 +242,10 @@
   `SerializedObject(LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset")[0])`
   → `m_AlwaysIncludedShaders` → `SaveAssets`. В списке 12 своих шейдеров.
 - **Правило:** `ProjectSettings` править только через редактор; новый
-  рантайм-шейдер (`Shader.Find`) — сразу в Always Included. С 02.09
+  рантайм-шейдер (`Shader.Find`) — сразу в Always Included. ⚠️ ТОЛЬКО В EDIT MODE
+  (09.09, ilya-3a): в play `SaveAssets` настройки на диск не пишет — три
+  вызова отчитались «added», файл не изменился; проверять `grep guid` в
+  `GraphicsSettings.asset` после сохранения. С 02.09
   `ShaderLib.Get` при промахе не возвращает null и не кэширует его: отдаёт
   Lit (или `Hidden/InternalErrorShader`), ошибка в лог один раз на имя —
   билд без шейдера теряет вид, а не уровень.
