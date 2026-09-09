@@ -711,7 +711,9 @@ int exposure = 0;
 }
 
 // 28. Просвет кроны (VIEW.md §10a): окно закрыто ровно тогда, когда игрок в тумане; у каждого
-// дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется).
+// дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется);
+// у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, запись глубины, очередь BandQueue,
+// без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒ кайма шире 1 px.
 int crowns = 0;
 {
     var cPlayer = Cozy.Grid.PlayerRef.GameObject;
@@ -719,6 +721,8 @@ int crowns = 0;
     {
         bool fogHere = Cozy.Grid.FogView.Covers(cPlayer.transform.position);
         float cOn = UnityEngine.Shader.GetGlobalFloat("_CrownWindowOn");
+        if (cOn > 0.5f && UnityEngine.Shader.GetGlobalFloat("_CrownFeatherPx") < 1f) bad.Append("окно кроны открыто без каймы (_CrownFeatherPx < 1); ");
+        if (Cozy.Grid.CrownWindow.BandQueue >= 3000) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — после дождя и тумана, окружность на краю тумана (P298); ");
         if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
         foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
         {
@@ -730,9 +734,30 @@ int crowns = 0;
             var bark = new System.Collections.Generic.HashSet<UnityEngine.Material>();
             if (trunk != null) foreach (var cr in trunk.GetComponentsInChildren<UnityEngine.MeshRenderer>(true)) foreach (var cm in cr.sharedMaterials) if (cm != null) bark.Add(cm);
             foreach (var cm in bark) if (cm.shader.name == "Tavern/CrownCut") { bad.Append("кора на CrownCut: " + cio.name + "; "); break; }
-            int leaf = 0, cut = 0;
-            foreach (var cr in crown.GetComponentsInChildren<UnityEngine.MeshRenderer>(true)) foreach (var cm in cr.sharedMaterials) { if (cm == null || bark.Contains(cm)) continue; leaf++; if (cm.shader.name == "Tavern/CrownCut") cut++; }
+            int leaf = 0, cut = 0, bandsHere = 0;
+            foreach (var cr in crown.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
+            {
+                if (cr.name == Cozy.Grid.SeeThroughView.GhostName)
+                {
+                    bandsHere++;
+                    var pf = cr.transform.parent.GetComponent<UnityEngine.MeshFilter>(); var bf = cr.GetComponent<UnityEngine.MeshFilter>();
+                    if (pf == null || bf == null || bf.sharedMesh != pf.sharedMesh) bad.Append("кайма кроны не на меше кроны: " + cio.name + "; ");
+                    if (cr.enabled && cOn < 0.5f) bad.Append("кайма кроны включена при закрытом окне: " + cio.name + "; ");
+                    if (cr.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.Off) bad.Append("кайма кроны бросает тень: " + cio.name + "; ");
+                    foreach (var bm in cr.sharedMaterials)
+                    {
+                        if (bm == null) { bad.Append("пустой слот каймы: " + cio.name + "; "); continue; }
+                        bool leafBand = bm.shader.name == "Tavern/CrownCut";
+                        if (leafBand && (!bm.IsKeywordEnabled(Cozy.Grid.CrownWindow.BandKeyword) || bm.GetInt("_ZWrite") != 1)) bad.Append("кайма без _CROWN_BAND или без записи глубины: " + cio.name + "; ");
+                        if (!leafBand && bm.color.a > 0.001f) bad.Append("кора в кайме видима: " + cio.name + "; ");
+                        if (bm.renderQueue != Cozy.Grid.CrownWindow.BandQueue) bad.Append("кайма не в очереди " + Cozy.Grid.CrownWindow.BandQueue + ": " + cio.name + "; ");
+                    }
+                    continue;
+                }
+                foreach (var cm in cr.sharedMaterials) { if (cm == null || bark.Contains(cm)) continue; leaf++; if (cm.shader.name == "Tavern/CrownCut") cut++; }
+            }
             if (leaf > 0 && cut != leaf) bad.Append("листва без CrownCut: " + cio.name + " " + cut + "/" + leaf + "; ");
+            if (leaf > 0 && bandsHere == 0) bad.Append("крона без каймы: " + cio.name + "; ");
         }
     }
 }
