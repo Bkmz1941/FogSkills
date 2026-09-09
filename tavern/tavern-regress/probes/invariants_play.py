@@ -684,9 +684,9 @@ int stemsBent = 0;
     }
 }
 
-// 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): «не видно» ⇔ клетка
-// тумана под игроком; обзор = базовый × (FogSight в тумане | 1); озноб = WetChill при мокром,
+// 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): озноб = WetChill при мокром,
 // иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами.
+// Статус «не видно» и обзор × FogSight сняты 10.09 (туман на игрока не действует).
 int exposure = 0;
 {
     var xT = System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects");
@@ -695,11 +695,8 @@ int exposure = 0;
     {
         exposure = 1;
         System.Func<string, bool> flag = n => (bool)xT.GetProperty(n).GetValue(null);
-        bool blind = flag("Blind"), wet = flag("Wet"), burning = flag("Burning"), inFire = flag("InFire");
-        bool fogHere = Cozy.Grid.FogView.Covers(xPlayer.transform.position);
-        if (blind != fogHere) bad.Append("статус «не видно» " + blind + " при тумане под игроком " + fogHere + "; ");
-        float wantScale = blind ? (float)xT.GetField("FogSight").GetValue(null) : 1f;
-        if (UnityEngine.Mathf.Abs(Cozy.Character.VisionArea.Scale - wantScale) > 0.001f) bad.Append("обзор ×" + Cozy.Character.VisionArea.Scale + " при blind=" + blind + "; ");
+        bool wet = flag("Wet"), burning = flag("Burning"), inFire = flag("InFire");
+        if (xT.GetProperty("Blind") != null) bad.Append("статус «не видно» вернулся в PlayerExposure, а туман на игрока снят 10.09; ");
         float wantChill = wet ? (float)xT.GetField("WetChill").GetValue(null) : 0f;
         if (UnityEngine.Mathf.Abs(Cozy.Character.BodyTemperature.Chill - wantChill) > 0.001f) bad.Append("озноб " + Cozy.Character.BodyTemperature.Chill + " при wet=" + wet + "; ");
         if (inFire && !burning) bad.Append("в огне, но не горит; ");
@@ -709,7 +706,7 @@ int exposure = 0;
         Cozy.Character.PlayerEffects.Collect(xStats, xList);
         bool hasBurn = false, hasBlind = false, hasWet = false;
         foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; }
-        if (hasBurn != burning || hasBlind != blind || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + "/" + blind + ", мокрый " + hasWet + "/" + wet + "; ");
+        if (hasBurn != burning || hasBlind || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + " (снят 10.09), мокрый " + hasWet + "/" + wet + "; ");
     }
 }
 
