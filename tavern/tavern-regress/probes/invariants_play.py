@@ -601,19 +601,28 @@ int lightning = 0;
         lightning = 1;
         bool roofed = Cozy.Grid.WindGusts.Indoors(Cozy.View.ViewState.PlayerPos + UnityEngine.Vector3.up * 0.1f);
         float before = lsun.intensity;
+        var ambBefore = UnityEngine.RenderSettings.ambientLight;
         lclock.Strike();
         lclock.ApplyLight();
         float peak = lclock.Flash;
         float lit = lsun.intensity;
+        var ambLit = UnityEngine.RenderSettings.ambientLight;
         lleftF.SetValue(lclock, 0f);
         lclock.ApplyLight();
         float after = lsun.intensity;
-        if (roofed && (peak > 0.001f || UnityEngine.Mathf.Abs(lit - before) > 0.001f))
-            bad.Append("молния под крышей: flash " + peak.ToString("F2") + ", свет " + before.ToString("F2") + " → " + lit.ToString("F2") + "; ");
-        if (!roofed && (peak < 0.999f || lit - before < 0.5f))
-            bad.Append("молния снаружи не бьёт с пика: flash " + peak.ToString("F2") + ", свет " + before.ToString("F2") + " → " + lit.ToString("F2") + "; ");
-        if (UnityEngine.Mathf.Abs(after - before) > 0.001f)
-            bad.Append("свет после молнии не вернулся: " + before.ToString("F2") + " → " + after.ToString("F2") + "; ");
+        var ambAfter = UnityEngine.RenderSettings.ambientLight;
+        System.Func<UnityEngine.Color, UnityEngine.Color, float> gap = (a, b) =>
+            UnityEngine.Mathf.Abs(a.r - b.r) + UnityEngine.Mathf.Abs(a.g - b.g) + UnityEngine.Mathf.Abs(a.b - b.b);
+        // Направленный свет бьёт с пика ВСЕГДА — под крышей он входит через окна
+        // (Илья 09.09: «чтобы в окнах было видно грозу»); ambient и небо — только снаружи.
+        if (peak < 0.999f || lit - before < 0.5f)
+            bad.Append("молния не бьёт с пика: flash " + peak.ToString("F2") + ", свет " + before.ToString("F2") + " → " + lit.ToString("F2") + "; ");
+        if (roofed && gap(ambLit, ambBefore) > 0.001f)
+            bad.Append("молния под крышей засветила ambient: " + ambBefore.ToString("F3") + " → " + ambLit.ToString("F3") + "; ");
+        if (!roofed && gap(ambLit, ambBefore) < 0.05f)
+            bad.Append("молния снаружи не засветила ambient: " + ambBefore.ToString("F3") + " → " + ambLit.ToString("F3") + "; ");
+        if (UnityEngine.Mathf.Abs(after - before) > 0.001f || gap(ambAfter, ambBefore) > 0.001f)
+            bad.Append("свет после молнии не вернулся: " + before.ToString("F2") + " → " + after.ToString("F2") + ", ambient " + ambBefore.ToString("F3") + " → " + ambAfter.ToString("F3") + "; ");
     }
 }
 
