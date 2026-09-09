@@ -609,7 +609,55 @@ int lightning = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " :: "
+// 24. Трава кланяется на ветру, но корни остаются в земле: у стебля профиль
+// изгиба (y/h)^2 не двигает вершины у основания. Жёсткий поворот пучка целиком
+// (первая попытка 09.09) хоронил наветренную половину блейдов в земле на 14 см
+// — отсюда проверка по САМОЙ НИЖНЕЙ вершине, а не по наклону. Ветер включается
+// самой пробой и возвращается, чтобы правило не зависело от тумблера.
+int stemsBent = 0;
+{
+    var sF = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+    var sT = typeof(Cozy.Grid.TreeWind);
+    var sLate = sT.GetMethod("LateUpdate", sF);
+    var sStem = sT.GetField("_stem", sF);
+    var sParts = sT.GetField("_parts", sF);
+    var sIn = sT.GetField("_indoors", sF);
+    if (sLate != null && sStem != null && sParts != null)
+    {
+        bool wasWind = Cozy.Grid.Weather.Wind;
+        var wasForce = Cozy.Grid.Weather.Force;
+        Cozy.Grid.Weather.Wind = true;
+        Cozy.Grid.Weather.Force = Cozy.Grid.WindForce.Strong;
+        var noArgs = new object[0];
+        float worst = 0f;
+        string worstAt = "";
+        foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(UnityEngine.FindObjectsSortMode.None))
+        {
+            if (!(bool)sStem.GetValue(rig) || (bool)sIn.GetValue(rig)) continue;
+            sLate.Invoke(rig, noArgs);
+            var plist = sParts.GetValue(rig) as System.Collections.IList;
+            if (plist == null || plist.Count == 0) continue;
+            var pt = plist[0];
+            var ptT = pt.GetType();
+            var work = (UnityEngine.Vector3[])ptT.GetField("work").GetValue(pt);
+            var node = (UnityEngine.Transform)ptT.GetField("node").GetValue(pt);
+            float ground = rig.transform.position.y;
+            float sunk = 0f;
+            for (int i = 0; i < work.Length; i++)
+                sunk = UnityEngine.Mathf.Max(sunk, ground - node.TransformPoint(work[i]).y);
+            stemsBent++;
+            if (sunk > worst) { worst = sunk; worstAt = rig.transform.position.ToString("F1"); }
+        }
+        if (worst > 0.01f)
+            bad.Append("трава ушла под землю на " + worst.ToString("F3") + " м у " + worstAt + "; ");
+        Cozy.Grid.Weather.Wind = wasWind;
+        Cozy.Grid.Weather.Force = wasForce;
+        foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(UnityEngine.FindObjectsSortMode.None))
+            if ((bool)sStem.GetValue(rig)) sLate.Invoke(rig, noArgs);
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
