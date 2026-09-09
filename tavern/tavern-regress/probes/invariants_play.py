@@ -576,7 +576,40 @@ int handLamp = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " :: "
+// 23. Молнии под крышей нет: гейт вспышки спрашивает ТОЙ ЖЕ функцией, что
+// ветер и деревья (WindGusts.Indoors по игроку, P276), и вспышка начинается с
+// пика. Проверка синхронная: Strike + ApplyLight, свет сравнивается с прежним,
+// потом вспышка снимается через _flashLeft и свет возвращается.
+int lightning = 0;
+{
+    var lclock = Tavern.Core.GameClock.I;
+    var lsunF = typeof(Tavern.Core.GameClock).GetField("_sun",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    var lleftF = typeof(Tavern.Core.GameClock).GetField("_flashLeft",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    var lsun = lclock != null && lsunF != null ? lsunF.GetValue(lclock) as UnityEngine.Light : null;
+    if (lclock != null && lsun != null && lleftF != null)
+    {
+        lightning = 1;
+        bool roofed = Cozy.Grid.WindGusts.Indoors(Cozy.View.ViewState.PlayerPos + UnityEngine.Vector3.up * 0.1f);
+        float before = lsun.intensity;
+        lclock.Strike();
+        lclock.ApplyLight();
+        float peak = lclock.Flash;
+        float lit = lsun.intensity;
+        lleftF.SetValue(lclock, 0f);
+        lclock.ApplyLight();
+        float after = lsun.intensity;
+        if (roofed && (peak > 0.001f || UnityEngine.Mathf.Abs(lit - before) > 0.001f))
+            bad.Append("молния под крышей: flash " + peak.ToString("F2") + ", свет " + before.ToString("F2") + " → " + lit.ToString("F2") + "; ");
+        if (!roofed && (peak < 0.999f || lit - before < 0.5f))
+            bad.Append("молния снаружи не бьёт с пика: flash " + peak.ToString("F2") + ", свет " + before.ToString("F2") + " → " + lit.ToString("F2") + "; ");
+        if (UnityEngine.Mathf.Abs(after - before) > 0.001f)
+            bad.Append("свет после молнии не вернулся: " + before.ToString("F2") + " → " + after.ToString("F2") + "; ");
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
