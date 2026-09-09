@@ -6,7 +6,9 @@
 // минус тот же перепад OFF (P261). Норма: снаружи ≈ 0; внутри — тысячи; профиль на +1/4, +1/2,
 // +3/4 каймы ≈ 0.84 / 0.50 / 0.16 (1 − smoothstep); maxStep ≤ 0.15; шов < 2. Плюс счёт материалов
 // и кайм: листва на Tavern/CrownCut, кора на Lit; у каждой кроны копия-кайма (_CROWN_BAND, ZWrite 1,
-// очередь CrownWindow.BandQueue, тот же меш, без теней), включена ⇒ окно открыто.
+// очередь CrownWindow.BandQueue, тот же меш, без теней, БЕЗ записи глубины), включена ⇒ окно открыто;
+// маска каймы _CrownBandTex (альфа, глубина) рисуется в beginCameraRendering: пиксели маски лежат
+// в кольце rIn..rOut вокруг центра окна (центроид ≈ центр, d в [rIn, rOut]), meanZ < глубины груди.
 // Персонажа под крону ставят заранее (у ствола, на 0.9 м к камере, НЕ в тумане), после — вернуть.
 var cam = UnityEngine.Camera.main; var player = Cozy.Grid.PlayerRef.GameObject;
 var sb = new System.Text.StringBuilder();
@@ -25,7 +27,7 @@ foreach (var tw in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(Unit
       {
         if (m == null) { bandBad++; continue; }
         if (m.renderQueue != queue) bandBad++;
-        if (m.shader.name == "Tavern/CrownCut") { if (!m.IsKeywordEnabled(Cozy.Grid.CrownWindow.BandKeyword) || m.GetInt("_ZWrite") != 1) bandBad++; }
+        if (m.shader.name == "Tavern/CrownCut") { if (!m.IsKeywordEnabled(Cozy.Grid.CrownWindow.BandKeyword) || m.GetInt("_ZWrite") != 0) bandBad++; }
         else if (m.color.a > 0.001f) bandBad++;
       }
       continue;
@@ -36,6 +38,16 @@ sb.Append("mats: cut=" + cut + " lit=" + lit + " other=" + other + " shaders=[" 
 var win = UnityEngine.Shader.GetGlobalVector("_CrownWindow"); float on = UnityEngine.Shader.GetGlobalFloat("_CrownWindowOn"); float feather = UnityEngine.Shader.GetGlobalFloat("_CrownFeatherPx");
 float rIn = win.z, rOut = win.z + feather;
 sb.Append("window on=" + on + " center=(" + win.x.ToString("0") + "," + win.y.ToString("0") + ") rInPx=" + rIn.ToString("0") + " featherPx=" + feather.ToString("0") + " depth=" + win.w.ToString("0.0") + " screen=" + cam.pixelWidth + "x" + cam.pixelHeight + " | ");
+var maskRt = UnityEngine.Shader.GetGlobalTexture("_CrownBandTex") as UnityEngine.RenderTexture; float maskOn = UnityEngine.Shader.GetGlobalFloat("_CrownBandOn");
+if (maskRt != null)
+{
+  var mt = new UnityEngine.Texture2D(maskRt.width, maskRt.height, UnityEngine.TextureFormat.RGBAHalf, false); var prevM = UnityEngine.RenderTexture.active; UnityEngine.RenderTexture.active = maskRt; mt.ReadPixels(new UnityEngine.Rect(0, 0, maskRt.width, maskRt.height), 0, 0); mt.Apply(); UnityEngine.RenderTexture.active = prevM;
+  var mp = mt.GetPixels(); UnityEngine.Object.Destroy(mt);
+  int mw = maskRt.width, mh = maskRt.height; long n = 0; double cx = 0, cy = 0; float dMin = 1e9f, dMax = 0; double zSum = 0;
+  for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { var mc = mp[y * mw + x]; if (mc.r <= 0.001f) continue; n++; cx += x; cy += y; zSum += mc.g; float dx = x - win.x, dy = y - win.y; float d = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy); if (d < dMin) dMin = d; if (d > dMax) dMax = d; }
+  sb.Append("mask: on=" + maskOn + " size=" + mw + "x" + mh + " px=" + n + (n > 0 ? " centroid=(" + (cx / n).ToString("0") + "," + (cy / n).ToString("0") + ") d=[" + dMin.ToString("0") + ".." + dMax.ToString("0") + "] meanZ=" + (zSum / n).ToString("0.0") : "") + " flip=" + Cozy.Grid.CrownWindow.MaskFlip + " | ");
+}
+else sb.Append("mask: none (on=" + maskOn + ") | ");
 int W = cam.pixelWidth, H = cam.pixelHeight;
 System.Func<UnityEngine.Color32[]> Shot = () => { var rt = UnityEngine.RenderTexture.GetTemporary(W, H, 24); var prevT = cam.targetTexture; cam.targetTexture = rt; cam.Render(); cam.targetTexture = prevT; var tex = new UnityEngine.Texture2D(W, H, UnityEngine.TextureFormat.RGB24, false); var prevA = UnityEngine.RenderTexture.active; UnityEngine.RenderTexture.active = rt; tex.ReadPixels(new UnityEngine.Rect(0, 0, W, H), 0, 0); tex.Apply(); UnityEngine.RenderTexture.active = prevA; UnityEngine.RenderTexture.ReleaseTemporary(rt); var px = tex.GetPixels32(); UnityEngine.Object.Destroy(tex); return px; };
 var a = Shot();

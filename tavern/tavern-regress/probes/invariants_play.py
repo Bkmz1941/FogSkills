@@ -712,8 +712,9 @@ int exposure = 0;
 
 // 28. Просвет кроны (VIEW.md §10a): окно закрыто ровно тогда, когда игрок в тумане; у каждого
 // дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется);
-// у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, запись глубины, очередь BandQueue,
-// без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒ кайма шире 1 px.
+// у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, БЕЗ записи глубины, очередь BandQueue
+// до дождя и тумана, без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒
+// кайма шире 1 px и маска каймы _CrownBandTex рисуется (_CrownBandOn).
 int crowns = 0;
 {
     var cPlayer = Cozy.Grid.PlayerRef.GameObject;
@@ -722,6 +723,7 @@ int crowns = 0;
         bool fogHere = Cozy.Grid.FogView.Covers(cPlayer.transform.position);
         float cOn = UnityEngine.Shader.GetGlobalFloat("_CrownWindowOn");
         if (cOn > 0.5f && UnityEngine.Shader.GetGlobalFloat("_CrownFeatherPx") < 1f) bad.Append("окно кроны открыто без каймы (_CrownFeatherPx < 1); ");
+        if (cOn > 0.5f && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") < 0.5f) bad.Append("окно кроны открыто, а маска каймы (_CrownBandOn) не рисуется; ");
         if (Cozy.Grid.CrownWindow.BandQueue >= 3000) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — после дождя и тумана, окружность на краю тумана (P298); ");
         if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
         foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
@@ -748,7 +750,7 @@ int crowns = 0;
                     {
                         if (bm == null) { bad.Append("пустой слот каймы: " + cio.name + "; "); continue; }
                         bool leafBand = bm.shader.name == "Tavern/CrownCut";
-                        if (leafBand && (!bm.IsKeywordEnabled(Cozy.Grid.CrownWindow.BandKeyword) || bm.GetInt("_ZWrite") != 1)) bad.Append("кайма без _CROWN_BAND или без записи глубины: " + cio.name + "; ");
+                        if (leafBand && (!bm.IsKeywordEnabled(Cozy.Grid.CrownWindow.BandKeyword) || bm.GetInt("_ZWrite") != 0)) bad.Append("кайма без _CROWN_BAND или пишет глубину (туман за листвой пропадёт): " + cio.name + "; ");
                         if (!leafBand && bm.color.a > 0.001f) bad.Append("кора в кайме видима: " + cio.name + "; ");
                         if (bm.renderQueue != Cozy.Grid.CrownWindow.BandQueue) bad.Append("кайма не в очереди " + Cozy.Grid.CrownWindow.BandQueue + ": " + cio.name + "; ");
                     }
