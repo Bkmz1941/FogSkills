@@ -674,7 +674,63 @@ int stemsBent = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " :: "
+// 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): «не видно» ⇔ клетка
+// тумана под игроком; обзор = базовый × (FogSight в тумане | 1); озноб = WetChill при мокром,
+// иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами.
+int exposure = 0;
+{
+    var xT = System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects");
+    var xPlayer = Cozy.Grid.PlayerRef.GameObject;
+    if (xT != null && xPlayer != null)
+    {
+        exposure = 1;
+        System.Func<string, bool> flag = n => (bool)xT.GetProperty(n).GetValue(null);
+        bool blind = flag("Blind"), wet = flag("Wet"), burning = flag("Burning"), inFire = flag("InFire");
+        bool fogHere = Cozy.Grid.FogView.Covers(xPlayer.transform.position);
+        if (blind != fogHere) bad.Append("статус «не видно» " + blind + " при тумане под игроком " + fogHere + "; ");
+        float wantScale = blind ? (float)xT.GetField("FogSight").GetValue(null) : 1f;
+        if (UnityEngine.Mathf.Abs(Cozy.Character.VisionArea.Scale - wantScale) > 0.001f) bad.Append("обзор ×" + Cozy.Character.VisionArea.Scale + " при blind=" + blind + "; ");
+        float wantChill = wet ? (float)xT.GetField("WetChill").GetValue(null) : 0f;
+        if (UnityEngine.Mathf.Abs(Cozy.Character.BodyTemperature.Chill - wantChill) > 0.001f) bad.Append("озноб " + Cozy.Character.BodyTemperature.Chill + " при wet=" + wet + "; ");
+        if (inFire && !burning) bad.Append("в огне, но не горит; ");
+        if (Cozy.Character.PlayerEffects.Sources.Count < 1) bad.Append("ряд значков без поставщика статусов среды; ");
+        var xStats = xPlayer.GetComponent<Cozy.Character.CharacterStats>();
+        var xList = new System.Collections.Generic.List<Cozy.Character.PlayerEffect>();
+        Cozy.Character.PlayerEffects.Collect(xStats, xList);
+        bool hasBurn = false, hasBlind = false, hasWet = false;
+        foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; }
+        if (hasBurn != burning || hasBlind != blind || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + "/" + blind + ", мокрый " + hasWet + "/" + wet + "; ");
+    }
+}
+
+// 28. Просвет кроны (VIEW.md §10a): окно закрыто ровно тогда, когда игрок в тумане; у каждого
+// дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется).
+int crowns = 0;
+{
+    var cPlayer = Cozy.Grid.PlayerRef.GameObject;
+    if (cPlayer != null)
+    {
+        bool fogHere = Cozy.Grid.FogView.Covers(cPlayer.transform.position);
+        float cOn = UnityEngine.Shader.GetGlobalFloat("_CrownWindowOn");
+        if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
+        foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+        {
+            if (cio.Def == null || !cio.Def.crownWindow) continue;
+            crowns++;
+            UnityEngine.Transform crown = null, trunk = null;
+            foreach (var tr in cio.GetComponentsInChildren<UnityEngine.Transform>(true)) { if (tr.name == cio.Def.crownNode) crown = tr; if (tr.name == cio.Def.heightNode) trunk = tr; }
+            if (crown == null) continue;
+            var bark = new System.Collections.Generic.HashSet<UnityEngine.Material>();
+            if (trunk != null) foreach (var cr in trunk.GetComponentsInChildren<UnityEngine.MeshRenderer>(true)) foreach (var cm in cr.sharedMaterials) if (cm != null) bark.Add(cm);
+            foreach (var cm in bark) if (cm.shader.name == "Tavern/CrownCut") { bad.Append("кора на CrownCut: " + cio.name + "; "); break; }
+            int leaf = 0, cut = 0;
+            foreach (var cr in crown.GetComponentsInChildren<UnityEngine.MeshRenderer>(true)) foreach (var cm in cr.sharedMaterials) { if (cm == null || bark.Contains(cm)) continue; leaf++; if (cm.shader.name == "Tavern/CrownCut") cut++; }
+            if (leaf > 0 && cut != leaf) bad.Append("листва без CrownCut: " + cio.name + " " + cut + "/" + leaf + "; ");
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 

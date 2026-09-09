@@ -29,11 +29,28 @@ Tavern.Data ── Tavern.Net
      │            │
 Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
                   ▲              ▲                 ▲
-                  └── Cozy.Cooking                 │
+                  ├── Cozy.Cooking                 │
+                  ├── Cozy.Weather                 │
+                  └── Cozy.Effects ◄── (Character) │
                           Tavern.Core ─────────────┘
                                  ▲
                              Tavern.UI
 ```
+
+С 2026-09-09 два новых модуля над Grid (Илья: «отдельный модуль поведения
+погоды», «модуль игровой по контролю эффектов и их связям»):
+- **Cozy.Weather** (`Assets/Modules/Weather`, ссылки Grid/View) —
+  `WeatherDirector`: ПОВЕДЕНИЕ погоды (таймер направления ветра, дальше —
+  расписание дождя, молнии, приказы сценария). Конфиг `static class Weather`
+  остаётся в Grid (`Weather.cs`): его читают дождь, ветер, огонь снизу.
+  Время идёт сверху: `GameClock.Update` → `WeatherDirector.Tick(Hours, dt)`.
+- **Cozy.Effects** (`Assets/Modules/Effects`, ссылки Grid/Character/View/Loc)
+  — `PlayerExposure`: статусы среды на игроке (ожог, мокрый, не видно).
+  Character про Effects не знает: значки идут через хук
+  `PlayerEffects.Sources` (модуль регистрирует поставщика при загрузке), а
+  последствия — через ручки в Character: `VisionArea.Scale`,
+  `BodyTemperature.Chill`, `CharacterStats.Touch`. Тот же приём, что у
+  Cooking (`FeatureFactories`).
 
 Стрелка = «ссылается на». Циклов нет и заводить нельзя. Практические следствия:
 - **Cozy.Grid — низ**: сюда кладут примитивы, которые нужны всем (лучи, сетка,
