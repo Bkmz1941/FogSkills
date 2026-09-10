@@ -491,9 +491,9 @@ if (Cozy.Grid.Weather.Wind)
                 bad.Append("ветер в помещении: лента " + ghead.ToString("F1") + " → " + gtail.ToString("F1") + " (узел " + gr.transform.position.ToString("F1") + "); ");
             // 31. Лента лежит ПО ВЕТРУ: от первой вершины к последней — вдоль Weather.Dir
             // (P293: путь строился вдоль локальной X, а узел смотрит вдоль Z — ленты летели
-            // поперёк ветра при любом угле). Доворот ±14° и петли пути дают 0.84…0.97.
+            // поперёк ветра при любом угле). Доворот ±14° и петли пути дают 0.66…0.97, порог 0.5.
             var galong = gtail - ghead; galong.y = 0f;
-            if (galong.sqrMagnitude > 0.01f && UnityEngine.Vector3.Dot(galong.normalized, Cozy.Grid.Weather.Dir) < 0.7f)
+            if (galong.sqrMagnitude > 0.01f && UnityEngine.Vector3.Dot(galong.normalized, Cozy.Grid.Weather.Dir) < 0.5f)
                 bad.Append("лента поперёк ветра: cos=" + UnityEngine.Vector3.Dot(galong.normalized, Cozy.Grid.Weather.Dir).ToString("F2") + " у узла " + gr.transform.position.ToString("F1") + "; ");
         }
     }
