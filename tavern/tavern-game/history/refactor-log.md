@@ -1598,3 +1598,9 @@ GridCursor — `PlaneHit` (4), `PlaceFloorY()` (6), статический ма�
 мёртвые `MarkerLabel`, `LiquidVolume.KindClipMaterial` — в список «ждут слова
 владельца» (бэклог). Отдельные `LateUpdate` у DebugGrid/PlankSkin/WallCutaway —
 на Test #1 их по 11–62 штуки, `TickAll` не окупится.
+
+**Сборка (итог ночи).** Дев-билд Linux после всех шагов (BuildRequests, 22 с),
+`Tavern.x86_64 -gcprobe 600` на Test #1: кадр 2.88 мс среднее / p95 4.01 /
+пик 9.19 (10.09 было 3.76 / 6.02 / 11.57), мусор 909 Б/кадр (было 898 — это
+URP, не игра). Инструмент на будущее: `gc_probe.py profile` — маркеры
+профайлера редактора.
