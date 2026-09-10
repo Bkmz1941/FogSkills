@@ -754,7 +754,7 @@ int crowns = 0;
         int bandsLit = 0; foreach (var br in UnityEngine.Object.FindObjectsByType<UnityEngine.MeshRenderer>(UnityEngine.FindObjectsSortMode.None)) if (br.enabled && br.name == Cozy.Grid.SeeThroughView.GhostName) bandsLit++;
         if (cOn > 0.5f && bandsLit > 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") < 0.5f) bad.Append("кайма включена, а маска каймы (_CrownBandOn) не рисуется; ");
         if (bandsLit == 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") > 0.5f) bad.Append("маска каймы рисуется без единой включённой каймы (лишняя очистка текстуры каждый кадр); ");
-        if (Cozy.Grid.CrownWindow.BandQueue >= 3000) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — после дождя и тумана, окружность на краю тумана (P298); ");
+        if (Cozy.Grid.CrownWindow.BandQueue <= 3400 || Cozy.Grid.CrownWindow.BandQueue >= 3550) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — должна быть после напольных (3400) и огня, но до дождя (3550) и тумана (3600), иначе трава поверх листвы или окружность в тумане (P298); ");
         if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
         foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
         {
