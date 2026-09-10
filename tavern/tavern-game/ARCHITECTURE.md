@@ -99,6 +99,7 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
 | Квантование следа по подсетке, доводка предмета внутрь площадки | `PlaceMath.SubWidth/SubSnap/SlideInside` — чистые функции без сцены, покрыты тестами | `Grid/PlaceMath.cs` |
 | Список всех объектов каталога | `FurnitureCatalog.All()` — рефлексия по фабрикам, кэш | `Grid/FurnitureCatalog.cs` |
 | Шейдеры | `ShaderLib.Lit/Unlit/Get` — никогда `Shader.Find` в рантайме | |
+| Радиус рендера | `FarRadius` — объекты дальше 28 м от игрока не рисуются (`forceRenderingOff`) и спят (`TreeWind`/`Burnable` выключены, `InteractiveObject.Far`), ближе 24 м живут; ломтик 800 объектов в кадр; `FarRadius.IsHidden(io)`, `FarRadius.Enabled`. VIEW.md §10c | `Grid/ViewSensor.cs` |
 | В кадре ли главной камеры | `ViewCull.InView(Bounds)` — плоскости фрустума `Camera.main` считаются раз в кадр, дальше `TestPlanesAABB`; НЕ `Renderer.isVisible` (тот в редакторе считает видимым всё, что видит Scene View и камера теней). Им гейтятся изгиб травы и деревьев (`TreeWind`), анимация клубов тумана (`FogAnim`) и частей костра (`FireVolume`), 10.09 | `Grid/WindGusts.cs` |
 | Клеточный объём на сетке (туман, огонь) | `CellVolumeView<T>` — реестр клеток, версия для контура, привязка и переезд, снос клетки, заливка зоны; наследник даёт `Rebuild`, `Touch` (кого будить) и `Ready` | `Grid/CellVolumeView.cs` |
 | «Какие стороны клетки закрыты стеной» | `CellWalls` | `Grid/CellWalls.cs` |

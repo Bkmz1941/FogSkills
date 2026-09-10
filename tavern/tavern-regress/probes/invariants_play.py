@@ -636,6 +636,34 @@ if (STRIKE_ALLOWED)
     }
 }
 
+// 32. Радиус рендера (VIEW.md «Радиус рендера и сон дальних»): объект в кадре
+// главной камеры никогда не скрыт радиусом, объект дальше HideBeyond от игрока
+// всегда скрыт и спит (TreeWind/Burnable выключены). Уровень «forest100»: 5550
+// объектов, в кадре ~110, скрыто ~4200–4970 — кадр 40 → 18 мс (10.09).
+int farHidden = 0, farInView = 0;
+{
+    var fcam = UnityEngine.Camera.main;
+    var fplanes = fcam != null ? UnityEngine.GeometryUtility.CalculateFrustumPlanes(fcam) : null;
+    var fp = Cozy.View.ViewState.PlayerPos;
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null) continue;
+        bool fh = Cozy.Grid.FarRadius.IsHidden(io);
+        if (fh) farHidden++;
+        var fr = io.GetComponentInChildren<UnityEngine.Renderer>();
+        if (fr != null && fplanes != null && UnityEngine.GeometryUtility.TestPlanesAABB(fplanes, fr.bounds))
+        {
+            farInView++;
+            if (fh) bad.Append("скрыт радиусом, но в кадре: " + io.Def.id + " @ " + io.transform.position.ToString("F1") + "; ");
+        }
+        var fd = io.transform.position - fp; fd.y = 0f;
+        if (Cozy.Grid.FarRadius.Enabled && fd.magnitude > Cozy.Grid.FarRadius.HideBeyond + 3f && !fh && UnityEngine.Time.frameCount > 30)
+            bad.Append("дальше радиуса, но не скрыт: " + io.Def.id + " @ " + io.transform.position.ToString("F1") + "; ");
+        var ftw = io.GetComponent<Cozy.Grid.TreeWind>();
+        if (fh && ftw != null && ftw.enabled) bad.Append("скрыт радиусом, но ветер не спит: " + io.Def.id + "; ");
+    }
+}
+
 // 24. Трава кланяется на ветру, но корни остаются в земле: у стебля профиль
 // изгиба (y/h)^2 не двигает вершины у основания. Жёсткий поворот пучка целиком
 // (первая попытка 09.09) хоронил наветренную половину блейдов в земле на 14 см
@@ -820,7 +848,7 @@ int floorSlots = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " :: "
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
