@@ -850,13 +850,88 @@ int floorSlots = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: "
+// 29. Фокус осмотра, сдвинутый под колонку карточки, не лежит внутри ЧУЖОГО
+//     непрозрачного коллайдера ни при каком угле подхода (P286: стена за
+//     настенным счётчиком и стояком накрывала сдвинутый фокус, зазор ноль во
+//     все стороны — камера не крутится и садится внутрь). Проверяем то, что
+//     реально пойдёт в BeginExamine: CardShift → ShiftOutsideSolids.
+int focusShifts = 0;
+var mShiftOut = typeof(Cozy.Character.CameraFollow).GetMethod("ShiftOutsideSolids", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+var mTransp = typeof(Cozy.Character.CameraFollow).GetMethod("Transparent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+if (cam != null && mDistOf != null && pColumn != null && mShiftOut != null && mTransp != null)
+{
+    float columnF = (float)pColumn.GetValue(null, null);
+    var hostBefore29 = Cozy.Grid.Interactor.ExamineHost;
+    foreach (var io in Cozy.Grid.InteractiveObject.All)
+    {
+        if (io == null || io.Def == null || io.Container != null) continue;
+        var center = io.WorldBounds.center;
+        focusShifts++;
+        Cozy.Grid.Interactor.ExamineHost = io;
+        foreach (float yaw in new float[] { 0f, 22.5f, 45f, 67.5f, 90f, 112.5f, 135f, 157.5f, 180f, 202.5f, 225f, 247.5f, 270f, 292.5f, 315f, 337.5f })
+        {
+            float baseDist = (float)mDistOf.Invoke(null, new object[] { io, center, yaw, 15f });
+            var raw = Tavern.UI.ExamineFraming.CardShift(center, yaw, 15f, baseDist, cam.fieldOfView, cam.aspect, columnF);
+            var focus = (UnityEngine.Vector3)mShiftOut.Invoke(null, new object[] { io, center, raw });
+            bool buried = false;
+            foreach (var col in UnityEngine.Physics.OverlapSphere(focus, 0.02f, UnityEngine.Physics.DefaultRaycastLayers, UnityEngine.QueryTriggerInteraction.Ignore))
+            {
+                if ((bool)mTransp.Invoke(null, new object[] { col, io })) continue;
+                if (!col.bounds.Contains(focus)) continue;
+                bad.Append((col.bounds.Contains(center) ? "фокус осмотра ещё ДО сдвига внутри чужого коллайдера: " : "сдвинутый фокус осмотра в чужом коллайдере: ") + io.Def.id + " (" + col.name + ", подход " + yaw + "°); ");
+                buried = true; break;
+            }
+            if (buried) break;
+        }
+    }
+    Cozy.Grid.Interactor.ExamineHost = hostBefore29;
+}
+
+// 33. Выбранный фонарь ВСЕГДА в руке, батарейки решают только свет (Илья
+// 2026-09-10): у фонаря в активной ячейке хотбара Held всегда true, Lit ровно
+// при заряде > 0, модель совпадает с рукой, спот — со светом. Проверка
+// пассивная: карманы и заряд не трогаются.
+int torchHand = 0;
+{
+    var qrig = UnityEngine.Object.FindFirstObjectByType<Cozy.Character.FlashlightRig>();
+    var qhud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+    var qflags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+    if (qrig != null && qhud != null)
+    {
+        var qfield = typeof(Tavern.UI.HudUI).GetField("_activeQuick", qflags);
+        var qat = typeof(Tavern.UI.HudUI).GetMethod("PocketPlacedAt", qflags);
+        if (qfield != null && qat != null)
+        {
+            int qi = (int)qfield.GetValue(qhud);
+            var qplaced = qi >= 0 ? (Cozy.Grid.PlacedItem)qat.Invoke(qhud, new object[] { qi }) : null;
+            if (qplaced != null && Cozy.Grid.Items.IsFlashlight(qplaced.def))
+            {
+                torchHand = 1;
+                float qcharge = Cozy.Grid.PowerCells.Charge(qplaced);
+                if (!qrig.Held) bad.Append("выбранный фонарь не в руке (заряд " + qcharge.ToString("F0") + "); ");
+                if (qrig.Lit != (qcharge > 0f)) bad.Append("свет фонаря не по заряду: светит=" + qrig.Lit + " при заряде " + qcharge.ToString("F0") + "; ");
+            }
+        }
+        var qlamp = qrig.transform.Find("Flashlight");
+        if (qlamp != null)
+        {
+            var qlight = qlamp.GetComponentInChildren<UnityEngine.Light>(true);
+            if (qlamp.gameObject.activeSelf != qrig.Held) bad.Append("модель фонаря живёт отдельно от руки: активна=" + qlamp.gameObject.activeSelf + ", в руке=" + qrig.Held + "; ");
+            if (qlight != null && qlight.enabled != qrig.Lit) bad.Append("спот фонаря живёт отдельно от света: включён=" + qlight.enabled + ", светит=" + qrig.Lit + "; ");
+        }
+        if (qrig.Lit && !qrig.Held) bad.Append("фонарь светит, не будучи в руке; ");
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
 
 def main():
-    out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": CODE.replace('STRIKE_ALLOWED', 'true' if '--strike' in sys.argv else 'false')})],
+    code = '\n'.join(l for l in CODE.splitlines() if l.strip() and not l.strip().startswith('//'))
+    code = code.replace('STRIKE_ALLOWED', 'true' if '--strike' in sys.argv else 'false')
+    out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": code})],
                          capture_output=True, text=True, timeout=280)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else '{}'
     data = json.loads(line)

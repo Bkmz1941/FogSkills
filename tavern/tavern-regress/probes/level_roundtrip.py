@@ -1,5 +1,10 @@
 """Сохранить уровень, загрузить его обратно и сверить мир до и после.
 
+Шаг «инвентарь» (2026-09-10, инвариант 111): подобранное обязано пережить не
+загрузку уровня, а ВЫХОД ИЗ ИГРЫ — инвентарь игрока живёт на игроке и загрузку
+переживает сам, поэтому проверяем именно круг «сохранить → вычистить карманы →
+поднять из сейва».
+
 Ловит потери и расхождения, которых не видно глазами: пропавшие вложенные
 предметы, сброшенные тумблеры, забытые уровни жидкости. Запускать в play.
 Нашло 2026-09-01: из 42 объектов доезжало 36-37 (Destroy отложен, привязка
@@ -66,3 +71,56 @@ if not lost and not gained:
 else:
     for k in list(lost)[:12]: print("  потеряно:", k)
     for k in list(gained)[:12]: print("  появилось:", k)
+
+CELLS_FILL = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var eq = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.Equipment>();
+if (eq == null) return "нет Equipment";
+foreach (var it in new System.Collections.Generic.List<Cozy.Grid.PlacedItem>(eq.Pockets.Items)) eq.Pockets.Remove(it);
+eq.Pockets.TryAdd(Cozy.Grid.Items.Flashlight);
+eq.Pockets.TryAdd(Cozy.Grid.Items.Batteries);
+Cozy.Grid.PlacedItem flash = null, loose = null;
+foreach (var it in eq.Pockets.Items)
+{
+    if (it.def == Cozy.Grid.Items.Flashlight) flash = it;
+    if (it.def == Cozy.Grid.Items.Batteries) loose = it;
+}
+if (flash == null || loose == null) return "не легло в карманы";
+loose.charge = 77f;
+var slots = Cozy.Grid.PowerCells.SlotsOf(flash);
+if (slots == null || !slots.TryAdd(new Cozy.Grid.PlacedItem { def = Cozy.Grid.Items.Batteries, charge = 42f })) return "гнездо не приняло батарейку";
+return "положено: фонарь(гнездо 42%) + батарейки(77%)";
+'''
+
+CELLS_ROUND = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var keepName = Cozy.Grid.LevelIO.CurrentLevelName;
+var keepSlug = Cozy.Grid.LevelIO.CurrentSlug;
+Cozy.Grid.LevelIO.Save("_roundtrip_cells");
+Cozy.Grid.LevelIO.CurrentLevelName = keepName;
+Cozy.Grid.LevelIO.CurrentSlug = keepSlug;
+var eq = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.Equipment>();
+foreach (var it in new System.Collections.Generic.List<Cozy.Grid.PlacedItem>(eq.Pockets.Items)) eq.Pockets.Remove(it);
+Cozy.Grid.LevelIO.PlayerSnapshot = null;
+var data = Cozy.Grid.LevelIO.Load("_roundtrip_cells", false);
+Cozy.Grid.LevelIO.Delete("_roundtrip_cells");
+if (data == null) return "сейв не читается";
+if (data.player == null || !data.player.saved) return "в сейве НЕТ инвентаря игрока";
+Cozy.Grid.LevelIO.RestorePlayer(data.player);
+var s = new System.Text.StringBuilder();
+foreach (var it in eq.Pockets.Items)
+{
+    s.Append(it.def.id).Append('=').Append(it.charge.ToString("0"));
+    if (it.contents != null) foreach (var c in it.contents.Items) s.Append("[").Append(c.def.id).Append('=').Append(c.charge.ToString("0")).Append("]");
+    s.Append(' ');
+}
+foreach (var it in new System.Collections.Generic.List<Cozy.Grid.PlacedItem>(eq.Pockets.Items)) eq.Pockets.Remove(it);
+eq.Pockets.TryAdd(Cozy.Grid.Items.Flashlight);
+return s.ToString().Trim();
+'''
+
+print(call(CELLS_FILL))
+got = call(CELLS_ROUND)
+print("инвентарь после круга:", got)
+print("ИНВЕНТАРЬ ЦЕЛ" if "flashlight=100[batteries=42]" in str(got) and "batteries=77" in str(got)
+      else "ИНВЕНТАРЬ ПОТЕРЯН — инвариант 111")
