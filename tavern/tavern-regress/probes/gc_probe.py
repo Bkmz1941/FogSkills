@@ -2,6 +2,8 @@
 
 python3 gc_probe.py                 базовый замер: мусор (среднее, пик) и кадр (мс среднее, p95, пик) за 120 кадров
 python3 gc_probe.py scan [кадров]   выключать типы с Update/LateUpdate/FixedUpdate по одному и мерить дельту мусора и мс
+python3 gc_probe.py profile [кадров] профайлер редактора: self-мс и мусор ПО МАРКЕРАМ (методам) за N кадров — точнее скана,
+                                     у того дельты тонут в шуме ±2 мс; печатает 40 самых дорогих маркеров и все с мусором
 Потолка кадров в игре с 10.09 нет (FrameRateConfig: targetFrameRate = -1, Илья: «давай снимем»),
 замер это подтверждает явно: при потолке «Main Thread» мерил бы ожидание, а не работу.
 Пробник живёт в игре: Assets/Modules/Grid/GcProbe.cs (Begin/Result/ListTicking/SetEnabled).
@@ -39,10 +41,71 @@ def uncap(on):
     run('UnityEngine.Application.targetFrameRate = -1; return "ok";')
 
 
+PROFILE_CODE = r"""
+var sb = new System.Text.StringBuilder();
+int last = UnityEditorInternal.ProfilerDriver.lastFrameIndex;
+int first = UnityEditorInternal.ProfilerDriver.firstFrameIndex;
+if (last < 0) return "no frames";
+var agg = new System.Collections.Generic.Dictionary<string, double[]>();
+int frames = 0;
+double totalMs = 0;
+var ids = new System.Collections.Generic.List<int>();
+for (int f = System.Math.Max(first, last - FRAMES); f <= last; f++)
+{
+    using (var view = UnityEditorInternal.ProfilerDriver.GetHierarchyFrameDataView(f, 0, UnityEditor.Profiling.HierarchyFrameDataView.ViewModes.Default, UnityEditor.Profiling.HierarchyFrameDataView.columnSelfTime, false))
+    {
+        if (view == null || !view.valid) continue;
+        frames++;
+        totalMs += view.frameTimeMs;
+        int root = view.GetRootItemID();
+        var stack = new System.Collections.Generic.Stack<int>(); stack.Push(root);
+        while (stack.Count > 0)
+        {
+            int id = stack.Pop();
+            view.GetItemChildren(id, ids);
+            var kids = ids.ToArray();
+            foreach (var c in kids) stack.Push(c);
+            if (id == root) continue;
+            string name = view.GetItemName(id);
+            double self = view.GetItemColumnDataAsSingle(id, UnityEditor.Profiling.HierarchyFrameDataView.columnSelfTime);
+            double gc = view.GetItemColumnDataAsSingle(id, UnityEditor.Profiling.HierarchyFrameDataView.columnGcMemory);
+            double calls = view.GetItemColumnDataAsSingle(id, UnityEditor.Profiling.HierarchyFrameDataView.columnCalls);
+            double[] a; if (!agg.TryGetValue(name, out a)) agg[name] = a = new double[3];
+            a[0] += self; a[1] += gc; a[2] += calls;
+        }
+    }
+}
+if (frames == 0) return "no valid frames";
+sb.Append("frames=").Append(frames).Append(" avgFrameMs=").Append((totalMs / frames).ToString("0.00")).Append('\n');
+var list = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, double[]>>(agg);
+list.Sort((x, y) => y.Value[0].CompareTo(x.Value[0]));
+sb.Append("--- self ms/frame ---\n");
+for (int i = 0; i < System.Math.Min(40, list.Count); i++)
+    sb.Append((list[i].Value[0] / frames).ToString("0.000")).Append(" ms  calls=").Append((list[i].Value[2] / frames).ToString("0")).Append("  ").Append(list[i].Key).Append('\n');
+list.Sort((x, y) => y.Value[1].CompareTo(x.Value[1]));
+sb.Append("--- GC bytes/frame ---\n");
+for (int i = 0; i < System.Math.Min(30, list.Count); i++)
+    if (list[i].Value[1] > 0) sb.Append((list[i].Value[1] / frames).ToString("0")).Append(" B  calls=").Append((list[i].Value[2] / frames).ToString("0")).Append("  ").Append(list[i].Key).Append('\n');
+return sb.ToString();
+"""
+
+
+def profile(frames):
+    run('UnityEditorInternal.ProfilerDriver.profileEditor = false; UnityEditorInternal.ProfilerDriver.deepProfiling = false; UnityEditorInternal.ProfilerDriver.enabled = true; return "on";')
+    time.sleep(frames / 60.0 + 1.5)
+    try:
+        print(run(PROFILE_CODE.replace('FRAMES', str(frames))))
+    finally:
+        run('UnityEditorInternal.ProfilerDriver.enabled = false; return "off";')
+
+
 def main():
     if not str(run('return UnityEngine.Application.isPlaying;')).lower().startswith('true'):
         print('не в play'); sys.exit(1)
     frames = int(sys.argv[2]) if len(sys.argv) > 2 else 120
+    if len(sys.argv) > 1 and sys.argv[1] == 'profile':
+        profile(min(frames, 250))
+        return
     uncap(True)
     try:
         if len(sys.argv) < 2 or sys.argv[1] != 'scan':
