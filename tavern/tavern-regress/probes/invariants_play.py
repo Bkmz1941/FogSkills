@@ -742,7 +742,7 @@ int exposure = 0;
 // дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется);
 // у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, БЕЗ записи глубины, очередь BandQueue
 // до дождя и тумана, без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒
-// кайма шире 1 px и маска каймы _CrownBandTex рисуется (_CrownBandOn).
+// кайма шире 1 px; маска каймы _CrownBandTex рисуется ровно тогда, когда включена хоть одна кайма (_CrownBandOn).
 int crowns = 0;
 {
     var cPlayer = Cozy.Grid.PlayerRef.GameObject;
@@ -751,7 +751,9 @@ int crowns = 0;
         bool fogHere = Cozy.Grid.FogView.Covers(cPlayer.transform.position);
         float cOn = UnityEngine.Shader.GetGlobalFloat("_CrownWindowOn");
         if (cOn > 0.5f && UnityEngine.Shader.GetGlobalFloat("_CrownFeatherPx") < 1f) bad.Append("окно кроны открыто без каймы (_CrownFeatherPx < 1); ");
-        if (cOn > 0.5f && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") < 0.5f) bad.Append("окно кроны открыто, а маска каймы (_CrownBandOn) не рисуется; ");
+        int bandsLit = 0; foreach (var br in UnityEngine.Object.FindObjectsByType<UnityEngine.MeshRenderer>(UnityEngine.FindObjectsSortMode.None)) if (br.enabled && br.name == Cozy.Grid.SeeThroughView.GhostName) bandsLit++;
+        if (cOn > 0.5f && bandsLit > 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") < 0.5f) bad.Append("кайма включена, а маска каймы (_CrownBandOn) не рисуется; ");
+        if (bandsLit == 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") > 0.5f) bad.Append("маска каймы рисуется без единой включённой каймы (лишняя очистка текстуры каждый кадр); ");
         if (Cozy.Grid.CrownWindow.BandQueue >= 3000) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — после дождя и тумана, окружность на краю тумана (P298); ");
         if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
         foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
