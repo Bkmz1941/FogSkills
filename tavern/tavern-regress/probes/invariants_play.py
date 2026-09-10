@@ -647,7 +647,7 @@ int farHidden = 0, farInView = 0;
     var fp = Cozy.View.ViewState.PlayerPos;
     foreach (var io in Cozy.Grid.InteractiveObject.All)
     {
-        if (io == null) continue;
+        if (io == null || io.Def == null) continue;
         bool fh = Cozy.Grid.FarRadius.IsHidden(io);
         if (fh) farHidden++;
         var fr = io.GetComponentInChildren<UnityEngine.Renderer>();
