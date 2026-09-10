@@ -48,7 +48,7 @@
 
 47 методов длиннее 60 строк. Резать по счётчику строк запрещено, берём только
 те, где части видны глазами. Кандидаты по убыванию очевидности:
-`LevelIO.CollectObjects` (115), `GridCursor.ObjectMove.UpdateMoveObject` (130),
+~~`LevelIO.CollectObjects` (115)~~ (уже разложен на `Snapshot`/`CollectFeatures`/`CollectCarrier`/`CollectPairs`, сверено 10.09), `GridCursor.ObjectMove.UpdateMoveObject` (130),
 `HudUI.Debug.RebuildDebugActions` (97). Процедурные модели
 (`ElevatorModern` 130, `HomeSinkCabinet` 122) НЕ трогаем: это описания
 геометрии, у них длина — суть, а не запах.
