@@ -106,6 +106,13 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
 | «Какие стороны клетки закрыты стеной» | `CellWalls` | `Grid/CellWalls.cs` |
 | Дебаг-контур области клеточного объёма | `ZoneArea` (поле расстояний + marching squares), одиночка — `ZoneArea<T>` | `Grid/ZoneArea.cs` |
 | Системный объект, живущий по одному на сцену | `SceneSingleton<T>.SpawnEachScene()` — без аргументов: найти по типу, если нет — создать объект с именем класса. Вариант с лямбдой нужен только тем, кто делает БОЛЬШЕ (помнит экземпляр, будит выключенный) | `View/SceneSingleton.cs` |
+| Узел модели по имени (включая неактивные, корень тоже) | `FurnitureModel.FindNode(root, name)` — буфер, без массива на вызов; `InteractiveObject.FindChild` — ДРУГОЙ ответ (без корня, с запасным поиском по подстроке) | `Grid/FurnitureModel.cs` |
+| Список id через запятую в дефе | `ObjectDef.IdList(ids)` (кэш разбора, части обрезаны) / `ObjectDef.IdListHas(ids, id)` — `Split(',')` в коде не пишем | `Grid/ObjectDef.cs` |
+| Трансформ игрока лениво | `PlayerRef.Transform` — своё поле-кэш поверх него не заводим, одна строка `if (_player == null && (_player = PlayerRef.Transform) == null) return;` | `Grid/PlayerRef.cs` |
+| Плоское (XZ) квадрат расстояния | `PartMath.SqrPlanar(a, p)` | `Grid/PartMath.cs` |
+| Луч на горизонтальную плоскость; уровень пола постановки | `GridCursor.PlaneHit(ray, y, out hit)` (Plane.Raycast сам отвергает enter ≤ 0), `GridCursor.PlaceFloorY()` | `GridCursor.Place.cs`, `GridCursor.Objects.cs` |
+| Прямоугольник UI-элемента в экранных координатах | `ScreenClampUI.WorldRect(rt)` (общий буфер углов) | `Game/UI/ScreenClampUI.cs` |
+| Рект по центру родителя; кнопка с подсветкой и курсором; растянутый sliced-оверлей | `UiFactory.Center(rt)`, `UiFactory.HoverButton(rt, img, colors, onClick)`, `UiFactory.Kit.StretchedSliced` | `Game/UI/UiFactory*.cs` |
 
 ## Разложение больших классов по партиалам
 

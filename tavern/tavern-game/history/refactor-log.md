@@ -1530,3 +1530,71 @@ Test #1 — прежние чужие хвосты, `level_roundtrip.py` — с�
 `FireView.LateUpdate` ≤ 9 мс в кадрах разбора, очередь пуста через 4–8 кадров; живые
 инварианты forest100 — лесные хвосты (деревья у плит поляны, трава в коллайдерах деревьев,
 «листва без CrownCut» соседа), `zone_volumes_probe` ОК. EditMode не гонялись — Илья в play.
+
+
+## 2026-09-11, ночь — глобальный аудит: дубли, кадр, длинные методы (ilya-33)
+
+Илья: «коммить и займись рефакторингом глобальным, без ограничений, приоритет
+качество/архитектура, не ломать, дубли, повторы, фпс». База: контрольная точка
+dd7bc883 (дневная работа соседей), `check_all.py` 136/0, живые инварианты
+Test #1 — прежние чужие хвосты (lamp_ceiling_modern ×2, wall_switch,
+sneakers_pair «преграда прозрачна», frying_pan «висит», home_fridge «упёрся»,
+veg_tree_3 «без CrownCut» ×2, шесть «фокус до сдвига в чужом коллайдере»),
+`level_roundtrip` совпал полностью, инвентарь цел. Замер ДО: кадр 7.7–8.2 мс,
+мусор 16.6 КБ/кадр (редактор), из них скрипты 4.7 КБ.
+
+Аудит — четыре подагента по подсистемам (UI, GridCursor, объекты/фичи,
+погода/персонаж), отчёты в скретчпаде сессии; плюс агрегатор профайлера через
+`ProfilerDriver.GetHierarchyFrameDataView` (self-ms и GC по маркерам за 90
+кадров) — точнее, чем `gc_probe.py scan`, у того дельты тонут в шуме ±2 мс.
+
+27 шагов, каждый — компиляция Roslyn + коммит; после каждого пакета stop →
+компиляция редактора → `check_all.py` (136/0) → play → `invariants_play.py`
+(те же хвосты) → `level_roundtrip.py` («СОВПАЛО полностью», инвентарь цел).
+
+**Кадр (пакет D).** `Interactor.SkipHit`: `GetComponent<Renderer>` на
+коллайдере без рендерера строил в редакторе строку `GetComponentNullErrorMessage`
+— 3.1 КБ/кадр, `TryGetComponent` снимает (в сборке этого мусора не было).
+`PlayerEffects.Collect` форматировал `Loc.F` для каждой активной ступени нужды
+трижды за кадр (CharacterStats, PlayerMovement, EffectRow) — тексты ступеней
+кэшируются по языку (сброс по `Loc.Changed`), 0.9 КБ/кадр → 0 и в сборке тоже.
+`BesideRect` — статический буфер вместо `new Vector2[4]`; `Weather.Dir` — синус
+и косинус раз на смену угла (читается ×1300 деревьев в кадр); `ReachArea` — луч
+под ноги только при показанном круге; `FogAnim` (142 экз.) — `WorldTick.TickAll`
+вместо своих Update; `FarRadius` — флаг `io.Far` вместо `ContainsKey` на 800
+объектов в кадр, `TryGetComponent` при усыплении. Итог: скриптовый мусор
+4.7 КБ → 0.6 КБ/кадр (остальные ~0.4 КБ — URP), кадр в шуме редактора.
+
+⚠️ **Находка, спасшая от регрессии.** У `TreeWind` после `SetVertices(…,
+MeshUpdateFlags.Default)` стоит явный `RecalculateBounds()`; по документации
+флаг Default сам пересчитывает границы, и вызов казался лишним. Зонд в play
+(сдвинуть вершины, прочитать bounds до и после RecalculateBounds) показал: в
+6000.3 `SetVertices` границы НЕ трогает — 8 крон из 8 разошлись. Правка
+откачена до коммита; оставлен только вынос инварианта цикла. Правило: любая
+«лишняя» строка у меша проверяется зондом, а не документацией.
+
+**Дубли (пакеты A–C).** `FurnitureModel.FindNode` — поиск узла модели по имени
+вместо десяти копий цикла (LiquidVolume, OpenSwapView, DrainVortex ×2, Greased,
+Soiling, WaterSource ×2, FireView, GridCursor); `FurnitureModel.Combined` вместо
+пяти ручных `Encapsulate`-циклов; `ObjectDef.IdList/IdListHas` вместо ~20
+`Split(',')+Trim()` (два из них — в кадре призрака и переноса); `PlayerRef.Transform`
+вместо пяти ленивых блоков; `Interactor.Inside` → `NestedInside`;
+`PartMath.SqrPlanar` вместо трёх ручных; в UI — `ScreenClampUI.WorldRect` (3),
+`UiFactory.HoverButton` (3), `BuildScrollbar` (2 тела в одно), `UiFactory.Center`
+(9), `InventoryScreenUI.TopLeft` (7), `UiFactory.Kit.StretchedSliced` (3); в
+GridCursor — `PlaneHit` (4), `PlaceFloorY()` (6), статический массив сторон,
+буфер в `NearestNodeOf` (шкаф — 1400 узлов на кандидата в кадре), словарь
+`HostVariantBase` вместо обхода каталога со Split на каждый кадр переноса.
+
+**Длинные методы (T2).** `HudUI.Debug.RebuildDebugActions` 180 → 30 строк:
+вкладки «Вид», «Погода», «Игрок», «Система» — свои методы, чистый перенос
+скриптом с проверкой скобок вне строк.
+
+**Не взято и почему.** `BuildBottomBar` (212) — файл у соседа ilya-97 (банан);
+`FindOffer`/`UpdateMoveObject` — баг-плотная зона, только при Илье;
+`PowerGrid` пересборка раз в секунду — ключ инвалидации не доказуем (двери,
+зоны, объекты); мемо `ServeTargetUnder` (×8 за кадр переноса) — та же зона;
+`NewRect` в 26 местах UI — две тривиальные строки, вынос ничего не экономит;
+мёртвые `MarkerLabel`, `LiquidVolume.KindClipMaterial` — в список «ждут слова
+владельца» (бэклог). Отдельные `LateUpdate` у DebugGrid/PlankSkin/WallCutaway —
+на Test #1 их по 11–62 штуки, `TickAll` не окупится.
