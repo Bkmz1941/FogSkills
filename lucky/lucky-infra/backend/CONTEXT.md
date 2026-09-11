@@ -48,6 +48,19 @@ bootstrap их отбрасывает (`safeAssetUrl` пускает тольк�
 Перезапуск/обновление: `cd ~/luckyserver-dev && docker compose up -d`
 (pull новых образов — `docker compose pull` перед этим).
 
+**Дев-диск забивается образами — деплой падает на pull.** 2026-09-10 джоба
+`deploy_dev` упала на шаге «Pull API image»:
+`failed to extract layer … no space left on device`. Диск был на 93% (38 ГБ
+всего), при этом `docker system df` показывал 130 образов, 31.6 ГБ, из них
+**29.25 ГБ мусорных (92%)** — висячие образы от каждой сборки CI; основной объём
+лежит в `/var/lib/containerd` (26 ГБ), а не в `/var/lib/docker`. Лечится
+`docker system prune` (93% → 57%), после чего деплой доводится руками:
+`cd ~/luckyserver-dev && docker compose pull && docker compose up -d` — образ CI
+уже собрал и запушил, повторять сборку не нужно. После полного цикла стало 27%.
+Диагностика: `df -h /`, `docker system df`, `sudo du -sh /var/lib/containerd`.
+Прод в тот же день был чист (150 ГБ, 20%), витрина 79 ГБ, 7% — проблема только
+дев-специфичная, из-за частых сборок на маленьком диске.
+
 ## CI (gitlab.agg.one, lucky/luckyserverpro)
 
 verify → build (образ `api-latest-dev` → Docker Hub) → deploy (ansible).
@@ -65,6 +78,30 @@ verify → build (образ `api-latest-dev` → Docker Hub) → deploy (ansibl
 - Раннер k8s: `/builds` world-writable → ansible **игнорирует ansible.cfg**,
   поэтому `ANSIBLE_HOST_KEY_CHECKING: "False"` задан в variables джобы — не
   убирать.
+- **Пайплайн дева может молча не доехать.** 10.09 две подряд правки на `dev`
+  (15:31 и 15:32) не дали нового образа: тег `api-latest-dev` в Docker Hub
+  остался от предыдущего коммита, `docker compose pull` тянул тот же дайджест,
+  и дев продолжал отдавать старый контракт, пока прод уже был новым. `default:
+  interruptible: true` гасит пайплайн предыдущего пуша, так что частые пуши в
+  `dev` — штатный способ это словить.
+  **Как проверить**, что дев реально на нужном коде: не по `/v1/health`
+  (там версия из `package.json`, а не sha) и не по `docker image inspect`
+  (метки коммита не проставляются), а **по маршруту**, который появился или
+  исчез в нужном коммите: `404` против `401` отличает «нет роута» от «роут
+  есть, гард отбил». Сводно — сравнить наборы путей `/docs-json` дева и прода.
+  **Как починить без пуша**, когда `dev` и `master` содержат одинаковый `src/`
+  (проверить: `git diff origin/dev origin/master -- src/` пусто) и между
+  коммитами нет новых миграций: на дев-сервере взять прод-образ и надеть на
+  дев-тег —
+  ```bash
+  docker pull luckyserveragg/luckyserver:api-latest
+  docker tag  luckyserveragg/luckyserver:api-latest \
+              luckyserveragg/luckyserver:api-latest-dev
+  cd /home/admin/luckyserver-dev && docker compose up -d --no-deps api
+  ```
+  Следующий успешный `build_dev` перезапишет тег сам. Пересобрать образ
+  локально нельзя: база — `dhi.io/node:24-debian13` (Docker Hardened Images),
+  нужен `docker login dhi.io` с CI-кредами.
 
 ## Ansible (`others/deploy/ansible`)
 
@@ -227,8 +264,9 @@ Seamless-интеграция с крашами: краши — провайде
    `ssh lucky-dev 'docker exec luckyserver-dev-postgres-1 sh -c "psql -U \$POSTGRES_USER -d \$POSTGRES_DB -X -c \"select c.id, c.project_id, p.name, cur.code, w.balance_code, w.available_amount from clients c join projects p on p.id=c.project_id left join client_wallets w on w.client_id=c.id left join currencies cur on cur.id=w.currency_id where lower(c.email)=lower('"'"'EMAIL'"'"');\""'`
 2. `POST /v1/project/auth/login` `{email,password}` проект-админа нужного
    проекта (BroBro Casino — `brobro-admin@luckyserver.pro`, пароль в
-   `storefront/CONTEXT.md`; либо рут → `POST /v1/root/projects/:p/admins/:a/impersonate`)
-   → `access_token`.
+   `storefront/CONTEXT.md`, строкой ниже email) → `access_token`. **Impersonate
+   рутом не подходит**: `createManualBalanceAdjustment` отвечает 403 «Impersonated
+   project sessions cannot create manual balance adjustments» (проверено 2026-09-09).
 3. `POST /v1/project/finance/users/<clientId>/transactions` с Bearer:
    `{"direction":"credit","amount":"9999","currency":"USD","balance_code":"cash","comment":"...","is_private":false}`
    (`amount` — строка, `debit` для списания, `is_private:true` прячет строку
@@ -236,3 +274,4 @@ Seamless-интеграция с крашами: краши — провайде
 4. Проверить `client_wallets.available_amount` в БД.
 
 Прецедент: 2026-08-21 lcpatron@yandex.ru (BroBro Casino) +9999 USD/cash.
+Прецедент: 2026-09-09 test999@agg.one (BroBro Casino) +1000 USD/cash, tx `1eb1d367…`.

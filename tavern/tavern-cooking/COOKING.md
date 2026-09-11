@@ -931,7 +931,12 @@ id — несёшь стопку из двух, кладёшь на три — �
 - **Электричество**: `PowerGrid` — щиток питает ЗОНЫ, потребители
   (`needsPower`) работают только при питании клетки.
 - **Предметы**: `ItemDef` (id, displayName, размер в сетке, слот
-  экипировки, цвет, иконка, вес); еды как предметов ПОКА НЕТ. Модели еды —
+  экипировки, цвет, иконка, вес); еда как предмет инвентаря есть с 11.09 —
+  первым банан (`Items.Banana`, 2×1, категория «продукты», иконка Lucide
+  `banana`, деф `Props.Banana`, модель `Food/banana.fbx` из
+  `banana_scene.py`, 22.6×6.5×3.8 см, `isProduct`, `strictPlace`; съесть
+  сырым нельзя — `Edible` ставит только `CookProgress`, развилка в
+  `tavern-game/OPEN.md`). Модели еды —
   Kenney Food (`Resources/Food`): apple, bread, bacon, bowl-soup, bottle-*,
   broccoli, … (~100 fbx).
 - **Статы персонажа** (`CharacterStats`): Health, Energy, Mind. Голода/

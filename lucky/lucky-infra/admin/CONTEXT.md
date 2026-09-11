@@ -13,7 +13,9 @@
 мини-сервер node: только раздаёт статику. Прокси `/api` нет (убран
 2026-08-12): браузер ходит в API напрямую по `APP_API_BASE_URL`,
 запечённому в билд (`.env.dev` → `https://dev2.api.luckyserver.pro`);
-CORS для этого открыт на nginx API-домена (`Access-Control-Allow-Origin: *`).
+CORS отдаёт сам API (`main.ts` отражает любой Origin); CORS-блок на nginx
+API-домена убран 2026-08-13, лежит только в
+`/etc/nginx/sites-available/luckyserver-dev2.bak-20260813` (проверено 2026-09-09).
 Конфиг — `~/lucky-admin-dev/.env`: `NODE_ENV`, `HOSTNAME=127.0.0.1`,
 `PORT=3002`.
 
