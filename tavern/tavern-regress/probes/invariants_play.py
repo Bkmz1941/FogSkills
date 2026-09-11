@@ -923,7 +923,28 @@ int torchHand = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " :: "
+// 34. Надетая вещь держится на костях НЫНЕШНЕГО тела (P317): вещь, надетая
+// следом за другой в том же кадре, садилась на арматуру соседней вещи и через
+// кадр теряла все кости — рисовать её было нечем, а герой оказывался голым.
+int garmentBones = 0;
+{
+    var gplayer = Cozy.Grid.PlayerRef.GameObject;
+    var gvisual = gplayer != null ? gplayer.transform.Find("Visual") : null;
+    if (gvisual != null)
+        foreach (UnityEngine.Transform gnode in gvisual)
+        {
+            if (!gnode.name.StartsWith("Wear_") && gnode.name != "Underwear") continue;
+            foreach (var gsmr in gnode.GetComponentsInChildren<UnityEngine.SkinnedMeshRenderer>(true))
+                foreach (var gbone in gsmr.bones)
+                {
+                    garmentBones++;
+                    if (gbone == null || !gbone.IsChildOf(gvisual))
+                    { bad.Append("вещь на чужих костях: " + gnode.name + "/" + gsmr.name + "; "); break; }
+                }
+        }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
