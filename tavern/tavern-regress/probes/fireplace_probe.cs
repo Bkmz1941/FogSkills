@@ -58,18 +58,30 @@ for (int i = 0; i < boxes.Count; i++)
     if (b.max.z > hiZ + 0.002f) bad += " в заднюю стенку " + (b.max.z - hiZ).ToString("F3");
     if (bad != "") { sb.Append("  БРАК " + tags[i] + ":" + bad + "\n"); brak++; }
 }
-float worst = 0f; string worstPair = "";
+// Перекрытие КОРОБОК у лежащих в развилке — норма, коробка повёрнутого
+// полена вдвое больше его самого. Врезание меряется по ОСЯМ: у двух
+// брёвен расстояние между осями не должно быть меньше суммы радиусов.
+// Радиус берём как половину МЕНЬШЕЙ стороны коробки.
+int sink = 0; float worst = 0f; string worstPair = "";
 for (int i = 0; i < boxes.Count; i++)
     for (int j = i + 1; j < boxes.Count; j++)
     {
         if (!boxes[i].Intersects(boxes[j])) continue;
         var a = boxes[i]; var b = boxes[j];
-        float deep = Mathf.Min(Mathf.Min(a.max.x, b.max.x) - Mathf.Max(a.min.x, b.min.x),
-            Mathf.Min(Mathf.Min(a.max.y, b.max.y) - Mathf.Max(a.min.y, b.min.y),
-                      Mathf.Min(a.max.z, b.max.z) - Mathf.Max(a.min.z, b.min.z)));
+        float ra = Mathf.Min(a.size.x, Mathf.Min(a.size.y, a.size.z)) * 0.5f;
+        float rb = Mathf.Min(b.size.x, Mathf.Min(b.size.y, b.size.z)) * 0.5f;
+        float need = ra + rb;
+        var d = a.center - b.center;
+        // Вдоль полена они лежат внахлёст по построению, поэтому меряем в
+        // плоскости «поперёк + высота» той пары, что шире вдоль x.
+        float dist = new Vector2(Mathf.Abs(d.y), Mathf.Abs(a.size.x > a.size.z ? d.z : d.x)).magnitude;
+        float deep = need - dist;
+        if (deep <= 0.003f) continue;
+        sink++;
         if (deep > worst) { worst = deep; worstPair = tags[i] + "/" + tags[j]; }
     }
-sb.Append("мест " + boxes.Count + ", брака " + brak + ", худшее перекрытие коробок " + worst.ToString("F3") + " " + worstPair + " (у лежащих в развилке до 0.04 — норма)\n");
+sb.Append("мест " + boxes.Count + ", вне объёма " + brak + ", врезаний по осям " + sink
+    + (sink > 0 ? " (худшее " + worst.ToString("F3") + " " + worstPair + ")" : "") + "\n");
 var T = typeof(Cozy.Grid.GridCursor);
 var B = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
 System.Reflection.MethodInfo mFor = null, mFree = null;
