@@ -944,13 +944,46 @@ int garmentBones = 0;
         }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " :: "
+// 35. Ветка под ворон живёт по своим мерам (P322, инвариант 120): выключенная
+// держит ПУСТОЙ меш и не имеет гнёзд (иначе ворона липнет к дереву без ветки),
+// включённая даёт ровно два гнезда, разнесённых так, чтобы влезли две птицы.
+int perches = 0;
+foreach (var pio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+{
+    var pperch = Cozy.Grid.CrowPerch.Of(pio);
+    if (pperch == null) continue;
+    perches++;
+    UnityEngine.Transform pbranch = null;
+    foreach (var pt in pio.GetComponentsInChildren<UnityEngine.Transform>(true))
+        if (pt.name == Cozy.Grid.CrowPerch.NodeName) { pbranch = pt; break; }
+    if (pbranch == null) { bad.Append("у дерева нет узла ветки: " + pio.Def.id + "; "); continue; }
+    var pmounts = new System.Collections.Generic.List<UnityEngine.Transform>();
+    foreach (var pt in pbranch.GetComponentsInChildren<UnityEngine.Transform>(true))
+        if (pt.name.StartsWith(Cozy.Grid.CrowPerch.MountPrefix)) pmounts.Add(pt);
+    var pfilter = pbranch.GetComponent<UnityEngine.MeshFilter>();
+    int pverts = pfilter != null && pfilter.sharedMesh != null ? pfilter.sharedMesh.vertexCount : 0;
+    if (!pperch.On)
+    {
+        if (pverts != 0) bad.Append("выключенная ветка рисуется: " + pio.Def.id + "; ");
+        if (pmounts.Count != 0) bad.Append("у выключенной ветки остались гнёзда: " + pio.Def.id + "; ");
+        continue;
+    }
+    if (pverts == 0) bad.Append("включённая ветка без меша: " + pio.Def.id + "; ");
+    if (pmounts.Count != 2) bad.Append("гнёзд на ветке " + pmounts.Count + " вместо двух: " + pio.Def.id + "; ");
+    else if ((pmounts[0].position - pmounts[1].position).magnitude < 0.5f)
+        bad.Append("гнёзда на ветке ближе полуметра: " + pio.Def.id + "; ");
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
 
 def main():
-    code = '\n'.join(l for l in CODE.splitlines() if l.strip() and not l.strip().startswith('//'))
+    # Мост режет код на 50 000 символов, а отступы занимают шесть с половиной
+    # тысяч: снимаем их вместе с комментариями. Многострочных литералов (@"…")
+    # в правилах нет, поэтому отступ ничего не значит.
+    code = '\n'.join(l.strip() for l in CODE.splitlines() if l.strip() and not l.strip().startswith('//'))
     code = code.replace('STRIKE_ALLOWED', 'true' if '--strike' in sys.argv else 'false')
     out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": code})],
                          capture_output=True, text=True, timeout=280)
