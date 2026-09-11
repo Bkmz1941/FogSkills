@@ -7,9 +7,17 @@
 
 Как работает: сравнивает рабочее дерево с HEAD, делит расхождения на блоки и
 оставляет только те, где встречаются ТВОИ слова. Блок, где нашлись и твои, и
-чужие слова, разбирается построчно. Изменённое содержимое кладётся прямо в
-индекс через `git hash-object` + `git update-index` — РАБОЧЕЕ ДЕРЕВО НЕ
+чужие слова, разбирается построчно: выбрасываются ТОЛЬКО строки с чужими
+словами, нейтральные (скобки, `return`, `get`) остаются — иначе от блока
+оставалась одна начинка без объявлений и код не собирался (поймал ilya-97
+11.09 на `FireplaceFire.cs`: 6 строк вместо 21). Изменённое содержимое кладётся
+прямо в индекс через `git hash-object` + `git update-index` — РАБОЧЕЕ ДЕРЕВО НЕ
 ТРОГАЕТСЯ, чужие правки остаются на диске как были.
+
+Сторож: если у файла в рабочем дереве скобки сходятся, а у собранной версии
+нет — файл НЕ стейджится вовсе, и скрипт говорит почему. Разрез по словам
+может попасть в середину объявления, и такую версию лучше не коммитить совсем,
+чем коммитить молча.
 
     python3 stage_mine.py --repo /media/ilya/T714/Unity/Tavern-fresh \\
         --mine ворон,perch,CrowPerch --foreign камин,Fire,fireplace \\
@@ -30,30 +38,47 @@ def hit(line, words):
     return any(w and w in line for w in words)
 
 
+PAIRS = (('{', '}'), ('(', ')'), ('[', ']'))
+
+
+def unbalanced(text):
+    return [o + c for o, c in PAIRS if text.count(o) != text.count(c)]
+
+
 def stage(repo, path, mine, foreign):
     head = head_lines(repo, path)
     work = open(os.path.join(repo, path), encoding='utf-8').readlines()
     blocks = difflib.SequenceMatcher(None, head, work, autojunk=False).get_opcodes()
-    out, kept, skipped = [], 0, 0
+    out, kept, skipped, split = [], 0, 0, 0
     for tag, i1, i2, j1, j2 in blocks:
-        old, new = head[i1:i2], work[j1:j2]
+        was, now = head[i1:i2], work[j1:j2]
+        is_mine = any(hit(l, mine) for l in was + now)
+        is_foreign = any(hit(l, foreign) for l in was + now)
         if tag == 'equal':
-            out.extend(old)
-            continue
-        is_mine = any(hit(l, mine) for l in old + new)
-        is_foreign = any(hit(l, foreign) for l in old + new)
-        if is_mine and not is_foreign:
-            out.extend(new); kept += 1
+            out.extend(was)
+        elif is_mine and not is_foreign:
+            out.extend(now); kept += 1
         elif is_mine and is_foreign and tag == 'insert':
-            out.extend(l for l in new if hit(l, mine) and not hit(l, foreign))
-            kept += 1; skipped += 1
+            # Нейтральная строка (ни своих слов, ни чужих) — СВОЯ: скобки,
+            # `return`, `get` держат объявление, и выбрасывать их нельзя.
+            out.extend(l for l in now if not hit(l, foreign))
+            kept += 1; split += 1
         else:
-            out.extend(old); skipped += 1
+            out.extend(was); skipped += 1
+    content = ''.join(out)
+    torn = unbalanced(content)
+    if torn and not unbalanced(''.join(work)):
+        print('%s: ⛔ НЕ застейджено — в собранной версии не сходятся %s, '
+              'а в рабочем дереве сходятся. Разрез попал в середину объявления: '
+              'уточни слова или закоммить файл целиком.' % (path, ', '.join(torn)))
+        return
     blob = subprocess.run(['git', 'hash-object', '-w', '--path', path, '--stdin'], cwd=repo,
-                          input=''.join(out), capture_output=True, text=True).stdout.strip()
+                          input=content, capture_output=True, text=True).stdout.strip()
     subprocess.run(['git', 'update-index', '--add', '--cacheinfo', '100644,%s,%s' % (blob, path)],
                    cwd=repo, check=True)
-    print('%s: своих блоков %d, чужих пропущено %d' % (path, kept, skipped))
+    note = ', смешанных блоков разобрано построчно %d' % split if split else ''
+    print('%s: своих блоков %d, чужих пропущено %d%s | строк HEAD %d, в индексе %d, в дереве %d'
+          % (path, kept, skipped, note, len(head), content.count(chr(10)), len(work)))
 
 
 def main():
