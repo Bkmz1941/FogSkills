@@ -15,8 +15,14 @@ claude-skills/
     tavern-ideas/      компаньон-геймдизайнер: столпы, вкус, отвергнутое, мысли (только по зову)
     tavern-refactor/   как рефакторим: протокол, приёмы, цели
     tavern-hands/      руки: предмет в руке (фонарь), наведение, фокус ПКМ, свет
+  unity/           вендорские скилы Unity Technologies (урезанная копия плагина)
+    unity-ugui/ unity-tmp/ unity-urp-post/ unity-urp-rendergraph/
+    unity-shadergraph-node/ unity-audio-mixers/ unity-audio-optimize/
+    unity-physics-3d/ unity-packages/ unity-navmesh/
   crash-heroes/    crash-games/      инфраструктура краш-игр
-  lucky/           lucky-infra/      Lucky Server, деплой и CI
+  lucky/           Lucky Server (white-label casino SaaS)
+    lucky-infra/       серверы, деплой и CI
+    lucky-back/        бэкенд: код API, модули, схема, деньги
   olimp/           olimp-api/        CMS и API мобилок OlimpBet
   poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
   personal/        shinobi-council/  формат ответов «Совет шиноби»
@@ -63,8 +69,13 @@ mkdir -p ~/.claude/skills
 for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor tavern-hands; do
   ln -sfn $R/tavern/$s ~/.claude/skills/$s
 done
+for s in unity-ugui unity-tmp unity-urp-post unity-urp-rendergraph unity-shadergraph-node \
+         unity-audio-mixers unity-audio-optimize unity-physics-3d unity-packages unity-navmesh; do
+  ln -sfn $R/unity/$s ~/.claude/skills/$s
+done
 ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
 ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
+ln -sfn $R/lucky/lucky-back           ~/.claude/skills/lucky-back
 ln -sfn $R/olimp/olimp-api            ~/.claude/skills/olimp-api
 ln -sfn $R/poker/poker-infra          ~/.claude/skills/poker-infra
 ln -sfn $R/personal/shinobi-council   ~/.claude/skills/shinobi-council
@@ -97,3 +108,5 @@ done
 - **2026-09-07** — разложено по проектным папкам, до этого всё лежало плоско в
   корне. Тогда же удалены `debug-panel`, `admin-ui`, `vitriny-tz` — по решению
   Ильи; восстановимы из истории git.
+- **2026-09-09** — добавлен `lucky/lucky-back` (код бэкенда Lucky); `lucky-infra`
+  остаётся про серверы, деплой и CI.

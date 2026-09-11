@@ -1,17 +1,6 @@
 ---
 name: lucky-infra
-description: >
-  Инфраструктура и деплой проекта «Lucky» (Lucky Server — white-label casino
-  SaaS). Активируй, когда Илья работает с серверами Лаки — дев
-  (178.104.243.232, 95.216.163.101) или **продом** — 178.105.17.213 (API+админка,
-  с 21.08 деплой через CI) и 144.31.40.52 (витрина brobro.casino; предельно аккуратно),
-  деплоем/CI (gitlab.agg.one, lucky/luckyserverpro, lucky/lucky-admin,
-  lucky/lucky-storefront, lucky/brobrocasino), доменами
-  dev2.api/dev2.admin/dev.luckyserver.pro/storefront.luckyserver.pro,
-  api./admin.luckyserver.pro, ansible-раскаткой (репо AGG/servers),
-  nginx/сертификатами, админкой или витриной Lucky. Также по запросам
-  «задеплой лаки», «что с дев-сервером лаки», «проверь апи лаки»,
-  «настраиваем лаки прод», «прод лаки».
+description: Инфра и деплой «Lucky»: дев 178.104.243.232 / 95.216.163.101, прод 178.105.17.213 (API+админка) и 144.31.40.52 (витрина brobro.casino), gitlab.agg.one, *.luckyserver.pro, ansible, nginx. По «задеплой лаки», «что с дев-сервером лаки», «прод лаки».
 ---
 
 # Lucky — инфраструктура (дев + прод)
@@ -25,6 +14,10 @@ description: >
 | API: compose-стек, ansible, CI luckyserverpro, версия, БД, root-юзеры | `backend/CONTEXT.md` |
 | Админка: SPA, user-юнит, CI lucky-admin, вход | `admin/CONTEXT.md` |
 | Витрина: новый фронт lucky-storefront (~/Documents/Work/Lucky/lucky-storefront) + прежний brobrocasino, сервер brobro-dev 95.216.163.101, nginx-статика, CI | `storefront/CONTEXT.md` |
+
+Код API (модули, схема, деньги, тесты, локальный запуск) — отдельный скил
+**lucky-back** (`~/.claude/skills/lucky-back/`); `backend/CONTEXT.md` здесь
+остаётся про серверный стек, CI и ansible.
 
 ## Серверы — сводка
 

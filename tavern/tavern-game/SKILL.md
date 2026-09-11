@@ -1,12 +1,6 @@
 ---
 name: tavern-game
-description: >
-  Игра «Таверна» — хоррор-выживалка на Unity 6.3 (C#, uGUI, ScriptableObject,
-  grid-размещение, NavMesh, сейвы). Активируй ВСЕГДА при работе над ней:
-  геймдизайн, механики (стройка и баррикады, выживание, события мира, монстры,
-  рассудок, день/ночь), Unity-код, UI, ассеты, баланс, Blender-пайплайн,
-  прототип/MVP. Также по «запиши решение по игре», «что мы решили по…»,
-  «открой журнал решений».
+description: Игра «Таверна» — хоррор-выживалка на Unity 6.3 (C#, uGUI, ScriptableObject, grid-размещение, NavMesh, сейвы). Активируй ВСЕГДА при работе над ней: геймдизайн, механики, Unity-код, UI, ассеты, баланс, Blender. Также «запиши решение по игре», «что мы решили по…», «журнал решений».
 ---
 # Игра «Таверна» — рабочий контекст
 
@@ -187,3 +181,25 @@ domain reload во время игры замирает физику и инпу
 - Скилы лежат в `/media/ilya/T714/claude-skills/tavern/`, в `~/.claude/skills/`
   — симлинки. ⚠️ У этого репозитория НЕТ remote: он существует в одном
   экземпляре на внешнем диске.
+
+## Unity-скилы от Unity Technologies — локальная урезанная копия (11.09.2026)
+
+Официальный плагин `unity@claude-plugins-official` ставили и сняли: 29 скилов стоили
+~5,4k токенов always-on в КАЖДОЙ сессии, а 19 из них — про чужие темы (IAP, LevelPlay,
+Vivox, мультиплеер, 2D/tilemap/sprite, web). Оставили 10 нужных отдельными скилами в
+`~/.claude/skills/unity-*` с короткими описаниями — всё вместе ~150 токенов:
+
+`unity-ugui`, `unity-tmp`, `unity-urp-post`, `unity-urp-rendergraph`,
+`unity-shadergraph-node`, `unity-audio-mixers`, `unity-audio-optimize`,
+`unity-physics-3d`, `unity-packages`, `unity-navmesh`.
+
+1. **Редактором рулим ТОЛЬКО через `UnityMCP`** (`com.coplaydev.unity-mcp`) —
+   `execute_code`, `manage_gameobject`, `manage_asset`. Ничего в этом не меняем.
+2. **Unity CLI не ставим — правило.** Вендорские скилы местами советуют
+   `unity eval` / `unity command` / `unity status` / `unity mcp configure` и пакет
+   `com.unity.pipeline` в проект. НЕ выполнять: CLI в бете, два моста к одному
+   редактору — гонки и порча сцены. В начале каждой нашей копии стоит баннер с этим
+   правилом.
+3. **Обновление — руками.** Копии вендорные, автообновления нет. Освежить:
+   склонировать `github.com/Unity-Technologies/unity-agent-plugin`, перенести тела
+   `SKILL.md`, а короткое описание и баннер оставить свои.
