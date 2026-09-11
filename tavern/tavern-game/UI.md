@@ -3306,3 +3306,29 @@ zoomMin, zoomMax)`. Он делает ЖИВУЮ КОПИЮ узла `Visual` и
 объекта фигуру не прячет — `PlayerGhost.Set(!PlayerPosture.Holds(host))` и
 в `OpenExamine`, и в `HudUI.Update` (Илья: «при осмотре на кровати
 персонажа не исчезать»).
+
+### Инвентарь: перетаскивание предмета НА предмет (2026-09-11, Илья)
+
+Цель приёма ищется там же, где строится призрак постановки
+(`InventoryScreenUI.Drag.UpdateGhost`): клетка под якорем занята —
+`GridInventory.ItemAt` даёт хозяина, `HostUnder` решает, примет ли он.
+Приёмная сетка: у прибора `PowerCells.SlotsOf` (гнездо), иначе `contents`
+(карманы). Нет места — цели нет, рисуется обычный призрак.
+
+- **Гнездо** (`def.powerCells > 0`): `UiTheme.Accept` + `UiTheme.TileAccept`
+  — синяя обводка и синяя полупрозрачная заливка. Предмет вставляется.
+- **Контейнер** (карманы): `UiTheme.Outline` + `UiTheme.TileFocus` — белая
+  подсветка, как обычный фокус. Предмет кладётся.
+
+Метку держит `InventoryItemView.SetDropMark` поверх hover/selected, цвета
+выбираются в `ApplyFocus`. Призрак постановки на время цели гасится, чтобы
+красный квадрат «нельзя» не спорил с подсветкой.
+
+При отпускании `ResolveDrop` кладёт в найденную сетку САМУ запись
+(`TryAdd(PlacedItem)`) — заряд батарейки и содержимое едут с ней; поворот
+сбрасывается в 0, как и проверялось местом. Не влезло — запись возвращается
+на прежний поворот и работают старые пути (слот экипировки, сетка, откат в
+исходную).
+
+Защита: `ContainerSlotTests` — `ItemAtNamesOwnerOfCell`,
+`BatteriesDroppedOnFlashlightKeepCharge`, `SocketRefusesWhatIsNotPowerCell`.
