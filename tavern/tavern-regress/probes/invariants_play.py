@@ -762,6 +762,11 @@ int exposure = 0;
 // дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется);
 // у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, БЕЗ записи глубины, очередь BandQueue
 // до дождя и тумана, без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒
+// ⭐ КОРА ПРОВЕРЯЕТСЯ ПО КЛЮЧУ РЕЗА, А НЕ ПО ШЕЙДЕРУ (13.09): с переносом ветра на GPU
+// (windKind) изгиб коры считает FoliageWind внутри Tavern/CrownCut, и кора ЗАКОННО живёт
+// на этом шейдере — материал «… (wind)». Правило же защищает от другого: чтобы окно кроны
+// не вырезало ствол. Режет ключ _CROWN_CUT, его и спрашиваем. Проверка по имени шейдера
+// давала 709 ложных жалоб на forest100 — ровно по одной на дерево.
 // кайма шире 1 px; маска каймы _CrownBandTex рисуется ровно тогда, когда включена хоть одна кайма (_CrownBandOn).
 // СГОРЕВШАЯ листва из счёта выброшена: FireView меняет её на CrownWindow.Invisible(), и это не брак, а зола.
 int crowns = 0;
@@ -786,7 +791,7 @@ int crowns = 0;
             if (crown == null) continue;
             var bark = new System.Collections.Generic.HashSet<UnityEngine.Material>();
             if (trunk != null) foreach (var cr in trunk.GetComponentsInChildren<UnityEngine.MeshRenderer>(true)) foreach (var cm in cr.sharedMaterials) if (cm != null) bark.Add(cm);
-            foreach (var cm in bark) if (cm.shader.name == "Tavern/CrownCut") { bad.Append("кора на CrownCut: " + cio.name + "; "); break; }
+            foreach (var cm in bark) if (cm.IsKeywordEnabled(Cozy.Grid.CrownWindow.CutKeyword)) { bad.Append("кору режет окно кроны: " + cio.name + "; "); break; }
             int leaf = 0, cut = 0, bandsHere = 0;
             foreach (var cr in crown.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
             {
@@ -885,7 +890,10 @@ if (cam != null && mDistOf != null && pColumn != null && mShiftOut != null && mT
     var hostBefore29 = Cozy.Grid.Interactor.ExamineHost;
     foreach (var io in Cozy.Grid.InteractiveObject.All)
     {
-        if (io == null || io.Def == null || io.Container != null) continue;
+        // Только ОСМАТРИВАЕМЫЕ: правило про камеру осмотра, а её нельзя открыть
+        // на объекте без `examinable`. На forest100 таких объектов ноль из 7760,
+        // и правило давало 106 жалоб на камеру, которой там не бывает (13.09).
+        if (io == null || io.Def == null || io.Container != null || !io.Def.examinable) continue;
         var center = io.WorldBounds.center;
         focusShifts++;
         Cozy.Grid.Interactor.ExamineHost = io;
