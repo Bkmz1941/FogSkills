@@ -998,6 +998,9 @@ foreach (var pio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveOb
         continue;
     }
     if (pverts == 0) bad.Append("включённая ветка без меша: " + pio.Def.id + "; ");
+    int pcached = 0;
+    for (int pi = 0; pi < pperch.MountCount; pi++) if (pperch.MountOf(pi) != null) pcached++;
+    if (pcached != pmounts.Count) bad.Append("кэш гнёзд ветки " + pcached + " против " + pmounts.Count + ": " + pio.Def.id + "; ");
     if (pmounts.Count != 2) bad.Append("гнёзд на ветке " + pmounts.Count + " вместо двух: " + pio.Def.id + "; ");
     else if ((pmounts[0].position - pmounts[1].position).magnitude < 0.5f)
         bad.Append("гнёзда на ветке ближе полуметра: " + pio.Def.id + "; ");
@@ -1083,7 +1086,27 @@ int aimPts = 0;
     }
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " :: "
+// 38. ПЕРЕПИСИ СОВПАДАЮТ С ПЕРЕБОРОМ (13.09): покадровые системы спрашивают
+// список, а не перебирают уровень. Списки ведутся вручную, и пропущенный крючок
+// делает подмножество неполным МОЛЧА: тепло не считается, ветка выпадает из поиска.
+int cens1 = Cozy.Grid.InteractiveObject.Conducting.Count, cens2 = Cozy.Grid.InteractiveObject.Clad.Count;
+int cens3 = Cozy.Grid.CrowPerch.All.Count, cens4 = Cozy.Grid.CrowFlight.All.Count;
+{
+var mSeat = typeof(Cozy.Grid.CladCuts).GetMethod("Seated", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+int w1 = 0, w2 = 0, w4 = 0;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+if (io == null || io.Def == null) continue;
+if (io.Conducts) w1++;
+if (mSeat != null && (bool)mSeat.Invoke(null, new object[] { io })) w2++;
+if (io.Def.birdIdle) w4++;
+}
+if (cens1 != w1) bad.Append("перепись проводящих " + cens1 + " против " + w1 + "; ");
+if (cens2 != w2) bad.Append("перепись врезки обшивки " + cens2 + " против " + w2 + "; ");
+if (cens4 != w4) bad.Append("перепись птиц " + cens4 + " против " + w4 + "; ");
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 
@@ -1097,8 +1120,15 @@ def main():
     out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": code})],
                          capture_output=True, text=True, timeout=280)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else '{}'
+    if len(code) > 50000:
+        print('ПРОБА НЕ ОТПРАВЛЕНА: код %d символов при лимите моста 50 000 — правила надо ужать или резать прогон надвое' % len(code))
+        return
     data = json.loads(line)
-    print(data.get("data", {}).get("result") or json.dumps(data, ensure_ascii=False)[:400])
+    body = data.get("data") if isinstance(data, dict) else None
+    if not isinstance(body, dict) or not body.get("result"):
+        print('ПРОБА НЕ ОТВЕТИЛА: ' + json.dumps(data, ensure_ascii=False)[:400])
+        return
+    print(body["result"])
 
 
 if __name__ == '__main__':
