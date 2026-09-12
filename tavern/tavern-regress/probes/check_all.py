@@ -76,6 +76,31 @@ def tests():
     return None
 
 
+def restore_scene():
+    """Тест-раннер уводит редактор на свою БЕЗЫМЯННУЮ сцену и не всегда возвращает
+    игровую — даже когда прогон дошёл до конца (P309, повтор 12.09). Play на ней
+    поднимает только синглтоны: ни уровня, ни HUD, ни персонажа."""
+    d = mcp('execute_code', {"action": "execute", "code":
+            'var sc = UnityEngine.SceneManagement.SceneManager.GetActiveScene();'
+            'if (UnityEngine.Application.isPlaying) return "play|" + sc.path;'
+            'if (sc.path == "Assets/Scenes/level1.unity") return "ок|" + sc.path;'
+            'if (sc.path != "") return "чужая|" + sc.path;'
+            'var back = UnityEditor.SceneManagement.EditorSceneManager.OpenScene('
+            '"Assets/Scenes/level1.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);'
+            'return "вернул|" + back.path;'})
+    res = (d.get('data') or {}).get('result') or '|'
+    state, path = (res.split('|') + ['', ''])[:2]
+    if state == 'вернул':
+        print('сцена: раннер оставил редактор на БЕЗЫМЯННОЙ пустой сцене — вернул', path, '(P309)')
+    elif state == 'чужая':
+        print('сцена: редактор на', path, '— не игровая, проверь перед play (P309)')
+    elif state == 'play':
+        print('сцена: редактор в play на', path or 'БЕЗЫМЯННОЙ — это P309, останови play и открой level1.unity')
+    else:
+        print('сцена: игровая, ок')
+    return state in ('ок', 'вернул')
+
+
 def probe(name):
     out = subprocess.run(['python3', REG + '/probes/' + name],
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
@@ -93,6 +118,7 @@ def main():
     ok_tests = None
     if not play:
         ok_tests = tests()
+        restore_scene()
     else:
         print('тесты: пропущены — редактор в play')
     if play:

@@ -82,6 +82,29 @@ for (int i = 0; i < boxes.Count; i++)
     }
 sb.Append("мест " + boxes.Count + ", вне объёма " + brak + ", врезаний по осям " + sink
     + (sink > 0 ? " (худшее " + worst.ToString("F3") + " " + worstPair + ")" : "") + "\n");
+// Пламя обязано целиком помещаться в топку: языки, вылезшие выше проёма,
+// рисуются поверх плиты камина (Илья 11.09).
+var fire = Cozy.Grid.FireplaceFire.On(io);
+if (fire != null)
+{
+    fire.SetLit(true);
+    var flame = body.transform.Find("Fire");
+    if (flame != null)
+    {
+        var fb = new Bounds(); bool ff = true;
+        float outY = 0f, outZ = 0f, outX = 0f;
+        for (int k = 0; k < 40; k++)
+        {
+            foreach (var r in flame.GetComponentsInChildren<Renderer>(true)) { if (ff) { fb = r.bounds; ff = false; } else fb.Encapsulate(r.bounds); }
+            outY = Mathf.Max(outY, fb.max.y - ceil.min.y);
+            outZ = Mathf.Max(outZ, glass.max.z - fb.min.z);
+            outX = Mathf.Max(outX, Mathf.Max(sideL.max.x - fb.min.x, fb.max.x - sideR.min.x));
+        }
+        sb.Append("пламя " + fb.size.ToString("F2") + ": выше проёма " + outY.ToString("F3")
+            + ", наружу " + outZ.ToString("F3") + ", вбок " + outX.ToString("F3") + " (минус — внутри)\n");
+    }
+    fire.SetLit(false);
+}
 var T = typeof(Cozy.Grid.GridCursor);
 var B = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
 System.Reflection.MethodInfo mFor = null, mFree = null;

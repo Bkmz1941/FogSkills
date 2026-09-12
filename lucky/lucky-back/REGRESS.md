@@ -1,190 +1,234 @@
-# Регресс seamless-wallet коллбэков на дев-стенде
+# Регресс интеграции игрового провайдера на живом стенде
 
-Проверяет живой `dev2.api.luckyserver.pro` по всем пяти денежным роутам
-`/v1/external/game-provider/*` (player/info, bet, win, cancel, rollback), по
-каталогу на `/games` (GET/POST/DELETE/PATCH) и по запуску игры. Скрипт —
-`~/.claude/skills/lucky-back/probes/game-provider-regress.mjs`, 38 проверок плюс 2
-необязательные, с PASS/FAIL и итоговой строкой; код выхода 1 при любом провале.
-Ключи не печатает.
-Последний зелёный прогон целиком: 2026-09-10 на деве, `b2ff72a`, **40/40** — вся
-цепочка от регистрации игрока до отката, вместе с каталогом (включая `GET /games`)
-и веткой `in_use`.
+Два скрипта в `~/.claude/skills/lucky-back/probes/`, оба печатают PASS/FAIL и
+выходят с кодом 1 при любом провале. Ключи не печатают.
 
-## Что покрыто
+| Скрипт | Что проверяет | Что нужно на входе |
+|---|---|---|
+| `game-provider-regress.mjs` | деньги: `user/info`, `bet`, `win` (в том числе с `cancel`), `rollback` | ключи провайдера + живой launch-токен |
+| `provider-catalog-regress.mjs` | каталог и модерация: загрузка, гейт, approve/decline, revoke, удаление рутом | ключи провайдера + Bearer рут-админа |
+
+**Контракт сменился 2026-09-11, дважды.** Первой правкой `player/info` и
+отдельный `cancel` удалены, появились `user/info`, `win` с флагом `cancel` и
+`POST games/{id}/revoke` вместо `DELETE games/{id}`. Второй, вечерней:
+
+- `PATCH games/{id}` (включение и выключение) **удалён целиком**. `is_active`
+  теперь только наш, меняется рутом через `PATCH /root/games/{id}`. Вместе с
+  эндпоинтом ушли коды `game_revoked` и `game_not_approved`.
+- **Отзыв только помечает.** `revoke` ставит `revoked` и больше не делает
+  ничего: выключатель, привязки к проектам и плитки на опубликованной главной
+  остаются на месте. Игрока это не задевает — гейт `provider_status =
+  'approved'` держит и так, — зато вёрстка проекта переживает отзыв.
+- Поле сессии называется `session` везде; `sessionToken` и `timestamp` в
+  `user/info` больше не принимаются.
+- **Запаса после истечения сессии нет.** `user/info`, `bet` и `win` отказывают
+  сразу по `expires_at`; у `rollback` срока по-прежнему нет вовсе.
+
+Оба скрипта переписаны под это; прогоны старше 11.09 сравнивать нельзя.
+
+---
+
+## 1. Деньги — `game-provider-regress.mjs`
+
+22 проверки. Вход — файл из трёх строк: `public_key` провайдера,
+`private_key` провайдера, `launch_token` живой сессии. Сессия должна быть
+**живой**: с 11.09 запаса после `expires_at` нет, просроченная сессия валит
+прогон на нулевой проверке.
 
 | № | Проверка | Ожидание |
 |---|---|---|
-| 0, 22 | `player/info` до и после | 200, баланс в минорных единицах сходится с расчётом |
+| 0, 22 | `user/info` до и после | 200, баланс сходится с расчётом по шагам |
 | 1–4 | ставка, повтор, повтор с другой суммой, выигрыш | 201 / тот же ответ / 409 `idempotency_conflict` / 201 |
-| 5–6 | ставка и отмена | деньги вернулись |
+| 5–6 | ставка и отмена (`win` + `cancel:true`) | деньги вернулись |
 | 7–9 | ставка, откат, повтор отката | `reversed:true`, повтор отдаёт тот же ответ |
 | 10–11 | откат неизвестной операции, опоздавшая ставка | 201 `reversed:false`, затем 409 `already_rolled_back` |
-| 12 | откат **отмены** | списывает 100 обратно (раньше зачислял второй раз) |
+| 12 | откат **отмены** | списывает обратно, а не зачисляет второй раз |
 | 13 | откат **выигрыша** | списывает выигрыш |
-| 14–15 | лишнее поле в теле | подписано целиком → 400 `invalid_request`; подписаны только известные поля → 401 `invalid_signature` (подпись считается по сырому телу) |
-| 16 | сумма из 31 цифры | 400 `invalid_request`, не 500 |
-| 17 | битый JSON | 400 `invalid_request` в конверте `{error:{code,message}}` |
-| 18–20 | неверная подпись, без заголовков, чужой токен | 401 `invalid_signature`, 401 `missing_signature`, 404 `unknown_session` |
+| 14–15 | лишнее поле в теле | подписано целиком → 400 `invalid_request`; подписаны только известные поля → 401 `invalid_signature` |
+| 16–17 | сумма из 31 цифры, битый JSON | 400 `invalid_request`, не 500 |
+| 18–20 | неверная подпись, без заголовков, чужой токен | 401 / 401 `missing_signature` / 404 `unknown_session` |
 | 21 | пять одинаковых ставок параллельно | один `processedTxId`, списание одно |
-| 22a, 29a, 30a | `GET /games`: список до загрузки, после неё и после удаления | `total` растёт на 1 и возвращается назад; новая игра видна с нужными полями |
-| 23-24 | `POST /games`: новая игра, затем повтор | `created:1`, затем `updated:1` — сверка идёт по `id` провайдера |
-| 25 | `POST /games` с `type: "crash-games"` | 400 `invalid_request`: `type` — категория Lucky (`crash`), а не провайдера |
-| 26 | `POST /games` без `cover_url` | 400 `invalid_request`, поле обязательное |
-| 27-28 | `PATCH /games` выкл, затем вкл | `is_active` переключается, игра остаётся |
-| 29 | `PATCH /games` неизвестного id | 404 `unknown_game` |
-| 30 | `DELETE /games` своей игры и несуществующей | `deleted:[своя]`, `not_found:[чужая]`, `in_use:[]` |
-| 31 | `PATCH` удалённой игры | 404 `unknown_game` — доказательство, что строка ушла |
-| 32-33 | `DELETE` настоящей сыгранной игры (только с `PLAYED_GAME_ID`) | `in_use:[id]`, `deleted:[]`, игра на месте — БД держит её через `ON DELETE RESTRICT` |
+| 21a–21c | `origin` в ответе | поля провайдера на месте, токена сессии нет, повтор отдаёт записанный первым |
 
-## Порядок запуска
+### Порядок запуска на деве (пройден целиком 2026-09-11)
 
-1. **Тестовый игрок.** Не гонять на живых игроках: у `test999@agg.one` уже размазана история.
-   Зарегистрировать своего через публичный API (нужен `X-Public-Key` проекта BroBro —
-   `project_api_keys.key_id` с `key_type='public_client'`, лежит на сервере в `/tmp/probe-pk`):
-   `POST /v1/auth/register` `{locale:"en", email, currency:"USD", password, password_confirmation}` →
-   `access_token`; id клиента — `GET /v1/core/auth/me` → `client.id`.
-2. **Пополнить** через API проект-админа `brobro-admin@luckyserver.pro` (пароль — `lucky-infra/storefront/CONTEXT.md`,
-   строкой ниже email): `POST /v1/project/finance/users/<clientId>/transactions`
-   `{"direction":"credit","amount":"1000","currency":"USD","balance_code":"cash","comment":"…","is_private":false}`.
+Гонять можно **с локальной машины**, ничего на сервер копировать не нужно —
+скрипт ходит по HTTPS. Проект один: `storefront-luckyserver-pro` (он же «BroBro
+Casino»), только у него подключён провайдер и добавлены игры.
+
+1. **Ключи провайдера.** Приватный ключ у нас зашифрован, но та же пара лежит на
+   стороне крашей — оттуда и брать, не печатая:
+   ```bash
+   ssh crash-dev 'cd ~/crashgames/minigames-admin-back && php artisan tinker --execute="
+     \$p = \App\Models\Project::where(\"api_user_info\",\"like\",\"%luckyserver%\")->first();
+     echo \$p->api_key.PHP_EOL.\$p->api_secret.PHP_EOL;"' > /tmp/keys
+   ```
+2. **Публичный ключ проекта** (браузерный `pk_…`, не секрет):
+   ```sql
+   select k.key_id from project_api_keys k join projects p on p.id=k.project_id
+   where p.slug='storefront-luckyserver-pro' and k.key_type='public_client' and k.revoked_at is null limit 1;
+   ```
+3. **Тестовый игрок.** Не гонять на живых: у `test999@agg.one` уже размазана история.
+   `POST /v1/auth/register` с `X-Public-Key` → `access_token`, id сразу в `client.id`.
+   Тело: `{locale, currency, email, password, password_confirmation}` — без `currency`
+   ответ `INVALID_CURRENCY`, а не ошибка валидации, и это сбивает.
+4. **Пополнить** через проект-админа `brobro-admin@luckyserver.pro` (пароль —
+   `lucky-infra/storefront/CONTEXT.md`), логин `POST /v1/project/auth/login`:
+   `POST /v1/project/finance/users/<clientId>/transactions`
+   `{"direction":"credit","amount":"1000","currency":"USD","balance_code":"cash",…}` → 201.
    Impersonate рутом не подходит — 403.
-3. **Запустить игру** штатно, это проверяет выбор кошелька при launch:
-   `POST /v1/core/providers/1/games/7/launch` (Balloon Fly у BroBro) с `X-Public-Key` и Bearer игрока → 201 `{link}`.
-   Сессия появится в `game_sessions` с `currency_code`/`balance_code` активного баланса.
-4. **Собрать вход на сервере**, не выводя значений: файл `/tmp/probe-input`, три строки —
-   `game_providers.public_key`, `game_providers.private_key` (провайдер «Crash Heroes»),
-   `game_sessions.launch_token` последней сессии клиента (`closed_at is null`). Удобно SQL-файлом:
-   `scp q.sql lucky-dev:/tmp/ && ssh lucky-dev 'docker exec -i luckyserver-dev-postgres-1 sh -c "psql -U \$POSTGRES_USER -d \$POSTGRES_DB -X -q -t -A" < /tmp/q.sql | head -3 > /tmp/probe-input'`.
-   Кавычки в SQL через ssh не экранируются — только файлом.
-5. **Прогнать**: `scp probes/game-provider-regress.mjs lucky-dev:/tmp/ && ssh lucky-dev 'node /tmp/game-provider-regress.mjs /tmp/probe-input'`.
-   Ожидание — `26/26 PASS`. Скрипт можно гонять и локально: `LUCKY_API=http://localhost:18080 node … <input>`.
+5. **Сессия.** Проще не `launch` (он требует, чтобы провайдер ответил ссылкой), а
+   отладочный роут. С 11.09 он носит авторизацию самого запуска:
+   `POST /v1/core/providers/<providerPublicId>/games/<gamePublicId>/sessions`
+   с `X-Public-Key` и Bearer **игрока** (не проект-админа), id в пути, **тела нет**
+   → 201 `{session}`. Сессия выписывается на того, кто зовёт, и ни на кого больше.
+   Важно: не слать `Content-Type: application/json` без тела — Fastify ответит
+   `400 Body cannot be empty`. Пары id взять так:
+   ```sql
+   select pgp.public_id as provider_pid, pg.public_id as game_pid, g.title
+   from project_games pg join game_provider_games g on g.id=pg.game_id
+   join projects p on p.id=pg.project_id
+   join project_game_providers pgp on pgp.project_id=p.id and pgp.game_provider_id=g.game_provider_id
+   where p.slug='storefront-luckyserver-pro' and pg.is_active order by pg.public_id;
+   ```
+6. **Вход** — файл из трёх строк: публичный ключ, приватный ключ, `session`.
+   **Прогнать**: `LUCKY_API=https://dev2.api.luckyserver.pro node probes/game-provider-regress.mjs <input>`.
 
-## Ключи провайдера: откуда их брать (с 2026-09-10)
+Если что-то собирать SQL-ом через ssh: кавычки не экранируются, только файлом —
+`scp q.sql lucky-dev:/tmp/ && ssh lucky-dev '… psql … < /tmp/q.sql'`.
 
-Раньше вход пробника собирался целиком из БД: `public_key` и `private_key` лежали
-в `game_providers` открытым текстом. **Больше нет.** Ключи теперь выпускает Lucky
-(кнопка «Generate» на вкладке Integration у провайдера), приватный показывается
-**один раз** в момент выпуска, а в базу кладётся зашифрованным
-(`v1.<iv>.<tag>.<данные>`, шифр тот же, что у секретов проектов).
+---
 
-Отсюда правило: **после ротации приватный ключ из БД брать нельзя** — там лежит
-шифротекст, и подпись по нему не сойдётся. Во входной файл идёт то значение,
-которое показала админка при генерации. Публичный ключ по-прежнему читается из БД.
+## 2. Каталог и модерация — `provider-catalog-regress.mjs`
 
-```sql
--- годится всегда
-select public_key from game_providers where slug = 'crash-heroes' and is_active limit 1;
--- вернёт секрет ТОЛЬКО у провайдера, которого ещё не ротировали
-select private_key from game_providers where slug = 'crash-heroes' and is_active limit 1;
-```
+30 проверок (16 без рут-токена). Вход — три строки: `public_key`, `private_key`, Bearer рут-админа.
+Переменные: `LUCKY_API` (по умолчанию `http://localhost:18080`), `PROVIDER_ID`
+(включает проверку каталога проекта), `PLAYED_GAME_ID` (включает проверку 25).
 
-Как понять, что провайдер уже ротирован: значение начинается с `v1.`. У такого
-провайдера секрет есть только у того, кто нажимал «Generate»; если он потерян —
-выпустить заново и вставить новую пару на стороне провайдера.
+Скрипт заводит собственные игры `regress-<метка>-*` и **убирает их за собой**,
+чужих не трогает.
 
-## Каталог: как гонять и что он трогает
+| № | Проверка | Ожидание |
+|---|---|---|
+| 01–03a | загрузка новой игры, повтор | 201; игра приезжает `pending` и выключенной; повтор меняет имя, статус не трогает |
+| 04–07 | категория провайдера, без `cover_url`, дубль `providerId`, пустой список | 400 `invalid_request` |
+| 08 | `PATCH games/{id}` провайдером | 404 — выключателя у провайдера больше нет |
+| 10 | игра до одобрения в каталоге проекта | `is_available: false` |
+| 11 | approve | `approved`, но `is_active` **не трогается**: одобрение и включение — разные решения |
+| 12–12a | рут включает одобренную | 200, игра действительно включилась |
+| 13–14 | decline, затем попытка включить рутом | `declined` + выключена / 409 |
+| 15–16 | decline → approve, неизвестный статус | 201 / 400 |
+| 17–18a | revoke, повтор, пустой объект вместо пустого тела | 200; строка на месте со `status: revoked`, **выключатель тот же, что был до отзыва** |
+| 19–21 | revoke чужого id, отозванная в каталоге проекта, модерировать отозванную | 404 `unknown_game` / `is_available: false` / 409 |
+| 22–22a | перезаливка отозванной | поля обновились, статус остался `revoked` |
+| 23–24 | удаление рутом, повторное удаление | 204 / 404 |
+| 25 | удаление **сыгранной** игры (только с `PLAYED_GAME_ID`) | 204, сессии уходят вместе с игрой |
 
-Каталогу сессия не нужна, поэтому его можно гонять отдельно и без запуска игры —
-хватает двух строк входа (public_key и private_key провайдера):
+### Как собрать вход локально
 
 ```bash
-scp probes/game-provider-regress.mjs keys.sql lucky-dev:/tmp/
-ssh lucky-dev 'docker exec -i luckyserver-dev-postgres-1 sh -c "psql -U \$POSTGRES_USER -d \$POSTGRES_DB -X -q -t -A" < /tmp/keys.sql > /tmp/probe-input
-  ONLY=catalog node /tmp/game-provider-regress.mjs /tmp/probe-input
-  rm -f /tmp/probe-input /tmp/keys.sql /tmp/game-provider-regress.mjs'
+printf '<пароль>' | npm run root-admin:reset-local -- --email admin@local.test   # NODE_ENV=development
+TOKEN=$(curl -s -X POST localhost:18080/v1/root/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@local.test","password":"<пароль>"}' | jq -r .access_token)
+curl -s -X POST localhost:18080/v1/root/game-providers/<PROVIDER_ID>/keys -H "Authorization: Bearer $TOKEN" \
+  | jq -r '.public_key, .private_key' > /tmp/catalog-input
+echo "$TOKEN" >> /tmp/catalog-input
+PROVIDER_ID=<uuid> node probes/provider-catalog-regress.mjs /tmp/catalog-input
 ```
 
-где `keys.sql` — два `select` из `game_providers where slug = 'crash-heroes'`
-(`public_key`, затем `private_key`). Без `ONLY=catalog` идёт весь набор, и тогда
-нужна третья строка с живым `launch_token`.
+Приватный ключ отдаётся **только** в ответе на выпуск — перевыпуск рвёт
+интеграцию до вставки новой пары у партнёра, на живом стенде так не делать.
 
-Проверки 23-31 мутируют каталог стенда, поэтому работают только со своей
-одноразовой игрой `regress-<время>-<число>`: она не привязана ни к одному
-проекту, в витрине не видна, и шаг 30 её удаляет. Чужие игры они не трогают —
-«удалить игру» на живом стенде необратимо и каскадом снимает её со всех проектов
-и из контента. Если прогон упал между 23 и 30, останется игра `regress-*`;
-убрать повторным `DELETE /games` с её id либо из рутовой админки, вреда от неё
-нет.
+### Проверка 25: игра с сессиями
 
-Ветку `in_use` (игру уже запускали → не удаляем) честно проверяют шаги 32-33, но
-только когда явно задан `PLAYED_GAME_ID`. **Задавать его можно исключительно для
-игры, у которой точно есть сессии** — если сессий нет, игра будет удалена
-по-настоящему. Проверять заранее, read-only:
+Ради неё нужна игра, на которую ссылается `game_sessions`. Локально фикстура
+собирается SQL-файлом (кавычки через ssh не переживают):
 
 ```sql
-select g.external_id, g.title, count(s.id) as sessions
-from game_provider_games g
-join game_providers gp on gp.id = g.game_provider_id and gp.slug = 'crash-heroes'
-left join game_sessions s on s.game_id = g.id
-group by g.external_id, g.title order by sessions desc;
+insert into game_sessions (launch_token, project_id, client_id, game_id, expires_at)
+select 'regress-' || substr(md5(random()::text),1,12), c.project_id, c.id, '<GAME_ID>', now() + interval '30 minutes'
+from clients c limit 1;
 ```
 
-На деве 2026-09-10 подходили `1` Balloon Fly (42 сессии), `7` Beer Fest (38),
-`6` Booble Jump (37); у восьми игр из пятнадцати сессий не было вовсе.
-Шаг 33 оставляет игру включённой, так что для намеренно выключенной игры его
-результат надо потом откатить.
+Клиента при необходимости завести так же: `insert into clients (project_id, email)
+values ('<PROJECT>', 'regress@local.test');` — без `email` падает `CHK_clients_identity`.
 
-## Вариации (проверено на деве 2026-09-10)
+---
 
-Полный прогон 37/37 сделан по такой цепочке, всё через публичный API, без правок в БД:
+## Грабли
 
-1. `POST /v1/auth/register` с `X-Public-Key` дев-проекта BroBro
-   (`pk_d81-…`, `projects.name = 'BroBro Casino'`, id `39506f3d`), игрок
-   `dev-regress-<ts>@luckyserver.pro`, валюта USD.
-2. Пополнение **через проект-админа** (`POST /v1/project/auth/login` →
-   `POST /v1/project/finance/users/<clientId>/transactions`, credit 1000 USD).
-   Мок-депозит игроком (`POST /v1/core/balances/deposit`) на деве **не работает**:
-   `TestPay payment provider is disabled` — у дев-проекта провайдер выключен.
-3. Два запуска подряд: Balloon Fly (`providers/1/games/7`) и Shark Cage
-   (`providers/1/games/11`), оба 201 с живой ссылкой на `dev.games.crash-heroes.com`.
-4. Полный пробник на свежей сессии + `PLAYED_GAME_ID=1`.
+- **Пустое тело при `application/json`.** `POST games/{id}/revoke` тела не имеет.
+  Клиент, который всегда ставит `Content-Type: application/json`, получит
+  `400 invalid_request` от Fastify («Body cannot be empty…»). Либо не ставить
+  заголовок, либо слать `{}` — проверка 18a закрепляет оба пути.
+- **Отзыв больше не убирает игру с витрины.** С 11.09 гейт пропускает `approved`
+  **и** `revoked`: отозванная игра остаётся у проектов, на витрине и запускается.
+  Держит гейт только `pending` и `declined`. Список один на всех — `OFFERED_GAME_STATUSES`
+  в `src/modules/catalog/offered-game-statuses.ts`, руками статусы больше нигде не пишутся.
+- **Перезаливка не двигает модерацию.** `sync` обновляет поля и не трогает
+  `provider_status`: спрятать игру связкой «отозвать и залить снова» нельзя.
+  Обратная сторона — у `revoked` сейчас нет выхода, `moderate` отозванную игру
+  отбивает с 409.
+- **Отзыв ничего не сносит.** До 11.09 `revoke` гасил игру и удалял её плитки из
+  опубликованной главной каждого проекта — вёрстку приходилось собирать заново.
+  Теперь он только помечает строку; что плитки переживают отзыв, закреплено
+  юнит-тестом в `provider-games.service.spec.ts`, живой пробой это не покрыто
+  (нужен проект с публикацией).
+- **Гейт живёт в четырёх местах**, и они не связаны между собой: каталог проекта
+  (`eligibleProjectGames`), расчёт `is_available`, джойны витрины в
+  `public-content-contract.service.ts` и резолв при запуске игры. 11.09 дыра была
+  ровно в том, что в первых двух гейт стоял, а в последних двух — нет.
+- **Прогон на деве меняет данные.** Скрипт убирает свои игры, но проверки 11–15
+  трогают модерацию, а 23–25 удаляют. На стенде с живыми проектами это заметно.
+- **Порядок ключей в `jsonb` не сохраняется.** Ответ лежит в `metadata.response`,
+  Postgres переупорядочивает ключи, и повтор отдаёт `origin` в другом порядке при
+  том же содержимом. Сравнивать ответы только рекурсивно — побайтовое сравнение
+  даёт ложный FAIL (наступал 11.09).
+- **На проде нет проект-админа.** У боевого проекта `brobro-casino` его просто не
+  завели (см. `lucky-infra/storefront/CONTEXT.md`), поэтому ручной транзакцией
+  игрока там не пополнить, а рут-токен прода недоступен. Рабочий обход: посадить
+  баланс обычным провайдерским `win` на нужную сумму — он идёт через ту же
+  финансовую механику и оставляет нормальную запись, в отличие от SQL-вставки в
+  кошелёк, которую делать нельзя. Цепочка целиком: register → сессия отладочным
+  роутом → `win`-посев → прогон.
+- **Публичные ключи проектов**: дев `storefront-luckyserver-pro`, прод
+  `brobro-casino`. Пары `provider_pid`/`game_pid` для прода брать тем же SQL, но с
+  фильтром по `game_provider_id` нужного провайдера: у боевого проекта несколько
+  провайдеров, и у каждого своя нумерация.
+- **Рут-токен дева достать нельзя** — пароль в ansible-vault, а его чтение
+  блокирует классификатор авто-режима. Либо Илья отдаёт токен, либо каталожный
+  регресс гоняется без третьей строки (провайдерская половина, 18 проверок).
 
-Отдельный скрипт `probes/game-provider-variations.mjs` проверяет **две живые сессии
-одного игрока**. Результат:
+## Последние зелёные прогоны
 
-- обе сессии видят одного игрока и **один кошелёк**: ставка в сессии B сразу
-  меняет баланс, который отдаёт `player/info` сессии A;
-- повтор того же `txId` **из другой сессии** возвращает сохранённый ответ (201,
-  тот же `processedTxId`), деньги не двигаются второй раз.
+- 2026-09-11 вечер, дев, `01e10bb` — деньги **29/29** на игроке
+  `regress-1789140…@agg.one` (BroBro Casino, 1000 USD). Первый прогон после того,
+  как поле сессии стало только `session`, а запас после `expires_at` убрали.
+- 2026-09-11, дев, `0e4fcae` — деньги **29/29** на игроке `regress-1789127189@agg.one`
+  (проект BroBro Casino, пополнен на 1000 USD). Прогон оставляет после себя
+  историю: 13 ставок, 12 отмен, 4 выигрыша — удобно смотреть в админке.
+- 2026-09-11 вечер, дев, `538cd5c` — каталог **16/16** на пробе, переписанной под
+  гейт с `revoked` и под `sync`, который не двигает модерацию. Осталась проба
+  `f984311d-61c2-42ba-82ef-72f586638a1f`. На проде та же сборка проверена точечно:
+  отзыв и перезаливка оставляют `revoked`.
+- 2026-09-11 вечер, **прод** — деньги **29/29** на игроке
+  `regress-probe-1789145677@agg.one` (проект `brobro-casino`, игра `provider_pid 1`
+  / `game_pid 2` «Breeze Tease»). Прогон оставляет в боевых книгах фейкового
+  игрока, посевной `win` на 50 USD и около тридцати операций; итоговый баланс 47.50.
+- 2026-09-11 вечер, **прод**, `bd4eb9c` — каталог и модерация **16/16**
+  (провайдерская половина). Ключи боевого провайдера — проект `2` «Lucky server»
+  на `crash-prod`, там же, где девовские, но в другом проекте. Осталась отозванная
+  проба `3ee5de49-2856-4534-adeb-5db0135f1868` — удалить рутом. Боевой прогон
+  заводит ровно одну игру: приезжает `pending` и выключенной, игрокам не видна.
+- 2026-09-11 вечер, дев, `01e10bb` — каталог и модерация **16/16** (провайдерская
+  половина, без рут-токена), первый прогон после удаления `PATCH games/{id}`.
+  Проверки 08 (эндпоинта нет → 404) и 17a (отзыв не трогает выключатель) — ровно
+  про эту правку. Осталась отозванная проба `9842799a-156e-42c2-a968-81f00e65830a`:
+  удалить рутом, когда будет токен.
+- 2026-09-11, дев — каталог и модерация **18/18** (провайдерская половина, без рут-токена);
+  нумерация та, что была до удаления эндпоинта.
+- 2026-09-11, локально, `b598e74` — каталог и модерация **30/30**, вместе с
+  удалением сыгранной игры.
 
-Почему так — важно для понимания идемпотентности:
-
-| Что | Значение |
-| --- | --- |
-| Ключ операции | `game-round:<providerId>:<txId>` — провайдер плюс его `txId` |
-| Хеш сверки (`request_hash`) | `projectId`, `clientId`, `currencyCode`, `amount`, `operation` |
-| В хеш **не** входят | `session`, `betId`, `roundId`, `betNumber` |
-
-Отсюда два следствия. Повтор из другой сессии того же игрока — это реплей, а не
-конфликт. И тот же `txId` с другим `betId`/`roundId`, но той же суммой, тоже
-пройдёт как реплей, а не как ошибка: **уникальность `txId` на операцию — забота
-провайдера**, мы её не навязываем. Конфликт (`idempotency_conflict`) поднимается
-только когда меняется сумма, валюта, игрок, проект или тип операции.
-
-Что на деве проверить не вышло: другая валюта (у проекта BroBro включён только
-USD, `project_currencies`) и слот-игра (к проекту подключены 10 игр, все `crash`).
-Для этих вариаций надо сначала подключить валюту/игру к проекту — это правка
-конфига дева, отдельным решением.
-
-## Ловушки
-
-- Сессия годна TTL (30 мин) плюс ещё один TTL на дорасчёт; дальше все коллбэки отвечают
-  `session_expired`. Старый `launch_token` из чужого прогона почти всегда уже мёртв — делай новый launch.
-- Каждая ставка продлевает сессию, поэтому прогон подряд не упирается в TTL.
-- Повтор операции отдаёт **сохранённый** ответ: сравнивать надо по полям, а не по байтам
-  (скрипт сравнивает канонически, порядок ключей неважен).
-- `player/info` читает тот же кошелёк, что и расчёты (валюта и код баланса из сессии).
-- Скрипт соседней сессии с 11 сценариями лежит на сервере в `/tmp/probe.mjs`; он входит в этот
-  скрипт как проверки 1–11, отдельно гонять не нужно.
-- Со стороны крашей (`crash-heroes-backend-api-core`, ветка `develop`) после каждой выкатки нужен
-  ручной `ssh crash-dev 'cd /home/admin/crashgames/minigames-admin-back && php artisan octane:reload'`,
-  иначе воркеры держат старый код. Отката (`/rollback`) у них пока нет вовсе.
-
-## Сквозная проверка «краши → Lucky»
-
-После шага 3 (launch) в ссылке есть `authToken=sess_…` — это сессия крашей. Запрос
-`GET https://dev.api.crash-heroes.com/api/app/profile?token_id=<sess>` с `Authorization: Bearer <sess>`
-заставляет их бэкенд позвать наш `player/info`; ожидание — 200 с `external_id` = наш client id,
-`balance` = зеркало (997 при 99700 минорных) и заполненные `player_id`/`currency` в их
-`game_sessions` (`crash-dev`, MySQL, креды в `.env` бэкенда). Адреса коллбэков у крашей лежат в
-`projects.api_player_info/api_bet/api_win/api_cancel` (строки 2 и 5 — оба проекта Lucky); при смене
-путей у нас их надо обновить там, бэкап строк — в `~/deploy-backups/`.
+**Откаты в админке видны как `rollback`** — с 11.09 у них свой тип транзакции
+(миграция `1721700115000`), метаданные `rollback_of` и `reversed` остались.

@@ -6,7 +6,7 @@ def cli(*a):
 
 proj, specfile = sys.argv[1], sys.argv[2]
 spec = yaml.safe_load(open(specfile))
-comp = spec["components"]["schemas"]
+comp = (spec.get("components") or {}).get("schemas") or {}
 
 eps = cli("endpoint","list","--project",proj)
 eps = eps if isinstance(eps,list) else (eps.get("list") or eps.get("items") or [])
@@ -58,13 +58,13 @@ for e in sorted(sel, key=lambda x: str(x.get("path"))):
     p_ = d["path"]; m_ = str(d["method"]).lower()
     sp = ((spec["paths"].get(p_, {}) or {}).get(m_, {}) or {}).get("requestBody")
     if not sp or not exs: continue
-    ref = sp["content"]["application/json"]["schema"].get("$ref","")
-    name = ref.split("/")[-1]
-    sch = spec["components"]["schemas"].get(name, {})
+    raw = sp["content"]["application/json"]["schema"]
+    ref = raw.get("$ref","")
+    sch = comp.get(ref.split("/")[-1], {}) if ref else raw
     props = set((sch.get("properties") or {}).keys())
     for part in sch.get("allOf") or []:
         r = part.get("$ref","")
-        if r: props |= set((spec["components"]["schemas"][r.split("/")[-1]].get("properties") or {}).keys())
+        if r: props |= set((comp.get(r.split("/")[-1], {}).get("properties") or {}).keys())
         props |= set((part.get("properties") or {}).keys())
     for ex in exs:
         try: val = json.loads(ex.get("value") or "{}")

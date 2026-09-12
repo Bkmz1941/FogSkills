@@ -2,6 +2,17 @@
 
 Каждая проверка — уже пойманный когда-то баг. Список правил: INVARIANTS.md (tavern-regress).
 Запускать после любой правки взаимодействия, наведения или контейнеров.
+
+⚠️ ЧИТАТЬ НАДО ЖАЛОБЫ ПОСЛЕ `::`, А НЕ СЧЁТЧИКИ ПЕРЕД НИМИ. Счётчики — это
+«сколько чего осмотрено», и половина из них считается ОТ ПОЛОЖЕНИЯ ИГРОКА:
+«скрытых» (этажный гейт и радиус рендера), «с преградой у фокуса», «в кадре».
+Сравнивать их с прошлым прогоном можно, только если игрок стоит там же —
+11.09 две сессии чуть не начали чинить несуществующий регресс, потому что
+замер сделали сразу после входа в play, когда игрок стоял на втором этаже и
+гейт прятал нижний (316 → 318 объектов, 10 → 69 скрытых). Расхождение в
+счётчиках — повод переспросить соседа, а не чинить код. И прогон, попавший на
+чужой stop, врёт целиком: `level_roundtrip` отвечает «ИНВЕНТАРЬ ПОТЕРЯН» на
+пустой редактор.
 """
 import json, subprocess, sys
 
@@ -714,7 +725,8 @@ int stemsBent = 0;
 
 // 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): озноб = WetChill при мокром,
 // иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами.
-// Статус «не видно» и обзор × FogSight сняты 10.09 (туман на игрока не действует).
+// Туман на игрока ВЕРНУЛСЯ 11.09 (инвариант 115): статус «не видно» по клетке, визуал по доле
+// BlindAmount — перехваты держатся, пока доля > 0, и сняты все разом на нуле.
 int exposure = 0;
 {
     var xT = System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects");
@@ -724,7 +736,12 @@ int exposure = 0;
         exposure = 1;
         System.Func<string, bool> flag = n => (bool)xT.GetProperty(n).GetValue(null);
         bool wet = flag("Wet"), burning = flag("Burning"), inFire = flag("InFire");
-        if (xT.GetProperty("Blind") != null) bad.Append("статус «не видно» вернулся в PlayerExposure, а туман на игрока снят 10.09; ");
+        float lim = Cozy.Character.VisionArea.Limit;
+        float amt = (float)xT.GetProperty("BlindAmount").GetValue(null);
+        bool fogCell = (bool)xT.GetField("FogBlinds").GetValue(null) && Cozy.Grid.FogView.Covers(xPlayer.transform.position);
+        if (flag("Blind") != fogCell) bad.Append("статус «не видно» при клетке тумана " + fogCell + "; ");
+        if (amt <= 0f && (lim > 0f || Cozy.Character.DarknessVeil.ForcedDarkness >= 0f)) bad.Append("доля тумана 0, а перехват не снят; ");
+        if (amt > 0f && (lim < (float)xT.GetField("FogSight").GetValue(null) - 0.01f || lim > Cozy.Character.VisionArea.BaseRadius + 0.01f)) bad.Append("обзор " + lim + " вне лерпа FogSight…BaseRadius; ");
         float wantChill = wet ? (float)xT.GetField("WetChill").GetValue(null) : 0f;
         if (UnityEngine.Mathf.Abs(Cozy.Character.BodyTemperature.Chill - wantChill) > 0.001f) bad.Append("озноб " + Cozy.Character.BodyTemperature.Chill + " при wet=" + wet + "; ");
         if (inFire && !burning) bad.Append("в огне, но не горит; ");
@@ -738,11 +755,15 @@ int exposure = 0;
     }
 }
 
-// 28. Просвет кроны (VIEW.md §10a): окно закрыто ровно тогда, когда игрок в тумане; у каждого
+// ⚠️ ПОТОЛОК 50000 СИМВОЛОВ: execute_code длиннее не принимает, а комментарии и пустые
+// строки перед отправкой вырезаются. 11.09 правило 27 упёрлось в потолок — новую проверку
+// добавлять только вместе с сокращением старой; замерить: len кода после вырезания.
+// 28. Просвет кроны (VIEW.md §10a): окно туманом НЕ закрывается (закон Ильи 11.09) — у каждого
 // дерева с crownWindow вся листва на Tavern/CrownCut, а материалы ствола — нет (кора не режется);
 // у каждой кроны копия-кайма (10.09: тот же меш, _CROWN_BAND, БЕЗ записи глубины, очередь BandQueue
 // до дождя и тумана, без теней, кора невидима), включённая кайма ⇒ окно открыто, открытое окно ⇒
 // кайма шире 1 px; маска каймы _CrownBandTex рисуется ровно тогда, когда включена хоть одна кайма (_CrownBandOn).
+// СГОРЕВШАЯ листва из счёта выброшена: FireView меняет её на CrownWindow.Invisible(), и это не брак, а зола.
 int crowns = 0;
 {
     var cPlayer = Cozy.Grid.PlayerRef.GameObject;
@@ -755,7 +776,7 @@ int crowns = 0;
         if (cOn > 0.5f && bandsLit > 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") < 0.5f) bad.Append("кайма включена, а маска каймы (_CrownBandOn) не рисуется; ");
         if (bandsLit == 0 && UnityEngine.Shader.GetGlobalFloat("_CrownBandOn") > 0.5f) bad.Append("маска каймы рисуется без единой включённой каймы (лишняя очистка текстуры каждый кадр); ");
         if (Cozy.Grid.CrownWindow.BandQueue <= 3400 || Cozy.Grid.CrownWindow.BandQueue >= 3550) bad.Append("кайма кроны в очереди " + Cozy.Grid.CrownWindow.BandQueue + " — должна быть после напольных (3400) и огня, но до дождя (3550) и тумана (3600), иначе трава поверх листвы или окружность в тумане (P298); ");
-        if (Cozy.Grid.CrownWindow.Enabled && (cOn > 0.5f) == fogHere) bad.Append("окно кроны " + (cOn > 0.5f ? "открыто" : "закрыто") + " при тумане под игроком " + fogHere + "; ");
+        if (Cozy.Grid.CrownWindow.Enabled && fogHere && cOn <= 0.5f) bad.Append("окно кроны закрылось в тумане, а его не убирают никогда (закон Ильи 11.09); ");
         foreach (var cio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
         {
             if (cio.Def == null || !cio.Def.crownWindow) continue;
@@ -786,7 +807,7 @@ int crowns = 0;
                     }
                     continue;
                 }
-                foreach (var cm in cr.sharedMaterials) { if (cm == null || bark.Contains(cm)) continue; leaf++; if (cm.shader.name == "Tavern/CrownCut") cut++; }
+                foreach (var cm in cr.sharedMaterials) { if (cm == null || bark.Contains(cm) || cm == Cozy.Grid.CrownWindow.Invisible()) continue; leaf++; if (cm.shader.name == "Tavern/CrownCut") cut++; }
             }
             if (leaf > 0 && cut != leaf) bad.Append("листва без CrownCut: " + cio.name + " " + cut + "/" + leaf + "; ");
             if (leaf > 0 && bandsHere == 0) bad.Append("крона без каймы: " + cio.name + "; ");
@@ -972,9 +993,89 @@ foreach (var pio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveOb
     if (pmounts.Count != 2) bad.Append("гнёзд на ветке " + pmounts.Count + " вместо двух: " + pio.Def.id + "; ");
     else if ((pmounts[0].position - pmounts[1].position).magnitude < 0.5f)
         bad.Append("гнёзда на ветке ближе полуметра: " + pio.Def.id + "; ");
+
+    // Корень сука обязан сидеть ВНУТРИ коры на своей высоте (P359): ствол
+    // кривой, и посадка в центр коробки промахивалась мимо ствола. Позиция
+    // узла в play уже унесена ветром, поэтому снос вычитается через ту же
+    // TreeWind.BendAt, что его и добавила.
+    UnityEngine.Transform ptrunk = null;
+    foreach (var pt in pio.GetComponentsInChildren<UnityEngine.Transform>(true))
+        if (pt.name == pio.Def.heightNode) { ptrunk = pt; break; }
+    if (ptrunk == null) continue;
+    var pgeo = Cozy.Grid.FurnitureModel.Geometry(ptrunk.GetComponentsInChildren<UnityEngine.Renderer>(true));
+    float plow = pgeo.min.y + 0.25f;
+    float phigh = UnityEngine.Mathf.Max(plow, pgeo.max.y - 0.25f);
+    float pworldY = UnityEngine.Mathf.Clamp(pio.transform.position.y + pperch.Height, plow, phigh);
+    var pbark = new System.Collections.Generic.List<UnityEngine.Vector3>();
+    foreach (var pmf in ptrunk.GetComponentsInChildren<UnityEngine.MeshFilter>(true))
+    {
+        if (pmf.sharedMesh == null) continue;
+        var pv = pmf.sharedMesh.vertices;
+        for (int i = 0; i < pv.Length; i++) pbark.Add(pmf.transform.TransformPoint(pv[i]));
+    }
+    var pslice = new System.Collections.Generic.List<UnityEngine.Vector3>();
+    for (float pband = 0.22f; pband <= 1.76f; pband *= 2f)
+    {
+        pslice.Clear();
+        foreach (var pp in pbark) if (UnityEngine.Mathf.Abs(pp.y - pworldY) <= pband) pslice.Add(pp);
+        if (pslice.Count >= 6) break;
+    }
+    if (pslice.Count < 6) continue;
+    var paxis = UnityEngine.Vector3.zero;
+    foreach (var pp in pslice) paxis += pp;
+    paxis /= pslice.Count;
+    float prad = 0f;
+    foreach (var pp in pslice) prad += new UnityEngine.Vector2(pp.x - paxis.x, pp.z - paxis.z).magnitude;
+    prad /= pslice.Count;
+    var pwind = Cozy.Grid.TreeWind.On(pio.gameObject);
+    var pbend = pwind != null ? pwind.BendAt(pworldY - pio.transform.position.y) : UnityEngine.Vector3.zero;
+    float poff = new UnityEngine.Vector2(pbranch.position.x - pbend.x - paxis.x, pbranch.position.z - pbend.z - paxis.z).magnitude;
+    if (poff > prad * 0.6f)
+        bad.Append("корень ветки вне коры: " + pio.Def.id + " мимо оси на " + poff.ToString("F2") + " м при радиусе ствола " + prad.ToString("F2") + "; ");
 }
 
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " :: "
+// 36. СВЕТ СВЕТИТ В ТУ ЗОНУ, ГДЕ СТОИТ (P340): у каждого источника, кроме направленного,
+// маска слоёв света обязана пересекаться с маской его места — костёр под небом с Outdoor,
+// лампа в комнате с Indoor. Разошлись — источник горит, а вокруг темно, и в инспекторе
+// это не видно. Маска Light и маска URP-данных источника обязаны совпадать: URP берёт вторую.
+int zoneLights = 0;
+foreach (var zl in UnityEngine.Object.FindObjectsByType<UnityEngine.Light>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (zl.type == UnityEngine.LightType.Directional) continue;
+    var zio = zl.GetComponentInParent<Cozy.Grid.InteractiveObject>();
+    if (zio == null || zio.Def == null) continue;
+    zoneLights++;
+    uint zwant = zio.Def.outdoorOnly ? Cozy.Grid.LightZones.Outdoor : Cozy.Grid.LightZones.ZoneAt(zio.transform.position);
+    uint zhas = unchecked((uint)zl.renderingLayerMask);
+    if ((zhas & zwant) == 0) bad.Append("источник не светит в своё место: " + zio.Def.id + " маска " + zhas + " место " + zwant + "; ");
+    var zdata = zl.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
+    if (zdata != null && zdata.renderingLayers != zhas) bad.Append("у источника разошлись маски Light и URP: " + zio.Def.id + "; ");
+}
+
+// 37. ПРИЦЕЛ ФОНАРЯ ПОДНИМАЕТСЯ ТОЛЬКО ВВЕРХ (tavern-hands, 12.09): точка AimFocus под
+// курсором едет вверх по видимой сплошной поверхности, но НИКОГДА не опускается ниже
+// плоскости пола игрока — иначе свет прижмётся к ногам сильнее, чем было до правки.
+int aimPts = 0;
+{
+    var aPlayer = Cozy.Grid.PlayerRef.GameObject;
+    var aFocus = aPlayer != null ? aPlayer.GetComponent<Cozy.Character.AimFocus>() : null;
+    var aCam = UnityEngine.Camera.main;
+    if (aFocus != null && aCam != null)
+    {
+        var aMi = typeof(Cozy.Character.AimFocus).GetMethod("ResolveAimPoint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        float aFloor = aPlayer.transform.position.y;
+        for (int ax = 1; ax <= 5; ax++)
+        for (int ay = 1; ay <= 3; ay++)
+        {
+            var aRay = aCam.ScreenPointToRay(new UnityEngine.Vector3(UnityEngine.Screen.width * ax / 6f, UnityEngine.Screen.height * ay / 4f, 0f));
+            var aPt = (UnityEngine.Vector3)aMi.Invoke(aFocus, new object[] { aRay });
+            aimPts++;
+            if (aPt.y < aFloor - 0.01f) bad.Append("прицел фонаря ниже пола игрока: " + aPt.y.ToString("F2") + " < " + aFloor.ToString("F2") + "; ");
+        }
+    }
+}
+
+return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " :: "
      + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
 '''
 

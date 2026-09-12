@@ -8,7 +8,7 @@ import re, sys, pathlib
 SK = pathlib.Path.home() / '.claude/skills'
 DOMAIN = ['tavern-game/BUILD.md', 'tavern-game/VIEW.md', 'tavern-game/WEATHER.md', 'tavern-game/BLENDER.md',
           'tavern-game/CHARACTER.md',
-          'tavern-game/MONSTERS.md', 'tavern-game/UI.md', 'tavern-game/ARCHITECTURE.md',
+          'tavern-monsters/MONSTERS.md', 'tavern-game/UI.md', 'tavern-game/ARCHITECTURE.md',
           'tavern-game/ATTRIBUTES.md', 'tavern-cooking/COOKING.md']
 # Список НЕ зашивается: скилы заводятся и вырезаются (одежда, руки — 07–08.09),
 # а зашитый список молча перестаёт считать новые и врёт про бюджет.

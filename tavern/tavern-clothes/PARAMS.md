@@ -220,7 +220,7 @@
 | параметр | значение |
 |---|---|
 | `shirt_hem_z` | `0.86` |
-| `shirt_sleeve_x` | `0.66` |
+| `shirt_sleeve_x` | `0.69` |
 | `shirt_ease` | `0.016` |
 | `shirt_sleeve_ease` | `0.022` |
 | `shirt_sleeve_under` | `0.016` |
@@ -242,7 +242,7 @@
 | `shirt_cover_smooth` | `3` |
 | `shirt_collar_stand` | `0.065` |
 | `shirt_collar_flare` | `0.012` |
-| `shirt_collar_thick` | `0.005` |
+| `shirt_collar_thick` | `0.01` |
 | `jacket_crumple` | `0.01` |
 | `jacket_crumple_freq` | `10.0` |
 | `jacket_fold` | `0.005` |
@@ -252,7 +252,7 @@
 | `jacket_placket_top` | `1.495` |
 | `jacket_placket_lift` | `0.0015` |
 | `jacket_placket_thick` | `0.003` |
-| `jacket_cuff_x0` | `0.6` |
+| `jacket_cuff_x0` | `0.0` |
 | `jacket_cuff_x1` | `0.66` |
 | `jacket_cuff_lift` | `0.0015` |
 | `jacket_cuff_thick` | `0.004` |
@@ -260,28 +260,37 @@
 | `jacket_band_thick` | `0.006` |
 | `jacket_line_w` | `0.005` |
 | `jacket_line_lift` | `0.0012` |
-| `jacket_line_jitter` | `0.0008` |
+| `jacket_line_jitter` | `0.0` |
 | `jacket_button_r` | `0.007` |
 | `jacket_button_lift` | `0.004` |
 | `jacket_button_thick` | `0.002` |
-| `jacket_hood_z` | `1.6` |
-| `jacket_hood_cols` | `15` |
-| `jacket_hood_ridge` | `0.02` |
+| `jacket_hood_cols` | `21` |
+| `jacket_hood_ridge` | `0.018` |
 | `jacket_hood_thick` | `0.006` |
-| `jacket_hood_rows` | `[[0.0, 0.085, 0.008], [0.03, 0.12, 0.03], [0.07, 0.145, 0.048], [0.12, 0.145, 0.052], [0.17, 0.125, 0.044], [0.22, 0.09, 0.028], [0.255, 0.05, 0.014], [0.27, 0.02, 0.006]]` |
-| `jacket_hood_neck_y` | `0.105` |
+| `jacket_hood_rows` | `[[0.03, 0.125, 0.01], [0.07, 0.145, 0.025], [0.12, 0.148, 0.056], [0.17, 0.13, 0.048], [0.22, 0.095, 0.032], [0.255, 0.05, 0.016], [0.27, 0.015, 0.005]]` |
 | `shirt_zones` | `["torso", "arms", "hands", "legs", "head"]` |
 | `shirt_collar_front` | `0.55` |
 | `jacket_hood_edge` | `0.006` |
-| `jacket_pocket_bulge` | `0.006` |
-| `jacket_pocket_fold` | `0.004` |
+| `jacket_pocket_bulge` | `0.013` |
+| `jacket_pocket_fold` | `0.0` |
 | `jacket_pocket_round` | `0.02` |
 | `jacket_zip_top` | `1.47` |
 | `jacket_zip_inset` | `0.004` |
 | `jacket_zip_w` | `0.007` |
 | `jacket_zip_lift` | `0.0015` |
-| `jacket_zip_slider` | `[0.012, 0.007, 0.018]` |
-| `jacket_zip_tab` | `[0.008, 0.002, 0.02]` |
+| `jacket_hood_top` | `0.0` |
+| `jacket_hood_join` | `true` |
+| `jacket_cord_top` | `1.52` |
+| `jacket_cord_bottom` | `1.26` |
+| `jacket_cord_r` | `0.0055` |
+| `jacket_cord_lift` | `0.006` |
+| `jacket_cord_sway` | `0.028` |
+| `jacket_cord_tip` | `[0.01, 0.01, 0.022]` |
+| `jacket_pocket_margin` | `0.022` |
+| `jacket_pocket_wrinkle` | `0.004` |
+| `jacket_zip_pull` | `[0.01, 0.006, 0.055]` |
+| `jacket_hood_wrinkle` | `0.01` |
+| `jacket_hood_wrinkle_freq` | `28.0` |
 
 Вариант V1: `params` {"shirt_front_open": [0.012, 0.045]}; `pockets` [[0.9, 0.995, 0.05, 0.175]]; `look` — cotton/rib цвет ткани, stitch охра, zip чёрный.
 

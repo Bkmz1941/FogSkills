@@ -9,7 +9,8 @@
 // очередь CrownWindow.BandQueue, тот же меш, без теней, БЕЗ записи глубины), включена ⇒ окно открыто;
 // маска каймы _CrownBandTex (альфа, глубина) рисуется в beginCameraRendering: пиксели маски лежат
 // в кольце rIn..rOut вокруг центра окна (центроид ≈ центр, d в [rIn, rOut]), meanZ < глубины груди.
-// Персонажа под крону ставят заранее (у ствола, на 0.9 м к камере, НЕ в тумане), после — вернуть.
+// Персонажа под крону ставят заранее (у ствола, на 0.9 м к камере), после — вернуть.
+// С 11.09 туман окно не закрывает, поэтому клетка тумана замеру больше не мешает.
 var cam = UnityEngine.Camera.main; var player = Cozy.Grid.PlayerRef.GameObject;
 var sb = new System.Text.StringBuilder();
 int cut = 0, lit = 0, other = 0; var shaders = new System.Collections.Generic.HashSet<string>();
@@ -78,4 +79,48 @@ int leafPx = 0; for (int k = 0; k < rings; k++) leafPx += ringN[k];
 sb.Append("pixels: inside " + inTotal + ", changed inside=" + inDiff + " outside=" + outDiff + ", leaf px in rings=" + leafPx + " | ");
 sb.Append("profile (soft/hard): 0.5rIn=" + At(rIn * 0.5f) + " rIn=" + At(rIn) + " +1/4=" + At(rIn + feather * 0.25f) + " +1/2=" + At(rIn + feather * 0.5f) + " +3/4=" + At(rIn + feather * 0.75f) + " rOut-4=" + At(rOut - 4f) + " rOut+8=" + At(rOut + 8f));
 sb.Append(" | maxStep=" + maxStep.ToString("0.00") + " at d=" + (stepAt * ringW) + "px | seam=" + seam.ToString("0.0"));
+// ОБРЫВКИ ЛИСТВЫ В ОКНЕ (P334): глубина среза — грудь ПЛЮС внешний радиус окна (CrownWindow.Outer),
+// а не плоскость груди. Проба обходит каждое дерево с crownWindow и сажает воображаемого игрока по
+// кольцам 0.3 м вокруг ствола (24 кольца × 36 направлений, камера — текущий отступ от игрока):
+// ни одна ПЕРЕДНЯЯ грань листвы, попавшая в круг окна, не должна быть глубже среза. Норма: 0.
+// Вторым числом печатается срез по груди (как было до 11.09) — на нём остаются сотни позиций,
+// в каждой обрывок силуэта кроны в 3–5 треугольников, та самая «тонкая линия».
+{
+  var lo = cam.transform.position - player.transform.position; var lf = cam.transform.forward;
+  float lSlack = Cozy.Grid.CrownWindow.Outer, lChest = Cozy.Grid.CrownWindow.ChestHeight;
+  int lPos = 0, lFlat = 0, lNow = 0; float lWorst = -999f; string lWhere = "";
+  foreach (var lio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+  {
+    if (lio.Def == null || !lio.Def.crownWindow) continue;
+    UnityEngine.Transform lc = null; foreach (var tr in lio.GetComponentsInChildren<UnityEngine.Transform>(true)) if (tr.name == lio.Def.crownNode) lc = tr;
+    var lmf = lc == null ? null : lc.GetComponent<UnityEngine.MeshFilter>(); var lrend = lc == null ? null : lc.GetComponent<UnityEngine.MeshRenderer>();
+    if (lmf == null || lmf.sharedMesh == null || lrend == null) continue;
+    var lmesh = lmf.sharedMesh; var lv = lmesh.vertices; var lmats = lrend.sharedMaterials; var ltp = lio.transform.position;
+    for (int ring = 1; ring <= 24; ring++) for (int aa = 0; aa < 36; aa++)
+    {
+      float lrad = ring * 0.3f, lang = aa * UnityEngine.Mathf.PI * 2f / 36f;
+      var lpp = new UnityEngine.Vector3(ltp.x + UnityEngine.Mathf.Cos(lang) * lrad, ltp.y, ltp.z + UnityEngine.Mathf.Sin(lang) * lrad);
+      var lch = lpp + UnityEngine.Vector3.up * lChest; var lcam = lpp + lo;
+      float lDepth = UnityEngine.Vector3.Dot(lch - lcam, lf); float lAng = UnityEngine.Mathf.Atan2(lSlack, lDepth) * UnityEngine.Mathf.Rad2Deg;
+      lPos++; float lOver = -999f;
+      for (int s = 0; s < lmesh.subMeshCount; s++)
+      {
+        if (s >= lmats.Length || lmats[s] == null || lmats[s].shader.name != "Tavern/CrownCut") continue;
+        var lt = lmesh.GetTriangles(s);
+        for (int i = 0; i < lt.Length; i += 3)
+        {
+          var w0 = lc.TransformPoint(lv[lt[i]]); var w1 = lc.TransformPoint(lv[lt[i + 1]]); var w2 = lc.TransformPoint(lv[lt[i + 2]]);
+          var ctr = (w0 + w1 + w2) / 3f;
+          if (UnityEngine.Vector3.Dot(UnityEngine.Vector3.Cross(w1 - w0, w2 - w0), ctr - lcam) > 0f) continue;
+          if (UnityEngine.Vector3.Angle(ctr - lcam, lch - lcam) > lAng) continue;
+          float dm = UnityEngine.Mathf.Max(UnityEngine.Vector3.Dot(w0 - lcam, lf), UnityEngine.Mathf.Max(UnityEngine.Vector3.Dot(w1 - lcam, lf), UnityEngine.Vector3.Dot(w2 - lcam, lf)));
+          if (dm - lDepth > lOver) lOver = dm - lDepth;
+        }
+      }
+      if (lOver > 0f) lFlat++;
+      if (lOver > lSlack) { lNow++; if (lOver - lSlack > lWorst) { lWorst = lOver - lSlack; lWhere = lio.name + " " + lpp.ToString("F1"); } }
+    }
+  }
+  sb.Append(" | leftovers: позиций " + lPos + ", срез по груди " + lFlat + ", срез +" + lSlack.ToString("0.0") + " м " + lNow + (lNow > 0 ? (" худший +" + lWorst.ToString("0.00") + " м " + lWhere) : ""));
+}
 return sb.ToString();

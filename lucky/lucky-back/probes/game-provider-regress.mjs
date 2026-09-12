@@ -1,15 +1,13 @@
 // Регресс seamless-wallet коллбэков Lucky (/v1/external/game-provider/*) против живого стенда.
 // Запуск на сервере или локально: node game-provider-regress.mjs [/tmp/probe-input]
 // Файл входа — три строки: public_key провайдера, private_key провайдера, launch_token живой сессии.
-// Проверки каталога (23-31) заводят собственную игру regress-* и удаляют её за собой; чужих игр не трогают.
-// ONLY=catalog — прогнать только каталог: сессия ему не нужна, хватает двух строк входа (ключи провайдера).
+// Каталог и модерация — отдельный скрипт provider-catalog-regress.mjs.
 // Ключи не печатаются. Переменная LUCKY_API переопределяет базовый URL (по умолчанию dev2).
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 const [publicKey, privateKey, session] = readFileSync(process.argv[2] ?? "/tmp/probe-input", "utf8").trim().split("\n");
 const BASE = process.env.LUCKY_API ?? "https://dev2.api.luckyserver.pro";
-const CATALOG_ONLY = process.env.ONLY === "catalog";
 
 const canonical = (o) => JSON.stringify(Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]))).replace(/\//g, "\\/");
 const sign = (method, path, body) => createHmac("sha256", privateKey).update([method, path, canonical({}), canonical(body)].join("\n")).digest("hex");
@@ -34,10 +32,15 @@ function check(label, r, ok, note = "") {
   console.log(`${pass ? "PASS" : "FAIL"} ${label.padEnd(44)} ${r.status} ${JSON.stringify(r.body ?? null).slice(0, 120)}${note ? "  // " + note : ""}`);
   return r;
 }
-const info = async () => call("player/info", { sessionToken: session, timestamp: Math.floor(Date.now() / 1000) });
+const info = async () => call("user/info", { session });
 const bal = (r) => BigInt(r.body?.balance ?? "0");
 const code = (r, c) => r.body?.error?.code === c;
-const same = (a, b) => canonical(a ?? {}) === canonical(b ?? {});
+// Порядок ключей в JSON незначим, а Postgres хранит ответ в jsonb и его
+// переупорядочивает, поэтому сравниваем рекурсивно, а не побайтово.
+const deep = (v) => Array.isArray(v) ? v.map(deep)
+  : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, deep(v[k])]))
+  : v;
+const same = (a, b) => JSON.stringify(deep(a ?? {})) === JSON.stringify(deep(b ?? {}));
 
 function summary() {
   const failed = results.filter((p) => !p).length;
@@ -45,55 +48,8 @@ function summary() {
   process.exit(failed ? 1 : 0);
 }
 
-async function catalogChecks() {
-  // 23-31. каталог провайдера: POST/DELETE/PATCH на /games.
-  // Работаем только со своей одноразовой игрой: чужие игры на стенде не трогаем.
-  const gameId = id("regress");
-  const item = {
-    id: gameId,
-    sys_name: gameId.replace(/-/g, "_"),
-    name: "Regress Probe",
-    type: "crash",
-    cover_url: "https://dev.api.crash-heroes.com/storage/games/covers/balloon-fly-site.png",
-  };
-  const list = (v) => JSON.stringify(v ?? null);
-
-  const before = check("22a. games: список до загрузки", await call("games", undefined, { method: "GET", signOver: {} }), (r) => r.status === 200 && typeof r.body?.total === "number" && Array.isArray(r.body?.games));
-
-  check("23. games: загрузка новой игры", await call("games", { games: [item] }), (r) => r.status === 200 && r.body?.total === 1 && r.body?.created === 1 && r.body?.updated === 0);
-  check("24. games: повтор обновляет, не создаёт", await call("games", { games: [{ ...item, name: "Regress Probe 2" }] }), (r) => r.status === 200 && r.body?.created === 0 && r.body?.updated === 1);
-  check("25. games: категория провайдера вместо нашей → 400", await call("games", { games: [{ ...item, type: "crash-games" }] }), (r) => r.status === 400 && code(r, "invalid_request"), "type — категория Lucky, не провайдера");
-  check("26. games: без cover_url → 400", await call("games", { games: [{ id: item.id, sys_name: item.sys_name, name: item.name, type: "crash" }] }), (r) => r.status === 400 && code(r, "invalid_request"));
-  check("27. games: выключение", await call("games", { id: gameId, is_active: false }, { method: "PATCH" }), (r) => r.status === 200 && r.body?.id === gameId && r.body?.is_active === false);
-  check("28. games: включение", await call("games", { id: gameId, is_active: true }, { method: "PATCH" }), (r) => r.status === 200 && r.body?.is_active === true);
-  check("29. games: статус неизвестной игры → 404", await call("games", { id: "no-such-game", is_active: false }, { method: "PATCH" }), (r) => r.status === 404 && code(r, "unknown_game"));
-  check("29a. games: новая игра видна в списке", await call("games", undefined, { method: "GET", signOver: {} }), (r) => r.status === 200 && r.body.total === before.body.total + 1 && r.body.games.some((g) => g.id === gameId && g.name === "Regress Probe 2" && g.type === "crash" && g.is_active === true), `было ${before.body?.total}`);
-
-  check("30. games: удаление + not_found", await call("games", { ids: [gameId, "no-such-game"] }, { method: "DELETE" }), (r) => r.status === 200 && list(r.body?.deleted) === list([gameId]) && list(r.body?.not_found) === list(["no-such-game"]) && list(r.body?.in_use) === list([]));
-  check("30a. games: список вернулся к исходному", await call("games", undefined, { method: "GET", signOver: {} }), (r) => r.status === 200 && r.body.total === before.body.total && !r.body.games.some((g) => g.id === gameId));
-
-  check("31. games: удалённая игра больше не находится", await call("games", { id: gameId, is_active: true }, { method: "PATCH" }), (r) => r.status === 404 && code(r, "unknown_game"));
-
-  // 32-33. Необязательные: ветка in_use на настоящей игре.
-  // PLAYED_GAME_ID=<id у провайдера> задавать ТОЛЬКО для игры, у которой точно есть
-  // сессии, иначе она будет удалена по-настоящему. Проверить заранее:
-  //   select g.external_id, count(s.id) from game_provider_games g
-  //   left join game_sessions s on s.game_id = g.id group by 1 order by 2 desc;
-  // Шаг 33 оставляет игру включённой.
-  const played = process.env.PLAYED_GAME_ID;
-  if (played) {
-    check("32. games: удаление сыгранной игры → in_use", await call("games", { ids: [played, "no-such-game"] }, { method: "DELETE" }), (r) => r.status === 200 && list(r.body?.in_use) === list([played]) && list(r.body?.deleted) === list([]), "БД держит её через ON DELETE RESTRICT");
-    check("33. games: сыгранная игра осталась", await call("games", { id: played, is_active: true }, { method: "PATCH" }), (r) => r.status === 200 && r.body?.id === played && r.body?.is_active === true);
-  }
-}
-
-if (CATALOG_ONLY) {
-  await catalogChecks();
-  summary();
-}
-
 // 0. исходный баланс
-const start = check("0. player/info", await info(), (r) => r.status === 200 && typeof r.body?.balance === "string");
+const start = check("0. user/info", await info(), (r) => r.status === 200 && typeof r.body?.balance === "string");
 let expected = bal(start);
 
 // 1-4. ставка, повтор, конфликт, выигрыш
@@ -109,7 +65,7 @@ expected += 150n;
 const betB = id("bet");
 check("5. ставка 100 для отмены", await call("bet", { session, txId: id("tx"), amount: "100", betId: betB, roundId: id("round") }), (r) => r.status === 201 && bal(r) === expected - 100n);
 expected -= 100n;
-check("6. отмена 100", await call("cancel", { session, txId: id("tx"), amount: "100", betId: betB, roundId: round }), (r) => r.status === 201 && bal(r) === expected + 100n);
+check("6. отмена 100 (win + cancel)", await call("win", { session, txId: id("tx"), amount: "100", betId: betB, roundId: round, cancel: true }), (r) => r.status === 201 && bal(r) === expected + 100n);
 expected += 100n;
 
 // 7-9. ставка, откат, повтор отката
@@ -129,7 +85,7 @@ check("11. опоздавшая ставка с тем же txId", await call("b
 const betD = id("bet"), txCancelD = id("tx");
 check("12a. ставка 100", await call("bet", { session, txId: id("tx"), amount: "100", betId: betD, roundId: id("round") }), (r) => r.status === 201);
 expected -= 100n;
-check("12b. отмена 100", await call("cancel", { session, txId: txCancelD, amount: "100", betId: betD, roundId: round }), (r) => r.status === 201 && bal(r) === expected + 100n);
+check("12b. отмена 100 (win + cancel)", await call("win", { session, txId: txCancelD, amount: "100", betId: betD, roundId: round, cancel: true }), (r) => r.status === 201 && bal(r) === expected + 100n);
 expected += 100n;
 check("12c. откат отмены: минус 100", await call("rollback", { session, txId: txCancelD }), (r) => r.status === 201 && r.body?.reversed === true && bal(r) === expected - 100n);
 expected -= 100n;
@@ -160,8 +116,16 @@ expected -= 100n;
 const ids = new Set(parallel.map((r) => r.body?.processedTxId));
 check("21. параллельный повтор: один processedTxId", parallel[0], () => parallel.every((r) => r.status === 201) && ids.size === 1, `${parallel.map((r) => r.status).join(",")}`);
 
-// 22. итоговый баланс сходится с ожиданием
-check("22. player/info = ожидаемый баланс", await info(), (r) => r.status === 200 && bal(r) === expected, `ожидалось ${expected}`);
+// 21a. ответ несёт origin: поля провайдера, без токена сессии
+const txEcho = id("tx"), betEcho = id("bet"), roundEcho = id("round");
+const echo = check("21a. ставка отвечает origin с полями провайдера", await call("bet", { session, txId: txEcho, amount: "100", betId: betEcho, roundId: roundEcho, betNumber: "1" }),
+  (r) => r.status === 201 && r.body?.origin?.txId === txEcho && r.body.origin.betId === betEcho && r.body.origin.roundId === roundEcho && r.body.origin.amount === "100");
+expected -= 100n;
+check("21b. origin не содержит токен сессии", echo, (r) => !JSON.stringify(r.body ?? {}).includes(session), "токен наружу не эхом");
+check("21c. повтор отдаёт тот же origin", await call("bet", { session, txId: txEcho, amount: "100", betId: betEcho, roundId: roundEcho, betNumber: "1" }),
+  (r) => r.status === 201 && same(r.body?.origin, echo.body?.origin));
 
-await catalogChecks();
+// 22. итоговый баланс сходится с ожиданием
+check("22. user/info = ожидаемый баланс", await info(), (r) => r.status === 200 && bal(r) === expected, `ожидалось ${expected}`);
+
 summary();
