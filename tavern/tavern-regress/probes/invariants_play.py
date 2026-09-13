@@ -3,7 +3,15 @@
 Каждая проверка — уже пойманный когда-то баг. Список правил: INVARIANTS.md (tavern-regress).
 Запускать после любой правки взаимодействия, наведения или контейнеров.
 
-⚠️ ЧИТАТЬ НАДО ЖАЛОБЫ ПОСЛЕ `::`, А НЕ СЧЁТЧИКИ ПЕРЕД НИМИ. Счётчики — это
+⭐ У ЗЕЛЁНОГО ДВА СМЫСЛА: «проверил и сошлось» и «не проверял ничего». Поэтому
+проба отвечает тремя частями: счётчики :: жалобы :: что НЕ проверялось. Правило,
+чей счётчик упал в ноль, на этом уровне не видело ни одного подходящего объекта —
+зелёный по нему не значит ничего (13.09 на forest100 так молчали 16 правил из 42).
+А пропавшая цель рефлексии даёт ЖАЛОБУ «ЗАЩИТА МЕРТВА, правило N не выполняется»:
+треть правил спрятана за `if (… != null)`, и раньше такое правило умирало беззвучно
+(P381 — правило 24 красило зелёным сутки после переезда ветра на GPU).
+
+⚠️ А НЕНУЛЕВОЙ счётчик вердиктом не считать. Счётчики — это
 «сколько чего осмотрено», и половина из них считается ОТ ПОЛОЖЕНИЯ ИГРОКА:
 «скрытых» (этажный гейт и радиус рендера), «с преградой у фокуса», «в кадре».
 Сравнивать их с прошлым прогоном можно, только если игрок стоит там же —
@@ -14,13 +22,54 @@
 чужой stop, врёт целиком: `level_roundtrip` отвечает «ИНВЕНТАРЬ ПОТЕРЯН» на
 пустой редактор.
 """
-import json, subprocess, sys
+import json, re, subprocess, sys
 
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 
 CODE_A = r'''
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var bad = new System.Text.StringBuilder();
+// ⭐⭐ СТОРОЖА САМОЙ ПРОБЫ. Треть правил спрятана за `if (… != null)`: пропала
+// цель рефлексии — правило МОЛЧА не выполняется, и проба отвечает зелёным,
+// проверив ноль. 13.09 так умерло правило 24 (ветер уехал на GPU, полей
+// `_stem`/`_parts` не стало), и ни один ночной прогон этого не заметил.
+// Поэтому пропавший член кода — ЖАЛОБА, наравне со сломанным инвариантом.
+// Сюда вносится ТОЛЬКО то, что спрятано за тихим guard-ом: члены, на которых
+// правило упало бы с NullReference, кричат сами.
+var BFq = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var BFqs = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+var BFqa = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
+var BFqp = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
+var qGc = typeof(Cozy.Grid.GridCursor); var qHud = typeof(Tavern.UI.HudUI); var qCam = typeof(Cozy.Character.CameraFollow);
+System.Action<string, bool, string> Need = (rule, ok, what) => { if (!ok) bad.Append("ЗАЩИТА МЕРТВА, правило " + rule + " не выполняется: " + what + "; "); };
+Need("1", typeof(Cozy.Grid.Interactor).GetMethod("SkipHit", BFqs) != null, "нет Interactor.SkipHit");
+Need("5", qGc.GetMethod("MountTaken", BFq) != null, "нет GridCursor.MountTaken");
+Need("6", qCam.GetMethod("ClearDistance", BFqs) != null, "нет CameraFollow.ClearDistance");
+Need("6", typeof(Cozy.Grid.Interactor).GetProperty("ExamineHost") != null, "нет Interactor.ExamineHost");
+Need("7", qCam.GetMethod("HostFloor", BFqs) != null, "нет CameraFollow.HostFloor");
+Need("7", qCam.GetField("ExamineCamRadius", BFqs) != null, "нет CameraFollow.ExamineCamRadius");
+Need("8", qGc.GetMethod("SurfaceSupported", BFq) != null, "нет GridCursor.SurfaceSupported");
+Need("10", qGc.GetMethod("WallDeepInside", BFqs) != null, "нет GridCursor.WallDeepInside");
+Need("10", qGc.GetMethod("LocalBox", BFqs) != null, "нет GridCursor.LocalBox");
+Need("12", typeof(Cozy.Grid.WallCutaway).GetField("_yMin", BFq) != null, "нет WallCutaway._yMin");
+Need("13", typeof(Tavern.UI.ItemPreview3D).GetField("_model", BFq) != null, "нет ItemPreview3D._model");
+Need("15", qHud.GetMethod("ExamineDistanceOf", BFqs) != null, "нет HudUI.ExamineDistanceOf");
+Need("15", qHud.GetProperty("ExamineCardColumn", BFqs) != null, "нет HudUI.ExamineCardColumn");
+Need("15", qCam.GetField("ExamineZoomMin", BFqs) != null, "нет CameraFollow.ExamineZoomMin");
+Need("17", qGc.GetNestedType("PoseWork", BFqa) != null, "нет вложенного типа GridCursor.PoseWork");
+Need("17", qGc.GetField("_movingObj", BFqa) != null, "нет GridCursor._movingObj");
+Need("17", qGc.GetField("_handMove", BFqa) != null, "нет GridCursor._handMove");
+Need("20", Cozy.Grid.FurnitureCatalog.ById(Cozy.Grid.SpawnPoint.ObjectId) != null, "нет дефа метки спавна");
+Need("20", qGc.GetMethod("FurniturePlaceBlocked", BFq) != null, "нет GridCursor.FurniturePlaceBlocked");
+Need("24", typeof(Cozy.Grid.TreeWind).GetMethod("TickAll", BFqp) != null, "нет TreeWind.TickAll");
+Need("24", typeof(Cozy.Grid.TreeWind).GetField("_kind", BFq) != null, "нет TreeWind._kind");
+Need("27", System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects") != null, "нет типа PlayerExposure");
+Need("29", qCam.GetMethod("ShiftOutsideSolids", BFqp) != null, "нет CameraFollow.ShiftOutsideSolids");
+Need("29", qCam.GetMethod("Transparent", BFqs) != null, "нет CameraFollow.Transparent");
+Need("30", Cozy.Grid.FurnitureCatalog.ById("hallway_rack") != null, "нет дефа hallway_rack");
+Need("33", qHud.GetField("_activeQuick", BFq) != null, "нет HudUI._activeQuick");
+Need("33", qHud.GetMethod("PocketPlacedAt", BFq) != null, "нет HudUI.PocketPlacedAt");
+Need("39", typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", BFqs) != null, "нет GameSfx.MuffleAt");
 var cam = UnityEngine.Camera.main;
 var t = typeof(Cozy.Grid.Interactor);
 var skip = t.GetMethod("SkipHit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
@@ -684,52 +733,58 @@ var bad = new System.Text.StringBuilder();
 var cam = UnityEngine.Camera.main;
 var mDistOf = typeof(Tavern.UI.HudUI).GetMethod("ExamineDistanceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 var pColumn = typeof(Tavern.UI.HudUI).GetProperty("ExamineCardColumn", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-// 24. Трава кланяется на ветру, но корни остаются в земле: у стебля профиль
-// изгиба (y/h)^2 не двигает вершины у основания. Жёсткий поворот пучка целиком
-// (первая попытка 09.09) хоронил наветренную половину блейдов в земле на 14 см
-// — отсюда проверка по САМОЙ НИЖНЕЙ вершине, а не по наклону. Ветер включается
-// самой пробой и возвращается, чтобы правило не зависело от тумблера.
+// 24. Растение на ветру ДЕЙСТВИТЕЛЬНО гнётся: ветер уехал на GPU (13.09,
+// FoliageWind.hlsl), и вершины на процессор больше не возвращаются — прежняя
+// проверка «корни не ушли под землю по самой нижней вершине» теперь физически
+// невозможна. Само это правило шейдер держит ПО ПОСТРОЕНИЮ: `if (y <= 0.001)
+// return 0` не двигает вершину у основания, а профиль (y/h)^2 гнёт каждую
+// вершину отдельно, так что жёсткого поворота пучка целиком (баг 09.09) быть
+// не может. Стережёт это тест EditMode по тексту .hlsl.
+// Здесь остаётся то, что ломается ЖИВЬЁМ и молча:
+//   1) глобали не подаются — `TickAll` выпал из тикера, ветер замер;
+//   2) высота породы нулевая — шейдер выходит по `if (height <= 0.001)`,
+//      растение стоит колом;
+//   3) растению не подменили материал — оно осталось на шейдере без ветра.
 int stemsBent = 0;
 {
-    var sF = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-    var sT = typeof(Cozy.Grid.TreeWind);
-    var sLate = sT.GetMethod("LateUpdate", sF);
-    var sStem = sT.GetField("_stem", sF);
-    var sParts = sT.GetField("_parts", sF);
-    var sIn = sT.GetField("_indoors", sF);
-    if (sLate != null && sStem != null && sParts != null)
+    var kindNames = new string[] { "None", "Tree", "Bush", "Stem" };
+    var kindIds = new string[] { "", "_WindTreeHeight", "_WindBushHeight", "_WindStemHeight" };
+    float windOn = UnityEngine.Shader.GetGlobalFloat("_WindOn");
+    bool wantWind = Cozy.Grid.Weather.Wind;
+    if ((windOn > 0.5f) != wantWind)
+        bad.Append("глобали ветра не подаются (TreeWind.TickAll не зовут?): _WindOn=" + windOn.ToString("F0") + " при Weather.Wind=" + wantWind + "; ");
+    var wKind = typeof(Cozy.Grid.TreeWind).GetField("_kind", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    var seenKind = new int[4];
+    int stiff = 0; string stiffAt = "";
+    foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(UnityEngine.FindObjectsSortMode.None))
     {
-        bool wasWind = Cozy.Grid.Weather.Wind;
-        var wasForce = Cozy.Grid.Weather.Force;
-        Cozy.Grid.Weather.Wind = true;
-        Cozy.Grid.Weather.Force = Cozy.Grid.WindForce.Strong;
-        var noArgs = new object[0];
-        float worst = 0f;
-        string worstAt = "";
-        foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(UnityEngine.FindObjectsSortMode.None))
+        if (rig == null || wKind == null) continue;
+        int k = (int)wKind.GetValue(rig);
+        if (k <= 0 || k > 3) continue;
+        seenKind[k]++;
+        stemsBent++;
+        // Ключ нужен КАЖДОМУ материалу растения, а не одному из них: у стебля
+        // их три, и потеря одного оставляет треть куста стоять колом (укус
+        // 13.09 показал, что проверка «хоть один ветреный» этого не ловит).
+        int windy = 0, plain = 0;
+        foreach (var rend in rig.GetComponentsInChildren<UnityEngine.Renderer>(true))
+            foreach (var m in rend.sharedMaterials)
+            {
+                if (m == null || m.shader == null || m.shader.name != "Tavern/CrownCut") continue;
+                bool keyed = k == 3 ? m.IsKeywordEnabled("_WIND_STEM") : k == 2 ? m.IsKeywordEnabled("_WIND_BUSH") : true;
+                if (keyed) windy++; else plain++;
+            }
+        if (windy == 0 || plain > 0)
         {
-            if (!(bool)sStem.GetValue(rig) || (bool)sIn.GetValue(rig)) continue;
-            sLate.Invoke(rig, noArgs);
-            var plist = sParts.GetValue(rig) as System.Collections.IList;
-            if (plist == null || plist.Count == 0) continue;
-            var pt = plist[0];
-            var ptT = pt.GetType();
-            var work = (UnityEngine.Vector3[])ptT.GetField("work").GetValue(pt);
-            var node = (UnityEngine.Transform)ptT.GetField("node").GetValue(pt);
-            float ground = rig.transform.position.y;
-            float sunk = 0f;
-            for (int i = 0; i < work.Length; i++)
-                sunk = UnityEngine.Mathf.Max(sunk, ground - node.TransformPoint(work[i]).y);
-            stemsBent++;
-            if (sunk > worst) { worst = sunk; worstAt = rig.transform.position.ToString("F1"); }
+            stiff++;
+            if (stiffAt.Length == 0) stiffAt = rig.name + " @ " + rig.transform.position.ToString("F1")
+                + " (ветреных " + windy + ", без ключа " + plain + ")";
         }
-        if (worst > 0.01f)
-            bad.Append("трава ушла под землю на " + worst.ToString("F3") + " м у " + worstAt + "; ");
-        Cozy.Grid.Weather.Wind = wasWind;
-        Cozy.Grid.Weather.Force = wasForce;
-        foreach (var rig in UnityEngine.Object.FindObjectsByType<Cozy.Grid.TreeWind>(UnityEngine.FindObjectsSortMode.None))
-            if ((bool)sStem.GetValue(rig)) sLate.Invoke(rig, noArgs);
     }
+    if (stiff > 0) bad.Append("растений с ветром, но без ветреного материала: " + stiff + " (первое " + stiffAt + "); ");
+    for (int k = 1; k < 4; k++)
+        if (seenKind[k] > 0 && UnityEngine.Shader.GetGlobalFloat(kindIds[k]) <= 0.001f)
+            bad.Append("порода " + kindNames[k] + " не гнётся: " + kindIds[k] + " нулевая при " + seenKind[k] + " растениях; ");
 }
 
 // 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): озноб = WetChill при мокром,
@@ -1119,10 +1174,12 @@ if (cens4 != w4) bad.Append("перепись птиц " + cens4 + " проти�
 //     ВСЁ: звук с земли ×0.35, птицу на ветке ×0.12, собственный крик боли ×0.35).
 //     Два требования разом: у самого уха приглушения этажами нет, и этаж считается
 //     ОТБРАСЫВАНИЕМ — ветка под потолком ещё не «этажом выше», а полный этаж уже да.
+int muffle = 0;
 var mMuffle = typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 var earTf = Cozy.Grid.PlayerRef.Transform;
 if (mMuffle != null && earTf != null)
 {
+muffle = 1;
 float cs = UnityEngine.Mathf.Max(1f, Cozy.View.ViewState.CellSize);
 var ear = earTf.position;
 float atEar = (float)mMuffle.Invoke(null, new object[] { ear });
@@ -1139,8 +1196,10 @@ if (overFloor > atEar * 0.5f) bad.Append("звук этажом выше не п
 var gcp = Cozy.Grid.GridCursor.I;
 var plr = Cozy.Grid.PlayerRef.GameObject;
 var spawnPt = Cozy.Grid.SpawnPoint.Instance;
+int teleport = 0;
 if (gcp != null && plr != null && spawnPt != null)
 {
+teleport = 1;
 var ccp = plr.GetComponent<UnityEngine.CharacterController>();
 var savedAt = plr.transform.position;
 gcp.TeleportPlayerTo(spawnPt.transform.position);
@@ -1226,7 +1285,7 @@ if (slotBad > 0) bad.Append("видов этажа с неверным мест�
 if (nearAsleep > 0) bad.Append("близкий вид этажа спит: " + nearAsleep + "; ");
 if (farAwake > 0) bad.Append("дальний вид этажа не уснул: " + farAwake + "; ");
 }
-return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
+return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
 
@@ -1249,6 +1308,43 @@ def half(code, strike):
     return body["result"], None
 
 
+# ⭐ Счётчик → правило, которое им МЕРЯЕТСЯ. Нужен ради одного: счётчик,
+# упавший в НОЛЬ, означает «правило не нашло на уровне ни одного подходящего
+# объекта», то есть зелёный по нему не значит ничего. В плоской строке из
+# тридцати чисел этого не видно, и 13.09 на forest100 так молчали ВОСЕМНАДЦАТЬ
+# правил разом — дом проверялся, лес нет. Теперь они называются вслух.
+RULE_OF = {
+    'объектов': '1–4', 'на своих местах': '17', 'поверхностей': '16',
+    'хостов осмотра': '15', 'рядов слотов': '14', 'кукол': '13', 'у стен': '10',
+    'в закрытых секциях': '1', 'подвесов': '5', 'вложенных': '6',
+    'с преградой у фокуса': '7', 'на открытых поверхностях': '8', 'порожков': '9',
+    'скрытых': '11', 'настенных': '12', 'стен': '18', 'порывов ветра': '19',
+    'клеток дождя': '21', 'фонарь в руке': '22', 'гейт спавна': '20',
+    'молния': '23', 'скрыто радиусом': '32', 'в кадре': '32',
+    'растений на ветру': '24', 'статусы': '27', 'крон': '28', 'низких слотов': '30',
+    'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
+    'веток': '35', 'источников': '36', 'точек прицела': '37',
+    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42',
+}
+
+
+def idle_rules(counters, strike):
+    """Правила, чьи счётчики на нуле: они ничего не проверили на этом уровне."""
+    seen = {}
+    for name, value in re.findall(r'([А-Яа-яёA-Za-z ]+?)=([\d/]+)', counters):
+        name = name.strip()
+        rule = RULE_OF.get(name)
+        if rule is None:
+            continue
+        alive = any(part not in ('', '0') for part in value.split('/'))
+        # У правила 32 два счётчика, и хватает любого живого.
+        seen[rule] = seen.get(rule, False) or alive
+    idle = sorted((r for r, alive in seen.items() if not alive), key=lambda r: int(re.match(r'\d+', r).group()))
+    if not strike and '23' in idle:
+        idle.remove('23')
+    return idle
+
+
 def main():
     # Правила уехали за потолок моста, поэтому прогон идёт ДВУМЯ вызовами:
     # у каждой половины свой пролог, свои счётчики и свои жалобы, а склейка
@@ -1267,7 +1363,14 @@ def main():
         counters.append(left.strip())
         complaints.append(right.strip())
     tail = ' '.join(c for c in complaints if c)
-    print(' '.join(counters) + ' :: ' + (tail if tail else 'инварианты держатся'))
+    counters = ' '.join(counters)
+    idle = idle_rules(counters, strike)
+    quiet = ''
+    if idle:
+        quiet = ' :: НЕЧЕГО БЫЛО ПРОВЕРЯТЬ (на уровне нет таких объектов), правила ' + ', '.join(idle)
+    if not strike:
+        quiet += ' :: правило 23 (молния) пропущено намеренно, нужен --strike'
+    print(counters + ' :: ' + (tail if tail else 'инварианты держатся') + quiet)
 
 
 if __name__ == '__main__':

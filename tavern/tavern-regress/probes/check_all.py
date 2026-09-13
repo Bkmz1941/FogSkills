@@ -105,7 +105,15 @@ def probe(name, *args):
     out = subprocess.run(['python3', REG + '/probes/' + name] + list(args),
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
     tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
-    print(name + ':', tail[-1][:200] if tail else 'нет ответа')
+    line = tail[-1] if tail else 'нет ответа'
+    # ⭐ Жалобы живут ПОСЛЕ ' :: ', а счётчики перед ним занимают полтысячи
+    # символов — прежний срез на 200 резал ровно то, ради чего проба и нужна.
+    # 13.09 замерено: на forest100 счётчики 509 символов, значит check_all НИ
+    # РАЗУ не показал ни одной жалобы инвариантов. Счётчики жмём, жалобы — нет.
+    head, sep, rest = line.partition(' :: ')
+    if sep:
+        line = (head[:110] + '…' if len(head) > 110 else head) + ' :: ' + rest
+    print(name + ':', line[:1400])
     return tail
 
 
