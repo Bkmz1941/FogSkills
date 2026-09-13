@@ -4,8 +4,9 @@ python3 fog_lamp_probe.py     только в СВОЁМ play: ставит иг
                               выбирает фонарь в хотбаре (через _activeQuick + SyncHand, иначе хотбар вернёт руку
                               за четверть секунды), ждёт кадр, читает глобали конуса и рендерит кадр дважды —
                               «Растворяет туман днём/ночью» 100 % и 0 %; считает пиксели, которые потемнели (туман ушёл).
-                              Возвращает хотбар и игрока. Красное: конус в шейдере нулевой при горящем фонаре
-                              или в области луча не изменился ни один пиксель.
+                              Возвращает хотбар и игрока. Второй замер — игрок ВНУТРИ клетки тумана, где поверх работает пелена «Ничего не видно»
+                              (`DarknessVeil`): та же A/B, пелена обязана открыться под лучом. Красное: конус в шейдере
+                              нулевой при горящем фонаре или ни один пиксель не изменился снаружи либо изнутри.
 Замер 13.09 на Test #1: конус начало у линзы, дальность 15, tan 0.52; изменилось 19 594 пикселя из 518 400, все потемнели.
 """
 import json, re, subprocess, sys, time
@@ -68,6 +69,17 @@ for (int i = 0; i < a.Length; i++)
 }
 return "конус: начало " + new UnityEngine.Vector3(cone.x, cone.y, cone.z).ToString("F2") + " дальность " + cone.w.ToString("F1") + " dir " + new UnityEngine.Vector3(dir.x, dir.y, dir.z).ToString("F2") + " tan " + dir.w.ToString("F2") + " | ручки clear=" + clear.ToString("F2") + " soft=" + soft.ToString("F2") + " reach=" + reach.ToString("F2") + " | A/B (луч 100% / 0%): пикселей изменилось " + changed + " из " + a.Length + ", из них стало темнее (туман ушёл) " + darker + ", средняя яркость " + (sumA / (float)a.Length).ToString("F1") + " / " + (sumB / (float)a.Length).ToString("F1") + ", область x " + minX + ".." + maxX + " y " + minY + ".." + maxY;
 '''
+INSIDE = r'''
+var gc = Cozy.Grid.GridCursor.I; var player = Cozy.Grid.PlayerRef.GameObject;
+var fogs = UnityEngine.Object.FindObjectsByType<Cozy.Grid.FogAnim>(UnityEngine.FindObjectsSortMode.None);
+UnityEngine.Vector3 best = UnityEngine.Vector3.zero; float bd = float.MaxValue;
+foreach (var f in fogs) { float d = UnityEngine.Vector3.Distance(f.transform.position, player.transform.position); if (d < bd) { bd = d; best = f.transform.position; } }
+var keep = player.transform.rotation;
+gc.TeleportPlayerTo(new UnityEngine.Vector3(best.x, gc.GroundY(best.x, best.z, 0f), best.z));
+player.transform.rotation = keep;
+UnityEngine.Physics.SyncTransforms();
+return "игрок в клетке тумана " + player.transform.position.ToString("F2") + " накрыт=" + Cozy.Grid.FogView.Covers(player.transform.position);
+'''
 RESTORE = r'''
 var gc = Cozy.Grid.GridCursor.I; var player = Cozy.Grid.PlayerRef.GameObject;
 var rig = player.GetComponent<Cozy.Character.FlashlightRig>();
@@ -85,9 +97,14 @@ if '|' not in s: sys.exit(1)
 parts = s.split('|'); px, py, pz, quick = parts[-4], parts[-3], parts[-2], parts[-1]
 try:
     time.sleep(1.5)
-    res = str(call(MEASURE)); print('замер:', res)
+    res = str(call(MEASURE)); print('снаружи:', res)
     m = re.search(r'дальность ([0-9.]+).*?изменилось (\d+)', res)
     red = m is None or float(m.group(1)) <= 0 or int(m.group(2)) == 0
+    print('внутрь:', call(INSIDE))
+    time.sleep(3.5)
+    res2 = str(call(MEASURE)); print('изнутри (с пеленой):', res2)
+    m2 = re.search(r'изменилось (\d+)', res2)
+    red = red or m2 is None or int(m2.group(1)) == 0
 finally:
     print(call(RESTORE.replace('%X%', px).replace('%Y%', py).replace('%Z%', pz).replace('%QUICK%', quick)))
 print('луч в тумане: ' + ('КРАСНОЕ' if red else 'ок'))

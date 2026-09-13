@@ -75,7 +75,7 @@ def cmd_stop():
 
 
 def cmd_compile():
-    mcp('refresh_unity', {"mode": "force", "scope": "scripts", "compile": "request", "wait_for_ready": True})
+    mcp('refresh_unity', {"mode": "force", "scope": "all", "compile": "request", "wait_for_ready": True})
     ok = wait_state(play=False, compiling=False, seconds=240)
     errs = mcp('read_console', {"action": "get", "types": ["error"], "count": 20})
     data = errs.get('data') if isinstance(errs, dict) else None
