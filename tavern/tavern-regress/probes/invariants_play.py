@@ -64,6 +64,7 @@ Need("20", qGc.GetMethod("FurniturePlaceBlocked", BFq) != null, "нет GridCurs
 Need("24", typeof(Cozy.Grid.TreeWind).GetMethod("TickAll", BFqp) != null, "нет TreeWind.TickAll");
 Need("24", typeof(Cozy.Grid.TreeWind).GetField("_kind", BFq) != null, "нет TreeWind._kind");
 Need("27", System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects") != null, "нет типа PlayerExposure");
+Need("27", System.Type.GetType("Cozy.Effects.PlayerExposure, Cozy.Effects")?.GetField("FogScreen") != null, "нет поля FogScreen (покрытие экрана)");
 Need("29", qCam.GetMethod("ShiftOutsideSolids", BFqp) != null, "нет CameraFollow.ShiftOutsideSolids");
 Need("29", qCam.GetMethod("Transparent", BFqs) != null, "нет CameraFollow.Transparent");
 Need("30", Cozy.Grid.FurnitureCatalog.ById("hallway_rack") != null, "нет дефа hallway_rack");
@@ -835,7 +836,9 @@ int stemsBent = 0;
 }
 
 // 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): озноб = WetChill при мокром,
-// иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами.
+// иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами
+// (с 13.09 и «Темно» — активный статус со значком «луна»); покрытие экрана: при доле тумана или
+// темноты > 0 пелена меряет по экрану ровно тогда, когда так стоит ручка FogScreen / DarkScreen.
 // Туман на игрока ВЕРНУЛСЯ 11.09 (инвариант 115): статус «не видно» по клетке, визуал по доле
 // BlindAmount — перехваты держатся, пока доля > 0, и сняты все разом на нуле.
 int exposure = 0;
@@ -851,7 +854,8 @@ int exposure = 0;
         float amt = (float)xT.GetProperty("BlindAmount").GetValue(null);
         bool fogCell = (bool)xT.GetField("FogBlinds").GetValue(null) && Cozy.Grid.FogView.Covers(xPlayer.transform.position);
         if (flag("Blind") != fogCell) bad.Append("статус «не видно» при клетке тумана " + fogCell + "; ");
-        if (amt <= 0f && (lim > 0f || Cozy.Character.DarknessVeil.ForcedDarkness >= 0f)) bad.Append("доля тумана 0, а перехват не снят; ");
+        float darkAmt = (float)xT.GetProperty("DarkAmount").GetValue(null);
+        if (amt <= 0f && darkAmt <= 0f && (lim > 0f || Cozy.Character.DarknessVeil.ForcedDarkness >= 0f)) bad.Append("доли тумана и темноты 0, а перехват не снят; ");
         if (amt > 0f && (lim < (float)xT.GetField("FogSight").GetValue(null) - 0.01f || lim > Cozy.Character.VisionArea.BaseRadius + 0.01f)) bad.Append("обзор " + lim + " вне лерпа FogSight…BaseRadius; ");
         float wantChill = wet ? (float)xT.GetField("WetChill").GetValue(null) : 0f;
         if (UnityEngine.Mathf.Abs(Cozy.Character.BodyTemperature.Chill - wantChill) > 0.001f) bad.Append("озноб " + Cozy.Character.BodyTemperature.Chill + " при wet=" + wet + "; ");
@@ -860,9 +864,12 @@ int exposure = 0;
         var xStats = xPlayer.GetComponent<Cozy.Character.CharacterStats>();
         var xList = new System.Collections.Generic.List<Cozy.Character.PlayerEffect>();
         Cozy.Character.PlayerEffects.Collect(xStats, xList);
-        bool hasBurn = false, hasBlind = false, hasWet = false;
-        foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; }
-        if (hasBurn != burning || hasBlind || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + " (снят 10.09), мокрый " + hasWet + "/" + wet + "; ");
+        bool hasBurn = false, hasBlind = false, hasWet = false, hasDark = false;
+        foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; if (xe.Title == "Темно") hasDark = true; }
+        if (hasDark != flag("Dark")) bad.Append("значок «Темно» " + hasDark + " при флаге " + flag("Dark") + " (активный с 13.09); ");
+        bool wantScreen = amt > 0f ? (bool)xT.GetField("FogScreen").GetValue(null) : (bool)xT.GetField("DarkScreen").GetValue(null);
+        if ((amt > 0f || darkAmt > 0f) && (Cozy.Character.DarknessVeil.ForcedScreen > 0.5f) != wantScreen) bad.Append("покрытие экрана: пелена по экрану " + (Cozy.Character.DarknessVeil.ForcedScreen > 0.5f) + " при ручке " + wantScreen + "; ");
+        if (hasBurn != burning || hasBlind != flag("Blind") || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + " (снят 10.09), мокрый " + hasWet + "/" + wet + "; ");
     }
 }
 
