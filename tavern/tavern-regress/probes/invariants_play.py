@@ -1173,6 +1173,59 @@ if (!(bool)fInTick.GetValue(io)) { lostTick++; if (lostTick <= 3) bad.Append("т
 if (busyTick > Cozy.Grid.InteractiveObject.Ticking.Count)
 bad.Append("перепись тикающих " + Cozy.Grid.InteractiveObject.Ticking.Count + " против " + busyTick + "; ");
 }
+// 42. КЭШИ ПОКАДРОВЫХ СИСТЕМ НЕ РАСХОДЯТСЯ С ПРАВДОЙ (13.09). Чтобы не трогать
+//     тысячи объектов каждый кадр, две системы держат копию их состояния рядом
+//     с собой: полоса каймы помнит «включена ли» (`Band.on`), а гейт этажа
+//     держит в реестре только бодрствующие виды. Копия дешёвая, но врущая копия
+//     хуже отсутствующей: полоса не нарисуется в маску, вид не пересчитает
+//     видимость. Сверяем обе с первоисточником.
+var tCw = typeof(Cozy.Grid.CrownWindow);
+var fBands = tCw.GetField("_bands", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+if (fBands != null)
+{
+var bandList = fBands.GetValue(null) as System.Collections.IList;
+if (bandList != null && bandList.Count > 0)
+{
+var bfB = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
+var tB = bandList[0].GetType();
+var fRend = tB.GetField("rend", bfB); var fOn = tB.GetField("on", bfB);
+int bandSplit = 0;
+if (fRend != null && fOn != null)
+for (int bi = 0; bi < bandList.Count; bi++)
+{
+var br = fRend.GetValue(bandList[bi]) as UnityEngine.MeshRenderer;
+if (br == null) continue;
+if (br.enabled != (bool)fOn.GetValue(bandList[bi])) bandSplit++;
+}
+if (bandSplit > 0) bad.Append("полос каймы с враньём в флаге: " + bandSplit + "; ");
+}
+}
+var tFv = typeof(Cozy.Grid.FloorPieceView);
+var fAwake = tFv.GetField("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var fSlot = tFv.GetField("_slot", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+if (fAwake != null && fSlot != null)
+{
+var awake = fAwake.GetValue(null) as System.Collections.IList;
+int slotBad = 0, farAwake = 0, nearAsleep = 0;
+for (int ai = 0; ai < awake.Count; ai++)
+{
+var v = awake[ai] as Cozy.Grid.FloorPieceView;
+if (v == null) continue;
+if ((int)fSlot.GetValue(v) != ai) slotBad++;
+}
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+if (io == null) continue;
+var v = io.GetComponent<Cozy.Grid.FloorPieceView>();
+if (v == null || !v.isActiveAndEnabled) continue;
+bool inList = (int)fSlot.GetValue(v) >= 0;
+if (io.Far && inList) farAwake++;
+if (!io.Far && !inList) nearAsleep++;
+}
+if (slotBad > 0) bad.Append("видов этажа с неверным местом в реестре: " + slotBad + "; ");
+if (nearAsleep > 0) bad.Append("близкий вид этажа спит: " + nearAsleep + "; ");
+if (farAwake > 0) bad.Append("дальний вид этажа не уснул: " + farAwake + "; ");
+}
 return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
