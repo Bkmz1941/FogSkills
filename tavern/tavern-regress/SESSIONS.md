@@ -6,8 +6,8 @@
 
 ## Кто я
 
-- Имя сессии видно в `ListAgents`: `tavern-fresh-NN`. В журналах (PITFALLS,
-  DESIGN_LOG, HISTORY) подпись — `ilya-NN`, тот же номер.
+- Имя сессии видно в `ListAgents`: `ilya-NN` (до 09.09 — `tavern-fresh-NN`). В
+  журналах (PITFALLS, DESIGN_LOG, HISTORY) подпись — `ilya-NN`, тот же номер.
 - Соседи там же; сообщение — `SendMessage`, первая строка самодостаточна,
   в конце «Отвечать не нужно», если ответ не нужен.
 

@@ -837,7 +837,7 @@ int stemsBent = 0;
 
 // 27. Статусы среды согласованы с источниками и ручками (EFFECTS.md): озноб = WetChill при мокром,
 // иначе 0; в огне — горит; значки ряда идут через PlayerEffects.Sources и совпадают с флагами
-// (с 13.09 и «Темно» — активный статус со значком «луна»); покрытие экрана: при доле тумана или
+// (с 13.09 один статус «Ничего не видно» ⇔ Blind || Dark, туман и темнота — два его источника); покрытие экрана: при доле тумана или
 // темноты > 0 пелена меряет по экрану ровно тогда, когда так стоит ручка FogScreen / DarkScreen.
 // Туман на игрока ВЕРНУЛСЯ 11.09 (инвариант 115): статус «не видно» по клетке, визуал по доле
 // BlindAmount — перехваты держатся, пока доля > 0, и сняты все разом на нуле.
@@ -864,12 +864,11 @@ int exposure = 0;
         var xStats = xPlayer.GetComponent<Cozy.Character.CharacterStats>();
         var xList = new System.Collections.Generic.List<Cozy.Character.PlayerEffect>();
         Cozy.Character.PlayerEffects.Collect(xStats, xList);
-        bool hasBurn = false, hasBlind = false, hasWet = false, hasDark = false;
-        foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; if (xe.Title == "Темно") hasDark = true; }
-        if (hasDark != flag("Dark")) bad.Append("значок «Темно» " + hasDark + " при флаге " + flag("Dark") + " (активный с 13.09); ");
+        bool hasBurn = false, hasBlind = false, hasWet = false;
+        foreach (var xe in xList) { if (xe.Title == "Ожог") hasBurn = true; if (xe.Title == "Ничего не видно") hasBlind = true; if (xe.Title == "Мокрый") hasWet = true; }
         bool wantScreen = amt > 0f ? (bool)xT.GetField("FogScreen").GetValue(null) : (bool)xT.GetField("DarkScreen").GetValue(null);
         if ((amt > 0f || darkAmt > 0f) && (Cozy.Character.DarknessVeil.ForcedScreen > 0.5f) != wantScreen) bad.Append("покрытие экрана: пелена по экрану " + (Cozy.Character.DarknessVeil.ForcedScreen > 0.5f) + " при ручке " + wantScreen + "; ");
-        if (hasBurn != burning || hasBlind != flag("Blind") || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + " (снят 10.09), мокрый " + hasWet + "/" + wet + "; ");
+        if (hasBurn != burning || hasBlind != (flag("Blind") || flag("Dark")) || hasWet != wet) bad.Append("значки статусов расходятся с флагами: ожог " + hasBurn + "/" + burning + ", не видно " + hasBlind + " (снят 10.09), мокрый " + hasWet + "/" + wet + "; ");
     }
 }
 

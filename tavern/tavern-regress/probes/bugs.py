@@ -1,8 +1,10 @@
 """Брифинг по багам: правила из граблей и инварианты по области, линт формата.
 
 python3 bugs.py                 области с числом записей и инвариантов
-python3 bugs.py <область>       правила граблей, инварианты и проверки области
-python3 bugs.py P042            запись целиком
+python3 bugs.py <область>       КОРОТКИЙ брифинг: чем проверить сейчас, инварианты одной строкой, грабли заголовками
+python3 bugs.py <область> --full  то же, но правила и защиты граблей целиком (длинно: постановка — 80 КБ)
+python3 bugs.py 148             инвариант целиком
+python3 bugs.py P042            запись граблей целиком
 python3 bugs.py --lint          формат PITFALLS.md и INVARIANTS.md (код 1, если красное)
 """
 import re, sys, pathlib
@@ -38,6 +40,14 @@ REQUIRED = ('Симптом', 'Причина', 'Правило')
 HEAD = re.compile(r'^## (P\d{3}) · ([^·]+?) · (.+)$')
 FIELD = re.compile(r'^- \*\*(Симптом|Причина|Решение|Правило|Защита)[^*]*\*\*\s*(.*)$')
 PREF = re.compile(r'P\d{3}')
+PROBE_FILE = re.compile(r'`(?:[A-Za-z_0-9./-]*/)?([a-z_0-9]+\.(?:py|cs))`')
+PROBE_PATH = re.compile(r'`([A-Za-z_0-9./-]+\.(?:py|cs))`')
+CELL = re.compile(r'(?<!\\)\|')
+PROJECT = pathlib.Path('/media/ilya/T714/Unity/Tavern-fresh')
+RULE_NO = re.compile(r'правил[оа]\s+(\d+[a-z]?)')
+TEST_NAME = re.compile(r'`([A-Za-zА-Яа-яЁё]+Tests)(?:\.[^`]+)?`')
+# области, где крит-сценарий Ильи «положить на землю» гоняется всегда
+DROP_AREAS = ('постановка', 'перенос', 'сейв', 'габариты', 'наведение')
 
 
 def parse_pitfalls(path=None):
@@ -73,7 +83,7 @@ def parse_pitfalls(path=None):
 def parse_invariants():
     rows = []
     for line in INVARIANTS.read_text(encoding='utf-8').splitlines():
-        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        cells = [c.strip() for c in CELL.split(line.strip().strip('|'))]
         if len(cells) >= 5 and cells[0].isdigit():
             rows.append({'n': int(cells[0]), 'areas': [a.strip() for a in cells[1].split(',')],
                          'rule': cells[2], 'check': cells[3], 'refs': PREF.findall(cells[4]),
@@ -103,10 +113,20 @@ def lint(entries, rows):
         warnings.append('номера идут не по порядку')
     problems += lint_copies(entries)
     seen_n = set()
+    for line in INVARIANTS.read_text(encoding='utf-8').splitlines():
+        m = re.match(r'^\|\s*(\d+)\s*\|', line)
+        if not m:
+            continue
+        cells = CELL.split(line.strip().strip('|'))
+        if len(cells) != 6:
+            problems.append(f"инвариант {m.group(1)}: колонок {len(cells)}, нужно 6 — брифинг такую строку не видит")
     for r in rows:
         if r['n'] in seen_n:
             problems.append(f"инвариант {r['n']}: номер повторяется")
         seen_n.add(r['n'])
+        for path in PROBE_PATH.findall(r['check']):
+            if is_probe_ref(path) and not probe_exists(path):
+                warnings.append(f"инвариант {r['n']}: зонда {path} нет на диске")
         for a in r['areas']:
             if a not in AREAS:
                 problems.append(f"инвариант {r['n']}: неизвестная область «{a}»")
@@ -136,10 +156,96 @@ def lint_copies(entries):
     return out
 
 
-def show_area(area, entries, rows):
+def headline(rule, limit=110):
+    t = rule.lstrip('⭐ ').strip()
+    i = t.find(': ')
+    if 40 <= i <= 140:
+        t = t[:i]
+    elif len(t) > limit:
+        cuts = [j for j in (t.find('. ', 40), t.find(' — ', 40), t.find('; ', 40)) if j > 0]
+        if cuts:
+            t = t[:min(cuts)]
+    t = t.rstrip(' :—.;')
+    return t if len(t) <= limit else t[:limit - 1] + '…'
+
+
+SERVICE_FILES = ('check_all.py', 'cycle.py', 'measure.py', 'bugs.py', 'compile_check.py', 'mcp_call.py')
+
+
+def probe_exists(path):
+    name = path.split('/')[-1]
+    places = (REG / 'probes' / name, GAME / 'probes' / name, PROJECT / path, REG / path, GAME / path)
+    return any(x.exists() for x in places)
+
+
+def is_probe_ref(path):
+    name = path.split('/')[-1]
+    return name not in SERVICE_FILES and ('probe' in name or path.startswith('probes/') or path.startswith('BlenderWork/'))
+
+
+def check_tag(check):
+    tags = []
+    rules = sorted(set(RULE_NO.findall(check)), key=lambda r: int(re.match(r'\d+', r).group()))
+    if rules:
+        tags.append('правило ' + ','.join(rules))
+    elif 'invariants_play' in check:
+        tags.append('invariants_play')
+    tags += sorted(set(f for f in PROBE_FILE.findall(check) if f != 'invariants_play.py' and f not in SERVICE_FILES))
+    tests = sorted(set(TEST_NAME.findall(check)))
+    if tests:
+        tags.append('тест ' + ', '.join(tests))
+    elif 'тест' in check.lower() or 'EditMode' in check:
+        tags.append('тест')
+    if not tags:
+        tags.append('глазами' if 'глазами' in check else 'замер разово')
+    return '; '.join(tags)
+
+
+def show_area(area, entries, rows, full=False):
     if area not in AREAS:
         print(f'неизвестная область «{area}»; есть:', ', '.join(AREAS))
         return 1
+    if full:
+        return show_area_full(area, entries, rows)
+    print(f'=== {area}: {AREAS[area]}')
+    inv = [r for r in rows if area in r['areas']]
+    hits = [e for e in entries if area in e['areas']]
+    rules, files, tests, eyes = set(), set(), set(), 0
+    for r in inv:
+        rules.update(RULE_NO.findall(r['check']))
+        files.update(f for f in PROBE_PATH.findall(r['check']) if f.split('/')[-1] != 'invariants_play.py' and is_probe_ref(f))
+        tests.update(TEST_NAME.findall(r['check']))
+        if not RULE_NO.findall(r['check']) and not PROBE_FILE.findall(r['check']) and not TEST_NAME.findall(r['check']):
+            eyes += 1
+    print('--- Чем проверить сейчас')
+    probes = str(REG / 'probes')
+    if area in DROP_AREAS:
+        print(f'  python3 {probes}/transfer_probe.py --run      # крит-сценарий Ильи: взять → нести → на землю → на плоскость → взять снова (свой play)')
+    if rules:
+        nums = ','.join(sorted(rules, key=lambda r: int(re.match(r'\d+', r).group())))
+        print(f'  python3 {probes}/invariants_play.py           # правила {nums}; читать три части «счётчики :: жалобы :: не проверялось»')
+    for f in sorted(files, key=lambda x: x.split('/')[-1]):
+        name = f.split('/')[-1]
+        shown = probes + '/' + name if (REG / 'probes' / name).exists() else str(PROJECT / f) if (PROJECT / f).exists() else f
+        kind = 'python3 ' if name.endswith('.py') else 'execute_code ← '
+        print(f'  {kind}{shown}' + ('' if probe_exists(f) else '   # ⚠ файла нет на диске'))
+    if tests:
+        print('  EditMode: ' + ', '.join(sorted(tests)) + '   (python3 ' + probes + '/cycle.py tests — вне play)')
+    print(f'  python3 {probes}/check_all.py                 # всё разом после правки')
+    if eyes:
+        print(f'  ⚠ {eyes} инвариант(ов) области держатся только глазами или разовым замером — см. строки ниже')
+    print(f'--- Инварианты ({len(inv)}) — одной строкой; целиком: bugs.py <номер>')
+    for r in inv:
+        refs = ' ' + ','.join(r['refs']) if r['refs'] else ''
+        print(f" {r['n']:>3}. {headline(r['rule'])}  [{check_tag(r['check'])}]{refs}")
+    print(f'--- Грабли ({len(hits)}) — заголовки; целиком: bugs.py P###, все правила: --full')
+    for e in hits:
+        tag = '' if e['areas'][0] == area else f" (главная: {e['areas'][0]})"
+        print(f"{e['id']} {e['title']}{tag}")
+    return 0
+
+
+def show_area_full(area, entries, rows):
     print(f'=== {area}: {AREAS[area]}')
     inv = [r for r in rows if area in r['areas']]
     print(f'--- Инварианты ({len(inv)})')
@@ -160,6 +266,18 @@ def show_area(area, entries, rows):
         print(' ', c)
     print('  python3 ~/.claude/skills/tavern-regress/probes/check_all.py')
     return 0
+
+
+def show_invariant(n, rows):
+    for r in rows:
+        if r['n'] == n:
+            print(f"инвариант {n} · {', '.join(r['areas'])}")
+            print('  ' + r['rule'])
+            print('  Чем проверяется: ' + r['check'])
+            print('  Грабли: ' + (', '.join(r['refs']) or '—') + '; ломалось: ' + (r['broke'] or '—'))
+            return 0
+    print(f'инварианта {n} нет')
+    return 1
 
 
 def show_entry(pid, entries):
@@ -197,7 +315,9 @@ def main():
         sys.exit(0)
     if PREF.fullmatch(arg):
         sys.exit(show_entry(arg, entries))
-    sys.exit(show_area(arg, entries, rows))
+    if arg.isdigit():
+        sys.exit(show_invariant(int(arg), rows))
+    sys.exit(show_area(arg, entries, rows, full='--full' in sys.argv))
 
 
 if __name__ == '__main__':

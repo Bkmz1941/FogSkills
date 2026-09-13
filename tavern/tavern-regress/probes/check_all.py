@@ -1,4 +1,4 @@
-"""Один прогон: линт граблей, компиляция, тесты EditMode, живые пробы. Печатает вердикт.
+"""Один прогон: линт граблей, компиляция, тесты EditMode, живые пробы (инварианты, крит-сценарий «положить», круг сейва, позы, наклон, кадр). Печатает вердикт.
 
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/check_all.py
 """
@@ -131,6 +131,7 @@ def main():
         print('тесты: пропущены — редактор в play')
     if play:
         probe('invariants_play.py')
+        probe('transfer_probe.py', '--run')
         probe('level_roundtrip.py')
         probe('posture_probe.py')
         probe('tilt_probe.py')
