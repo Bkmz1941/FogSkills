@@ -8,6 +8,8 @@ python3 fog_lamp_probe.py     только в СВОЁМ play: ставит иг
                               или в области луча не изменился ни один пиксель.
 Замер 13.09 на Test #1: конус начало у линзы, дальность 15, tan 0.52; изменилось 19 594 пикселя из 518 400, все потемнели.
 """
+import json, re, subprocess, sys, time
+
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 def call(code):
