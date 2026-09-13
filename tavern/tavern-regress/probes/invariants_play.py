@@ -18,7 +18,7 @@ import json, subprocess, sys
 
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 
-CODE = r'''
+CODE_A = r'''
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var bad = new System.Text.StringBuilder();
 var cam = UnityEngine.Camera.main;
@@ -675,6 +675,15 @@ int farHidden = 0, farInView = 0;
     }
 }
 
+return " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
+'''
+
+CODE_B = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var bad = new System.Text.StringBuilder();
+var cam = UnityEngine.Camera.main;
+var mDistOf = typeof(Tavern.UI.HudUI).GetMethod("ExamineDistanceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var pColumn = typeof(Tavern.UI.HudUI).GetProperty("ExamineCardColumn", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 // 24. Трава кланяется на ветру, но корни остаются в земле: у стебля профиль
 // изгиба (y/h)^2 не двигает вершины у основания. Жёсткий поворот пучка целиком
 // (первая попытка 09.09) хоронил наветренную половину блейдов в земле на 14 см
@@ -1105,30 +1114,48 @@ if (cens1 != w1) bad.Append("перепись проводящих " + cens1 + "
 if (cens2 != w2) bad.Append("перепись врезки обшивки " + cens2 + " против " + w2 + "; ");
 if (cens4 != w4) bad.Append("перепись птиц " + cens4 + " против " + w4 + "; ");
 }
-
-return "объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: "
-     + (bad.Length == 0 ? "инварианты держатся" : bad.ToString());
+return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
 
-def main():
+
+def half(code, strike):
     # Мост режет код на 50 000 символов, а отступы занимают шесть с половиной
     # тысяч: снимаем их вместе с комментариями. Многострочных литералов (@"…")
     # в правилах нет, поэтому отступ ничего не значит.
-    code = '\n'.join(l.strip() for l in CODE.splitlines() if l.strip() and not l.strip().startswith('//'))
-    code = code.replace('STRIKE_ALLOWED', 'true' if '--strike' in sys.argv else 'false')
+    code = '\n'.join(l.strip() for l in code.splitlines() if l.strip() and not l.strip().startswith('//'))
+    code = code.replace('STRIKE_ALLOWED', 'true' if strike else 'false')
+    if len(code) > 50000:
+        return None, 'ПРОБА НЕ ОТПРАВЛЕНА: код %d символов при лимите моста 50 000 — правила надо ужать или резать прогон натрое' % len(code)
     out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": code})],
                          capture_output=True, text=True, timeout=280)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else '{}'
-    if len(code) > 50000:
-        print('ПРОБА НЕ ОТПРАВЛЕНА: код %d символов при лимите моста 50 000 — правила надо ужать или резать прогон надвое' % len(code))
-        return
     data = json.loads(line)
     body = data.get("data") if isinstance(data, dict) else None
     if not isinstance(body, dict) or not body.get("result"):
-        print('ПРОБА НЕ ОТВЕТИЛА: ' + json.dumps(data, ensure_ascii=False)[:400])
-        return
-    print(body["result"])
+        return None, 'ПРОБА НЕ ОТВЕТИЛА: ' + json.dumps(data, ensure_ascii=False)[:400]
+    return body["result"], None
+
+
+def main():
+    # Правила уехали за потолок моста, поэтому прогон идёт ДВУМЯ вызовами:
+    # у каждой половины свой пролог, свои счётчики и свои жалобы, а склейка
+    # здесь — чтобы читателю по-прежнему приходила ОДНА строка (13.09).
+    strike = '--strike' in sys.argv
+    counters, complaints = [], []
+    for code in (CODE_A, CODE_B):
+        res, err = half(code, strike)
+        if err:
+            print(err)
+            return
+        if res == 'не в play':
+            print('не в play')
+            return
+        left, _, right = res.partition(' :: ')
+        counters.append(left.strip())
+        complaints.append(right.strip())
+    tail = ' '.join(c for c in complaints if c)
+    print(' '.join(counters) + ' :: ' + (tail if tail else 'инварианты держатся'))
 
 
 if __name__ == '__main__':
