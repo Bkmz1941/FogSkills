@@ -101,8 +101,8 @@ def restore_scene():
     return state in ('ок', 'вернул')
 
 
-def probe(name):
-    out = subprocess.run(['python3', REG + '/probes/' + name],
+def probe(name, *args):
+    out = subprocess.run(['python3', REG + '/probes/' + name] + list(args),
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
     tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
     print(name + ':', tail[-1][:200] if tail else 'нет ответа')
@@ -126,6 +126,7 @@ def main():
         probe('level_roundtrip.py')
         probe('posture_probe.py')
         probe('tilt_probe.py')
+        probe('gc_probe.py', 'check')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')

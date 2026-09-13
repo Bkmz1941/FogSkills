@@ -4,6 +4,7 @@ python3 gc_probe.py                 базовый замер: мусор (ср�
 python3 gc_probe.py scan [кадров]   выключать типы с Update/LateUpdate/FixedUpdate по одному и мерить дельту мусора и мс
 python3 gc_probe.py profile [кадров] профайлер редактора: self-мс и мусор ПО МАРКЕРАМ (методам) за N кадров — точнее скана,
                                      у того дельты тонут в шуме ±2 мс; печатает 40 самых дорогих маркеров и все с мусором
+python3 gc_probe.py check           СТОРОЖ РЕГРЕССИИ: замер против записанного порога уровня, код 1 при превышении
 Потолка кадров в игре с 10.09 нет (FrameRateConfig: targetFrameRate = -1, Илья: «давай снимем»),
 замер это подтверждает явно: при потолке «Main Thread» мерил бы ожидание, а не работу.
 Пробник живёт в игре: Assets/Modules/Grid/GcProbe.cs (Begin/Result/ListTicking/SetEnabled).
@@ -35,6 +36,63 @@ def measure(frames):
             return int(parts['avg']), int(parts['max']), float(parts.get('ms', 0)), float(parts.get('p95', 0))
         time.sleep(1)
     return None, None, None, None
+
+
+# ⭐ ПОРОГИ КАДРА. Числа сняты в РЕДАКТОРЕ на машине Ильи в ночь 13.09, когда
+# forest100 проехал 10.44 → 4.89 мс. Это НЕ бюджет игры (тот меряется в сборке,
+# ARCHITECTURE.md «Мусор на кадр»), а сторож: он ловит возврат к «было», а не
+# мелкие колебания, поэтому пороги нарочно щедрые — кадр в полтора раза, мусор
+# вдвое, пик мусора втрое.
+# ⚠️ Замер зависит от того, ГДЕ СТОИТ ИГРОК и что попало в кадр: базу снимали от
+# точки спавна (forest100 — (-13.5, 0.3, -8.2), Test #1 — (-15.0, 0.5, -20.2)).
+# Красное с игроком в другом месте — повод переснять, а не чинить код.
+# Как обновлять: прогнать `gc_probe.py` дважды на осевшем уровне, взять среднее.
+BASE = {
+    'forest100': (6.3, 12900, 24600),
+    'Test #1': (6.0, 13700, 26100),
+}
+# Ниже этой отметки игрок в мире не стоит, а падает — замер такого кадра не
+# считается (P378): в кадре пусто, рендера нет, и кадр выходит дешевле правды
+# на полтора миллисекунды. Сверено 13.09: forest100 при стоящем игроке 6.3 мс,
+# при провалившемся 4.9.
+FLOOR_SANE = -50.0
+FRAME_OVER = 1.5
+GARBAGE_OVER = 2.0
+PEAK_OVER = 3.0
+
+
+def check(frames):
+    level = str(run('return Cozy.Grid.LevelIO.CurrentLevelName;'))
+    where = str(run('var p = Cozy.Grid.PlayerRef.Transform; return p != null ? p.position.ToString("F1") : "нет игрока";'))
+    if level not in BASE:
+        print('порога на уровень «%s» нет — база есть только для %s' % (level, ', '.join(BASE)))
+        return 0
+    wantMs, wantAvg, wantMax = BASE[level]
+    try:
+        ey = float(where.strip('() ').split(',')[1])
+    except Exception:
+        ey = 0.0
+    if ey < FLOOR_SANE:
+        print('замер не считается: игрок провалился под мир (%s) — перезайди в play, P378' % where)
+        return 1
+    uncap(True)
+    try:
+        avg, mx, ms, p95 = measure(frames)
+    finally:
+        uncap(False)
+    if avg is None:
+        print('замер не ответил')
+        return 1
+    bad = []
+    if ms > wantMs * FRAME_OVER: bad.append('кадр %.2f мс против порога %.2f (база %.2f)' % (ms, wantMs * FRAME_OVER, wantMs))
+    if avg > wantAvg * GARBAGE_OVER: bad.append('мусор %d Б против порога %d (база %d)' % (avg, wantAvg * GARBAGE_OVER, wantAvg))
+    if mx > wantMax * PEAK_OVER: bad.append('пик мусора %d Б против порога %d (база %d)' % (mx, wantMax * PEAK_OVER, wantMax))
+    head = '%s: кадр %.2f мс (база %.2f), мусор %d Б (база %d), пик %d Б; игрок %s' % (level, ms, wantMs, avg, wantAvg, mx, where)
+    if bad:
+        print('КРАСНОЕ ' + head + ' :: ' + '; '.join(bad))
+        return 1
+    print(head + ' :: в пороге')
+    return 0
 
 
 def uncap(on):
@@ -106,6 +164,8 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'profile':
         profile(min(frames, 250))
         return
+    if len(sys.argv) > 1 and sys.argv[1] == 'check':
+        sys.exit(check(frames))
     uncap(True)
     try:
         if len(sys.argv) < 2 or sys.argv[1] != 'scan':
