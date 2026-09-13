@@ -1332,7 +1332,44 @@ if (slotBad > 0) bad.Append("видов этажа с неверным мест�
 if (nearAsleep > 0) bad.Append("близкий вид этажа спит: " + nearAsleep + "; ");
 if (farAwake > 0) bad.Append("дальний вид этажа не уснул: " + farAwake + "; ");
 }
-return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
+// 43. КОЛЛАЙДЕР ЗЕМЛИ СОВПАДАЕТ С ПОЛЕМ ВЫСОТ (P360, P384; инвариант 148): рельеф
+//     живёт дважды — полем `TerrainHeights` (по нему `GroundY` и постановка) и
+//     коллайдерами клеток (по ним ходит игрок и бьёт луч опоры). Разошлись —
+//     игрок по колено в земле, призрак не находит пол. Четыре точки в каждой
+//     клетке земли без плиты сверху; расхождение > 1 см — жалоба.
+int soilPts = 0, soilOff = 0; float soilMax = 0f;
+var soilGrid = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground);
+if (gcp != null && soilGrid != null)
+{
+var soilHits = new UnityEngine.RaycastHit[64];
+float soilCs = soilGrid.CellSize;
+for (int sx = 0; sx < soilGrid.Width; sx++)
+for (int sz = 0; sz < soilGrid.Height; sz++)
+{
+if (!soilGrid.IsPresent(sx, sz)) continue;
+var sc = soilGrid.CellToWorld(sx, sz);
+for (int k = 0; k < 4; k++)
+{
+float px = sc.x + (k % 2 == 0 ? -0.3f : 0.3f) * soilCs;
+float pz = sc.z + (k < 2 ? -0.3f : 0.3f) * soilCs;
+int nh = UnityEngine.Physics.RaycastNonAlloc(new UnityEngine.Vector3(px, 30f, pz), UnityEngine.Vector3.down, soilHits, 60f, ~0, UnityEngine.QueryTriggerInteraction.Ignore);
+float soilHitY = float.NaN; bool slabAbove = false;
+for (int i = 0; i < nh; i++)
+{
+var gb = soilHits[i].collider.GetComponent<Cozy.Grid.GridBlock>();
+if (gb == null) continue;
+if (gb.role != Cozy.Grid.GridRole.Ground) { slabAbove = true; break; }
+if (float.IsNaN(soilHitY) || soilHits[i].point.y > soilHitY) soilHitY = soilHits[i].point.y;
+}
+if (slabAbove || float.IsNaN(soilHitY)) continue;
+soilPts++;
+float soilOffNow = UnityEngine.Mathf.Abs(soilHitY - gcp.GroundY(px, pz, 0f));
+if (soilOffNow > 0.01f) { soilOff++; if (soilOffNow > soilMax) soilMax = soilOffNow; }
+}
+}
+if (soilOff > 0) bad.Append("коллайдер земли расходится с полем высот: " + soilOff + " из " + soilPts + " точек, до " + soilMax.ToString("F3") + " м — ходят и ставят не по той земле, что нарисована (P360, P384); ");
+}
+return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
 
@@ -1371,7 +1408,7 @@ RULE_OF = {
     'растений на ветру': '24', 'статусы': '27', 'крон': '28', 'низких слотов': '30',
     'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
     'веток': '35', 'источников': '36', 'точек прицела': '37',
-    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42',
+    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43',
 }
 
 
