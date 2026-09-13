@@ -86,7 +86,7 @@
    (1, 0.93, 0.82), `LightShadows.Soft`, `shadowNearPlane = HandShadowCutoff
    0.05`. Спот создаётся ВЫКЛЮЧЕННЫМ: `SetLit` идемпотентна (ранний выход при
    том же значении), и без `enabled = false` при создании свет зажёгся бы
-   вместе с моделью. Каждый кадр при `Lit` риг отдаёт конус в `SeeThroughWindow.SetCone`
+   вместе с моделью. Каждый кадр при `Lit` риг отдаёт конус в `SeeThroughWindow.SetCone`; ⭐ с 13.09 тот же конус уходит туману глобалями `_FogLampCone`/`_FogLampDir`, и клубы под лучом становятся прозрачными (домен — `tavern-game/WEATHER.md` §3, шейдер `FogClip`, инвариант 177)
    — потребителя у конуса с 07.09 нет (просвечивание крон снято, VIEW.md
    §10a), вызов оставлен под будущие «взгляды».
    ⭐ Слои света: спот получает `LightZones.SetLight(_light, LightZones.Both)`
@@ -186,6 +186,7 @@
 | одежда на кисти/рукавах | скил `tavern-clothes` |
 | мир-двойник фонаря (модель `torchLight`, бюджет треугольников P017) | `tavern-game/BLENDER.md`, `BUILD.md` |
 | просвечивание конусом (`SeeThroughWindow.SetCone`) — снято | `tavern-game/VIEW.md` §10a |
+| туман под лучом (шейдер `FogClip`, ручки `FogVolume.Lamp*`) | `tavern-game/WEATHER.md` §3 |
 
 Пересечение с переносом пока не описано: что делает горящий фонарь, когда
 игрок берёт объект в руки (`HandPlacing`), кодом не оговорено — риг светит

@@ -202,7 +202,7 @@ try
             var part = col.GetComponentInParent<Cozy.Grid.InteractiveObject>();
             if (part != null && (Cozy.Grid.InteractiveObject.InContainer(part, io) || Cozy.Grid.InteractiveObject.Same(part.HostObject, io))) continue;
             var r = col.GetComponent<UnityEngine.Renderer>(); if (r == null) r = col.GetComponentInChildren<UnityEngine.Renderer>();
-            if (r != null && !r.enabled) continue;
+            if (r != null && (!r.enabled || r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly)) continue;
             if (col.bounds.Contains(focus)) continue;
             foreign.Add(col.bounds);
         }
