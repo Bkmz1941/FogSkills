@@ -69,6 +69,8 @@ Need("29", qCam.GetMethod("Transparent", BFqs) != null, "нет CameraFollow.Tra
 Need("30", Cozy.Grid.FurnitureCatalog.ById("hallway_rack") != null, "нет дефа hallway_rack");
 Need("33", qHud.GetField("_activeQuick", BFq) != null, "нет HudUI._activeQuick");
 Need("33", qHud.GetMethod("PocketPlacedAt", BFq) != null, "нет HudUI.PocketPlacedAt");
+Need("21b", typeof(Cozy.Grid.RainDrops).GetMethod("OpenSky", BFqs) != null, "нет RainDrops.OpenSky");
+Need("21b", typeof(Cozy.Grid.RainDrops).GetField("_rends", BFq) != null, "нет RainDrops._rends");
 Need("39", typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", BFqs) != null, "нет GameSfx.MuffleAt");
 var cam = UnityEngine.Camera.main;
 var t = typeof(Cozy.Grid.Interactor);
@@ -614,6 +616,51 @@ if (Cozy.Grid.Weather.Rain)
     }
 }
 
+// 21b. СНАРУЖИ ДОЖДЬ ЗАКРЫВАЕТ ВЕСЬ КАДР, включая низ (Илья 13.09: «внизу
+// будто дождь не идёт»; P383). Правило пишется БЕЗ копии игровой логики: под
+// открытым небом гасить столб нечем — гейт крыши требует игрока под крышей,
+// гейт стены тоже, — значит выключенных столбов не должно быть ни одного.
+// Дождь проба включает сама и возвращает в том же вызове, кадр между этим не
+// рисуется, поэтому Илья ничего не увидит.
+int rainOutside = 0;
+{
+    var qT = typeof(Cozy.Grid.RainDrops);
+    var qbf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+    var qbfs = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+    var qRig = UnityEngine.Object.FindFirstObjectByType<Cozy.Grid.RainDrops>();
+    var qLate = qT.GetMethod("LateUpdate", qbf);
+    var qSky = qT.GetMethod("OpenSky", qbfs);
+    var qCell = qT.GetMethod("CellSize", qbfs);
+    var qOrg = qT.GetMethod("GridOrigin", qbfs);
+    var qRends = qT.GetField("_rends", qbf);
+    if (qRig != null && qLate != null && qSky != null && qCell != null && qOrg != null && qRends != null)
+    {
+        bool qKeep = Cozy.Grid.Weather.Rain;
+        Cozy.Grid.Weather.Rain = true;
+        qLate.Invoke(qRig, new object[0]);
+        float qcs = (float)qCell.Invoke(null, new object[0]);
+        var qorg = (UnityEngine.Vector3)qOrg.Invoke(null, new object[] { qcs });
+        var qp = Cozy.View.ViewState.PlayerPos;
+        float qfloor = Cozy.View.ViewState.CurrentFloorY;
+        int qcx = UnityEngine.Mathf.RoundToInt((qp.x - qorg.x) / qcs);
+        int qcz = UnityEngine.Mathf.RoundToInt((qp.z - qorg.z) / qcs);
+        var qcell = new UnityEngine.Vector3(qorg.x + qcx * qcs, qfloor, qorg.z + qcz * qcs);
+        bool qRoofed = (float)qSky.Invoke(null, new object[] { qcell, qcs, qcx, qcz }) > qfloor + 0.01f;
+        var qlist = qRends.GetValue(qRig) as System.Collections.Generic.List<UnityEngine.MeshRenderer>;
+        if (!qRoofed && qlist != null && qlist.Count > 0)
+        {
+            rainOutside = 1;
+            int qoff = 0;
+            foreach (var qr in qlist) if (qr != null && !qr.enabled) qoff++;
+            if (qoff > 0)
+                bad.Append("снаружи дождь не рисуется в " + qoff + " клетках из " + qlist.Count
+                    + ": под открытым небом столб гасить нечем, кроме отсечки переднего плана, а она работает только в доме (P383); ");
+        }
+        Cozy.Grid.Weather.Rain = qKeep;
+        qLate.Invoke(qRig, new object[0]);
+    }
+}
+
 // 22. Своя кисть не заслоняет свой фонарь: вылет пальцев за источник по оси
 // луча меньше ближней плоскости теней спота (P267, инвариант 90). Снипет
 // замера жил в tavern-hands/HANDS.md, автопробы не было.
@@ -724,7 +771,7 @@ int farHidden = 0, farInView = 0;
     }
 }
 
-return " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
+return " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " дождь снаружи=" + rainOutside + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
 '''
 
 CODE_B = r'''
@@ -1319,7 +1366,7 @@ RULE_OF = {
     'в закрытых секциях': '1', 'подвесов': '5', 'вложенных': '6',
     'с преградой у фокуса': '7', 'на открытых поверхностях': '8', 'порожков': '9',
     'скрытых': '11', 'настенных': '12', 'стен': '18', 'порывов ветра': '19',
-    'клеток дождя': '21', 'фонарь в руке': '22', 'гейт спавна': '20',
+    'клеток дождя': '21', 'дождь снаружи': '21b', 'фонарь в руке': '22', 'гейт спавна': '20',
     'молния': '23', 'скрыто радиусом': '32', 'в кадре': '32',
     'растений на ветру': '24', 'статусы': '27', 'крон': '28', 'низких слотов': '30',
     'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
