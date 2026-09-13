@@ -1114,6 +1114,24 @@ if (cens1 != w1) bad.Append("перепись проводящих " + cens1 + "
 if (cens2 != w2) bad.Append("перепись врезки обшивки " + cens2 + " против " + w2 + "; ");
 if (cens4 != w4) bad.Append("перепись птиц " + cens4 + " против " + w4 + "; ");
 }
+// 39. ЗВУК ГЛУШИТСЯ ПО ЭТАЖАМ ОТ ИГРОКА, А НЕ ОТ ЭТАЖА ОБЗОРА (P368: сову не было
+//     слышно — на улице этаж обзора уезжает к основанию грида, и `MuffleAt` резал
+//     ВСЁ: звук с земли ×0.35, птицу на ветке ×0.12, собственный крик боли ×0.35).
+//     Два требования разом: у самого уха приглушения этажами нет, и этаж считается
+//     ОТБРАСЫВАНИЕМ — ветка под потолком ещё не «этажом выше», а полный этаж уже да.
+var mMuffle = typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var earTf = Cozy.Grid.PlayerRef.Transform;
+if (mMuffle != null && earTf != null)
+{
+float cs = UnityEngine.Mathf.Max(1f, Cozy.View.ViewState.CellSize);
+var ear = earTf.position;
+float atEar = (float)mMuffle.Invoke(null, new object[] { ear });
+float nearTop = (float)mMuffle.Invoke(null, new object[] { ear + UnityEngine.Vector3.up * (cs * 0.9f) });
+float overFloor = (float)mMuffle.Invoke(null, new object[] { ear + UnityEngine.Vector3.up * (cs * 1.1f) });
+if (atEar < 0.4f) bad.Append("звук у самого уха приглушён этажами: " + atEar.ToString("F3") + "; ");
+if (nearTop < atEar - 0.001f) bad.Append("звук под потолком своего этажа уже приглушён: " + nearTop.ToString("F3") + " против " + atEar.ToString("F3") + "; ");
+if (overFloor > atEar * 0.5f) bad.Append("звук этажом выше не приглушён: " + overFloor.ToString("F3") + " против " + atEar.ToString("F3") + "; ");
+}
 return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
