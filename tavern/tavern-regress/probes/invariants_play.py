@@ -1132,6 +1132,26 @@ if (atEar < 0.4f) bad.Append("звук у самого уха приглушён
 if (nearTop < atEar - 0.001f) bad.Append("звук под потолком своего этажа уже приглушён: " + nearTop.ToString("F3") + " против " + atEar.ToString("F3") + "; ");
 if (overFloor > atEar * 0.5f) bad.Append("звук этажом выше не приглушён: " + overFloor.ToString("F3") + " против " + atEar.ToString("F3") + "; ");
 }
+// 40. ИГРОК ВСТАЁТ НА ЗЕМЛЮ НОГАМИ, А НЕ ЗАКАПЫВАЕТСЯ НАЧАЛОМ ОБЪЕКТА (P378):
+//     метка спавна, центр сетки и `FreeSpotNear` говорят о точке ПОДОШВ, а
+//     начало игрока лежит на метр выше — телепорт обязан эту разницу добавить.
+//     Проверяется действием: прыжок на метку и возврат на прежнее место.
+var gcp = Cozy.Grid.GridCursor.I;
+var plr = Cozy.Grid.PlayerRef.GameObject;
+var spawnPt = Cozy.Grid.SpawnPoint.Instance;
+if (gcp != null && plr != null && spawnPt != null)
+{
+var ccp = plr.GetComponent<UnityEngine.CharacterController>();
+var savedAt = plr.transform.position;
+gcp.TeleportPlayerTo(spawnPt.transform.position);
+float feetY = plr.transform.position.y + (ccp != null ? ccp.center.y - ccp.height * 0.5f : 0f);
+float soilY = gcp.GroundY(plr.transform.position.x, plr.transform.position.z, 0f);
+if (feetY < soilY - 0.01f) bad.Append("телепорт закопал игрока на " + (soilY - feetY).ToString("F2") + " м; ");
+if (feetY > soilY + 0.6f) bad.Append("телепорт поднял игрока на " + (feetY - soilY).ToString("F2") + " м над землёй; ");
+if (ccp != null) ccp.enabled = false;
+plr.transform.position = savedAt;
+if (ccp != null) ccp.enabled = true;
+}
 return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
