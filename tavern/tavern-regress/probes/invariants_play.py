@@ -1152,6 +1152,27 @@ if (ccp != null) ccp.enabled = false;
 plr.transform.position = savedAt;
 if (ccp != null) ccp.enabled = true;
 }
+// 41. ПЕРЕПИСЬ ТИКАЮЩИХ НЕ ТЕРЯЕТ НИКОГО (13.09): покадровый обход идёт по
+//     `InteractiveObject.Ticking`, а не по уровню, поэтому объект, у которого
+//     есть что тикать, ОБЯЗАН в этой переписи быть. Признак `Idle` считается
+//     живьём тем же кодом, что и в обходе, — сверяем список с ним.
+var tIo = typeof(Cozy.Grid.InteractiveObject);
+var bfIo = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var pIdle = tIo.GetProperty("Idle", bfIo);
+var fInTick = tIo.GetField("_inTicking", bfIo);
+if (pIdle != null && fInTick != null)
+{
+int lostTick = 0, busyTick = 0;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+if (io == null) continue;
+if ((bool)pIdle.GetValue(io, null)) continue;
+busyTick++;
+if (!(bool)fInTick.GetValue(io)) { lostTick++; if (lostTick <= 3) bad.Append("тикающий мимо переписи: " + (io.Def != null ? io.Def.id : io.name) + "; "); }
+}
+if (busyTick > Cozy.Grid.InteractiveObject.Ticking.Count)
+bad.Append("перепись тикающих " + Cozy.Grid.InteractiveObject.Ticking.Count + " против " + busyTick + "; ");
+}
 return " травы на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
 '''
 
