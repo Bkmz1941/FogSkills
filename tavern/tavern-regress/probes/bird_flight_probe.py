@@ -13,9 +13,19 @@
 3. Она не оказалась ниже земли и не улетела за край уровня.
 4. После прогона в уровне ровно столько же объектов, сколько было.
 
+Вторая половина — ПОКОЙ птиц уровня (`CrowIdle`), который до 13.09 не был прикрыт
+ничем: голова каждой сидящей птицы прослеживается восемь секунд и обязана
+1) шевелиться (покой живой, а не замерший) и 2) не выходить за предел СВОЕЙ породы
+(`CrowIdle.CalmOf(kind).HeadYaw`: ворона 62°, сова 96°).
+
+⚠️ Проба ДВИГАЕТ игрока: спавнит сову рядом с веткой и подводит камеру к сидящей
+птице, потом возвращает игрока ровно туда, где он стоял, и сносит свою сову. Если
+в этот момент играет Илья — он увидит рывок, поэтому в `check_all.py` она не
+входит и гоняется под задачу.
+
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/bird_flight_probe.py
 Нужен play и уровень С ДЕРЕВЬЯМИ (есть включённые ветки со свободными гнёздами).
-Идёт около двадцати секунд: полёт живой, ускорить его нечем.
+Идёт около тридцати секунд: полёт и покой живые, ускорить их нечем.
 """
 import json, subprocess, sys, time
 
@@ -135,5 +145,122 @@ def main():
             print('⚠️ уборка: ' + tail)
 
 
+# ⚠️ Птица ВНЕ КАДРА замирает по замыслу (`CrowIdle.Update` выходит первой
+# строкой, если `ViewCull.InView` ложно) — значит мерить покой у птицы, на
+# которую никто не смотрит, бессмысленно. Поэтому проба подводит игрока к
+# птице: ближе, чем видит камера, но ДАЛЬШЕ её пугливого радиуса 3.2 м,
+# иначе птица просто улетит и мерить снова будет нечего.
+APPROACH = r'''
+Cozy.Grid.CrowIdle best = null;
+var ph = typeof(Cozy.Grid.CrowFlight).GetField("_phase", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+int skip = TRY;
+foreach (var idle in UnityEngine.Object.FindObjectsByType<Cozy.Grid.CrowIdle>(UnityEngine.FindObjectsSortMode.None))
+{
+    var fl = idle.GetComponent<Cozy.Grid.CrowFlight>();
+    if (fl != null && ph != null && ph.GetValue(fl).ToString() != "Perched") continue;
+    if (skip-- > 0) continue;
+    best = idle; break;
+}
+if (best == null) return "сидящих птиц больше нет";
+var plr = Cozy.Grid.PlayerRef.Transform;
+SAVED
+var g = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground);
+var at = best.transform.position;
+// Встаём так, чтобы птица оказалась ПЕРЕД камерой: она следует за игроком с
+// постоянным разворотом, поэтому отходим против её взгляда. Шесть метров —
+// вдвое дальше пугливого радиуса 3.2 м, и птица остаётся на ветке.
+var cam = UnityEngine.Camera.main;
+var dir = cam != null ? UnityEngine.Vector3.ProjectOnPlane(cam.transform.forward, UnityEngine.Vector3.up).normalized : UnityEngine.Vector3.forward;
+if (dir.sqrMagnitude < 0.01f) dir = UnityEngine.Vector3.forward;
+var spot = at - dir * 6f;
+float fy = g.transform.position.y + (g.Heights != null ? g.Heights.HeightAt(spot.x, spot.z) : 0f);
+Cozy.Grid.GridCursor.I.TeleportPlayerTo(new UnityEngine.Vector3(spot.x, fy, spot.z));
+return "подвёл к " + at.ToString("F1") + " сохранено " + plr.position.ToString("F2");
+'''
+
+IDLE = r'''
+var sb = new System.Text.StringBuilder();
+foreach (var idle in UnityEngine.Object.FindObjectsByType<Cozy.Grid.CrowIdle>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (idle == null) continue;
+    var io = idle.GetComponent<Cozy.Grid.InteractiveObject>();
+    if (io == null || io.Def == null) continue;
+    var rend = idle.GetComponentInChildren<UnityEngine.Renderer>();
+    if (rend == null || !Cozy.Grid.ViewCull.InView(rend.bounds)) continue;
+    // Берём САМ угол, который код и ограничивает (`_yaw`), а не эйлер узла: оси
+    // головы пришли из FBX повёрнутыми — поворот влево-вправо живёт в Z, и
+    // чтение `localEulerAngles.y` показывает косой взгляд вместо поворота
+    // (проба 13.09 из-за этого решила, что голова не шевелится).
+    var fYaw = typeof(Cozy.Grid.CrowIdle).GetField("_yaw", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    if (fYaw == null) return "у CrowIdle нет поля _yaw";
+    float yaw = (float)fYaw.GetValue(idle);
+    sb.Append(io.GetInstanceID() + "|" + io.Def.birdKind + "|" + yaw.ToString("F2") + ";");
+}
+return sb.Length == 0 ? "птиц в кадре нет" : sb.ToString();
+'''
+
+LIMITS = r'''
+return "ворона=" + Cozy.Grid.CrowIdle.CalmOf("").HeadYaw.ToString("F0")
+    + " сова=" + Cozy.Grid.CrowIdle.CalmOf(Cozy.Grid.CrowIdle.Owl).HeadYaw.ToString("F0")
+    + " час=" + Cozy.Grid.Weather.Hour.ToString("F1");
+'''
+
+
+def idle_check():
+    limits = run(LIMITS)
+    if not limits.startswith('ворона='):
+        print('покой: ' + limits)
+        return
+    where = run('var p = Cozy.Grid.PlayerRef.Transform; return p.position.x + " " + p.position.y + " " + p.position.z;')
+    try:
+        # Птица может оказаться за спиной камеры или за деревом — тогда пробуем
+        # следующую сидящую. Трёх попыток хватает: лишний заход стоит секунду.
+        for attempt in range(3):
+            came = run(APPROACH.replace('SAVED', '').replace('TRY', str(attempt)))
+            if not came.startswith('подвёл'):
+                print('покой: ' + came)
+                return
+            time.sleep(1.2)
+            if '|' in run(IDLE):
+                idle_samples(limits)
+                return
+        print('покой: ни одна сидящая птица не попала в кадр — проверять нечего')
+    finally:
+        x, y, z = where.split()
+        run('var p = Cozy.Grid.PlayerRef.GameObject; var cc = p.GetComponent<UnityEngine.CharacterController>();'
+            ' if (cc != null) cc.enabled = false;'
+            ' p.transform.position = new UnityEngine.Vector3(%sf, %sf, %sf);'
+            ' if (cc != null) cc.enabled = true; return "вернул игрока";' % (x, y, z))
+
+
+def idle_samples(limits):
+    crow = float(limits.split('ворона=')[1].split()[0])
+    owl = float(limits.split('сова=')[1].split()[0])
+    seen = {}
+    for _ in range(12):
+        line = run(IDLE)
+        if '|' not in line:
+            print('покой: ' + line + ' — проверять нечего')
+            return
+        for part in line.split(';'):
+            if part.count('|') != 2:
+                continue
+            ident, kind, yaw = part.split('|')
+            lo, hi = seen.get(ident, (999.0, -999.0))[:2] if ident in seen else (999.0, -999.0)
+            seen[ident] = (min(lo, float(yaw)), max(hi, float(yaw)), kind)
+        time.sleep(0.7)
+    bad, say = [], []
+    for ident, (lo, hi, kind) in seen.items():
+        limit = owl if kind == 'owl' else crow
+        say.append('%s: крайний поворот %.1f° при пределе %.0f°, размах %.1f°'
+                   % (kind or 'crow', max(abs(lo), abs(hi)), limit, hi - lo))
+        if hi - lo < 0.5:
+            bad.append('%s: голова не шевелится за восемь секунд' % (kind or 'crow'))
+        if max(abs(lo), abs(hi)) > limit + 2.0:
+            bad.append('%s: голова ушла на %.1f° при пределе %.0f°' % (kind or 'crow', max(abs(lo), abs(hi)), limit))
+    print(('покой: ' + '; '.join(say) + ' :: держится') if not bad else ('КРАСНОЕ: ' + '; '.join(bad)))
+
+
 if __name__ == '__main__':
     main()
+    idle_check()
