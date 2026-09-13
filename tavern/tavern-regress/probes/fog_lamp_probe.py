@@ -3,7 +3,7 @@
 python3 fog_lamp_probe.py     только в СВОЁМ play: ставит игрока в 3 м от ближайшей клетки тумана лицом к ней,
                               выбирает фонарь в хотбаре (через _activeQuick + SyncHand, иначе хотбар вернёт руку
                               за четверть секунды), ждёт кадр, читает глобали конуса и рендерит кадр дважды —
-                              «Луч фонаря раздвигает» 100 % и 0 %; считает пиксели, которые потемнели (туман ушёл).
+                              «Растворяет туман днём/ночью» 100 % и 0 %; считает пиксели, которые потемнели (туман ушёл).
                               Возвращает хотбар и игрока. Красное: конус в шейдере нулевой при горящем фонаре
                               или в области луча не изменился ни один пиксель.
 Замер 13.09 на Test #1: конус начало у линзы, дальность 15, tan 0.52; изменилось 19 594 пикселя из 518 400, все потемнели.
@@ -49,14 +49,14 @@ var cone = UnityEngine.Shader.GetGlobalVector("_FogLampCone"); var dir = UnityEn
 float clear = UnityEngine.Shader.GetGlobalFloat("_FogLampClear"), soft = UnityEngine.Shader.GetGlobalFloat("_FogLampSoft"), reach = UnityEngine.Shader.GetGlobalFloat("_FogLampReach");
 int W = 960, H = 540;
 System.Func<UnityEngine.Color32[]> Shot = () => { var rt = UnityEngine.RenderTexture.GetTemporary(W, H, 24); var prevT = cam.targetTexture; cam.targetTexture = rt; cam.Render(); cam.targetTexture = prevT; var tex = new UnityEngine.Texture2D(W, H, UnityEngine.TextureFormat.RGB24, false); var prevA = UnityEngine.RenderTexture.active; UnityEngine.RenderTexture.active = rt; tex.ReadPixels(new UnityEngine.Rect(0, 0, W, H), 0, 0); tex.Apply(); UnityEngine.RenderTexture.active = prevA; UnityEngine.RenderTexture.ReleaseTemporary(rt); var px = tex.GetPixels32(); UnityEngine.Object.Destroy(tex); return px; };
-float saved = Cozy.Grid.FogVolume.LampClear;
+float savedDay = Cozy.Character.FlashlightRig.FogClearDay, savedNight = Cozy.Character.FlashlightRig.FogClearNight;
 UnityEngine.Color32[] a, b;
 try
 {
-    Cozy.Grid.FogVolume.LampClear = 1f; Cozy.Grid.FogVolume.ApplyLamp(); a = Shot();
-    Cozy.Grid.FogVolume.LampClear = 0f; Cozy.Grid.FogVolume.ApplyLamp(); b = Shot();
+    Cozy.Character.FlashlightRig.FogClearDay = 1f; Cozy.Character.FlashlightRig.FogClearNight = 1f; UnityEngine.Shader.SetGlobalFloat("_FogLampClear", 1f); a = Shot();
+    UnityEngine.Shader.SetGlobalFloat("_FogLampClear", 0f); b = Shot();
 }
-finally { Cozy.Grid.FogVolume.LampClear = saved; Cozy.Grid.FogVolume.ApplyLamp(); }
+finally { Cozy.Character.FlashlightRig.FogClearDay = savedDay; Cozy.Character.FlashlightRig.FogClearNight = savedNight; }
 int changed = 0, darker = 0; long sumA = 0, sumB = 0; int minX = W, maxX = 0, minY = H, maxY = 0;
 for (int i = 0; i < a.Length; i++)
 {

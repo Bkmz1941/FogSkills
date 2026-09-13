@@ -186,7 +186,7 @@
 | одежда на кисти/рукавах | скил `tavern-clothes` |
 | мир-двойник фонаря (модель `torchLight`, бюджет треугольников P017) | `tavern-game/BLENDER.md`, `BUILD.md` |
 | просвечивание конусом (`SeeThroughWindow.SetCone`) — снято | `tavern-game/VIEW.md` §10a |
-| туман под лучом (шейдер `FogClip`, ручки `FogVolume.Lamp*`) | `tavern-game/WEATHER.md` §3 |
+| туман под лучом: ручки `FlashlightRig.FogClearDay/FogClearNight/FogEdgeSoft/FogReach` здесь, шейдер `FogClip` там | `tavern-game/WEATHER.md` §3 |
 
 Пересечение с переносом пока не описано: что делает горящий фонарь, когда
 игрок берёт объект в руки (`HandPlacing`), кодом не оговорено — риг светит
