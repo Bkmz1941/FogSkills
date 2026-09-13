@@ -52,6 +52,12 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
   `BodyTemperature.Chill`, `CharacterStats.Touch`. Тот же приём, что у
   Cooking (`FeatureFactories`).
 
+С 2026-09-13 **Cozy.Combat** (`Assets/Modules/Combat`, ссылки Grid/Character/
+View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад дебага),
+`Encounter` (раннер сцен), `CrowEncounter` (граф сцен), `EncounterData`
+(`crowEncounter.json` из Blender). `Tavern.UI` ссылается на него ради кнопок
+дебага и полосы `EncounterBarUI`. Устройство — скил `tavern-combat`.
+
 Стрелка = «ссылается на». Циклов нет и заводить нельзя. Практические следствия:
 - **Cozy.Grid — низ**: сюда кладут примитивы, которые нужны всем (лучи, сетка,
   габариты). Character/Cooking/UI их видят, обратное — нет.
