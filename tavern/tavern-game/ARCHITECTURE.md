@@ -79,6 +79,27 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
 | UI | `Game/UI/HudUI.*` (15 партиалов; интерактив — Interact «поток выбора/ховера», InteractCard «содержимое карточки», InteractBadges «бейджи»), `UiFactory.*`, `UiTheme`, экраны `*ScreenUI` |
 | Тесты | `Assets/Tests/EditMode` (сборка `Tavern.Tests.EditMode`) |
 
+### ⚠️ Классы, которые живут не в своём по имени файле
+
+Мелкие данные рядом со своим хозяином — это норма (`ObjectPart`, `TempSource`,
+`Recipe` и ещё три десятка). А вот эти — самостоятельные системы, и искать их
+по имени файла бесполезно (13.09: `grep Burnable.cs` — «нет такого файла»):
+
+| Класс | Живёт в | Что это |
+|---|---|---|
+| `Burnable` | `Grid/FireView.cs` | горение объекта: состояние, обугливание, пламя |
+| `TreeWind` | `Grid/WindGusts.cs` | ветер отдельного растения: материалы, глобали, аналитический изгиб ствола |
+| `ViewCull` | `Grid/WindGusts.cs` | «в кадре ли габарит» — фрустум раз в кадр |
+| `WorldTick` | `Grid/ViewSensor.cs` | центральный тикер мира |
+| `FarRadius` | `Grid/ViewSensor.cs` | радиус рендера и сон дальних |
+| `PlayerPosture` | `Grid/Features/PostureFeature.cs` | единое состояние «объект держит игрока» |
+| `SeeThroughWindow` | `Grid/SeeThroughView.cs` | просвет окна в стене |
+| `PlayerXRay` | `Grid/XRayView.cs` | силуэт игрока за преградой |
+| `Puddle` | `Grid/WaterSource.cs` | лужа |
+
+Заводить файл под класс — вопрос к Илье (правило 2 скила: новых файлов без
+просьбы не создаём), поэтому пока это указатель, а не план переноса.
+
 ## ⭐ Общие примитивы — брать, а не писать заново
 
 | Нужно | Готовое | Где |

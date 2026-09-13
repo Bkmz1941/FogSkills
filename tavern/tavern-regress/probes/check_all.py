@@ -125,6 +125,7 @@ def main():
         probe('invariants_play.py')
         probe('level_roundtrip.py')
         probe('posture_probe.py')
+        probe('tilt_probe.py')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')
