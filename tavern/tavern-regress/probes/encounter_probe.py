@@ -137,11 +137,14 @@ return "go";
 WINGS_READ = r'''
 if (Cozy.Combat.Encounter.Running && !Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
 string s = "мах выключен, сцена=" + Cozy.Combat.Encounter.SceneId + "\n";
+var wings = new System.Collections.Generic.List<string>();
 foreach (var t in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
 {
     if (t.name != "WingLFly" && t.name != "WingRFly") continue;
-    s += t.name + " local=" + t.localEulerAngles.ToString("F2") + "\n";
+    wings.Add(t.name + " local=" + t.localEulerAngles.ToString("F2"));
 }
+wings.Sort(System.StringComparer.Ordinal);
+foreach (var w in wings) s += w + "\n";
 s += "ползунки: lift=" + Cozy.Combat.CrowAttack.WingLift + " twist=" + Cozy.Combat.CrowAttack.WingTwist
    + " sweep=" + Cozy.Combat.CrowAttack.WingSweep + "\n";
 return s;
