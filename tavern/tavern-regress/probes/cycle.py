@@ -36,16 +36,17 @@ def run(code):
 
 
 def state():
-    res = run('return UnityEngine.Application.isPlaying + "|" + UnityEditor.EditorApplication.isCompiling + "|" + Cozy.Grid.LevelIO.CurrentLevelName;')
+    res = run('return UnityEngine.Application.isPlaying + "|" + UnityEditor.EditorApplication.isCompiling'
+              ' + "|" + Cozy.Grid.LevelIO.CurrentLevelName + "|" + UnityEditor.EditorApplication.isPaused;')
     if not res or '|' not in str(res):
-        return None, None, None
-    p, c, lvl = (str(res).split('|') + ['', '', ''])[:3]
-    return p.lower().startswith('t'), c.lower().startswith('t'), lvl
+        return None, None, None, None
+    p, c, lvl, paused = (str(res).split('|') + ['', '', '', ''])[:4]
+    return p.lower().startswith('t'), c.lower().startswith('t'), lvl, paused.lower().startswith('t')
 
 
 def wait_state(play=None, compiling=False, seconds=120):
     for _ in range(seconds // 2):
-        p, c, _ = state()
+        p, c, _, _ = state()
         if p is not None and (play is None or p == play) and c == compiling:
             return True
         time.sleep(2)
@@ -53,15 +54,15 @@ def wait_state(play=None, compiling=False, seconds=120):
 
 
 def cmd_status():
-    p, c, lvl = state()
+    p, c, lvl, paused = state()
     if p is None:
         print('мост не отвечает'); return False
-    print(f'play={p} compiling={c} уровень={lvl or "—"}')
+    print(f'play={p} compiling={c} уровень={lvl or "—"}' + (' ПАУЗА РЕДАКТОРА' if paused else ''))
     return True
 
 
 def cmd_stop():
-    p, c, lvl = state()
+    p, c, lvl, _ = state()
     if p is None:
         print('мост не отвечает'); return False
     if lvl:
@@ -88,7 +89,7 @@ def cmd_compile():
 
 
 def cmd_tests():
-    p, c, _ = state()
+    p, c, _, _ = state()
     if p:
         print('тесты: редактор в play, сначала stop'); return None
     started = mcp('run_tests', {"mode": "EditMode"})
@@ -122,7 +123,7 @@ def ensure_game_scene():
         if active_scene() == GAME_SCENE:
             return True
         time.sleep(2)
-    p, c, _ = state()
+    p, c, _, _ = state()
     if p:
         print('сцена: в play открыта не игровая сцена — сначала stop'); return False
     res = run('var sc = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("%s"); return sc.path;' % GAME_SCENE)
@@ -131,9 +132,25 @@ def ensure_game_scene():
     return ok
 
 
+def resume():
+    """Снять паузу редактора и убедиться, что кадры идут.
+
+    Прогон тестов оставляет редактор на паузе, и живая проба в таком мире
+    молча меряет замерший кадр: числа выглядят как регрессия правки (P405).
+    """
+    run('UnityEditor.EditorApplication.isPaused = false; return "снял";')
+    first = run('return Time.frameCount;')
+    time.sleep(1)
+    second = run('return Time.frameCount;')
+    try:
+        return int(second) > int(first)
+    except (TypeError, ValueError):
+        return False
+
+
 def cmd_play(level=None):
     level = level or (STATE.read_text().strip() if STATE.exists() else '')
-    p, c, _ = state()
+    p, c, _, _ = state()
     if not p:
         if not ensure_game_scene():
             return False
@@ -141,6 +158,8 @@ def cmd_play(level=None):
         if not wait_state(play=True, seconds=90):
             print('play: не дождался входа'); return False
         time.sleep(3)
+    if not resume():
+        print('play: КРАСНОЕ — кадры не идут, мир заморожен'); return False
     alive = run('return (Cozy.Grid.GridCursor.I != null) + "|" + (Cozy.Grid.PlayerRef.GameObject != null);')
     if str(alive) != 'True|True':
         print('play: КРАСНОЕ — нет GridCursor или игрока (сцена ' + active_scene() + ')'); return False
@@ -154,6 +173,8 @@ def cmd_play(level=None):
 
 def cmd_probes(level=None):
     ok = True
+    if not resume():
+        print('пробы: КРАСНОЕ — кадры не идут, мир заморожен'); return False
     before = state()[2]
     for name in ('invariants_play.py', 'level_roundtrip.py', 'reach_probe.py', 'slot_gate_probe.py', 'kitchen_rules_probe.py', 'sink_wash_probe.py', 'sink_rim_probe.py', 'drink_button_probe.py'):
         out = subprocess.run(['python3', str(REG / name)], capture_output=True, text=True, timeout=300, cwd=PROJECT)
