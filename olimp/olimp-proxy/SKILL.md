@@ -37,6 +37,9 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
 ## Состояние на 2026-09-15
 
 Чистая машина сразу после установки: слушают только `sshd:22` и `systemd-resolved`.
+Система обновлена полностью (`apt full-upgrade` + ребут, ядро 6.8.0-139). Обновлять
+с флагом `-o APT::Get::Always-Include-Phased-Updates=true`, иначе apt отложит часть
+пакетов «due to phasing» и скажет «0 upgraded», хотя `apt list --upgradable` их видит.
 `ufw` есть, но неактивен; fail2ban и docker не стоят. **Прокси-софт не установлен** —
 тип (HTTP / SOCKS5), порт и авторизация решаются Ильёй, потом ставим по runbook ниже.
 
