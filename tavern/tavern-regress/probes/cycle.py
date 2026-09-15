@@ -1,10 +1,12 @@
 """Цикл проверки правок в редакторе одной командой (Илья 01.09 разрешил сессиям самим stop/play).
 
-python3 cycle.py status            play / compiling / текущий уровень
+python3 cycle.py status            play / compiling / текущий и стартовый уровень
 python3 cycle.py stop              выйти из play (уровень запоминается)
 python3 cycle.py compile           refresh + компиляция, ждать готовности, показать ошибки консоли
 python3 cycle.py tests             EditMode-тесты (только вне play), красные — списком
-python3 cycle.py play [уровень]    войти в play и вернуть уровень (по умолчанию тот, что был при stop)
+python3 cycle.py play              войти в play и вернуть уровень, который был при stop
+                                   ⛔ АРГУМЕНТ-УРОВЕНЬ ЗАПРЕЩЁН (Илья 15.09): уровень в редакторе
+                                   один на всех и принадлежит ему, сессия его не меняет (инвариант 184)
 python3 cycle.py probes            живые пробы: invariants_play, level_roundtrip, reach_probe, slot_gate_probe, kitchen_rules_probe, sink_wash_probe, drink_button_probe
 python3 cycle.py all [уровень]     stop → compile → tests → play → probes; код 1, если что-то красное
 
@@ -57,7 +59,13 @@ def cmd_status():
     p, c, lvl, paused = state()
     if p is None:
         print('мост не отвечает'); return False
-    print(f'play={p} compiling={c} уровень={lvl or "—"}' + (' ПАУЗА РЕДАКТОРА' if paused else ''))
+    start = run('return Cozy.Grid.LevelIO.DevDefaultLevel;') or ''
+    line = f'play={p} compiling={c} уровень={lvl or "—"} стартовый={start or "—"}'
+    if paused:
+        line += ' ПАУЗА РЕДАКТОРА'
+    if start and lvl and start != lvl:
+        line += ' ⚠ стартовый и текущий разошлись'
+    print(line)
     return True
 
 
@@ -149,7 +157,17 @@ def resume():
 
 
 def cmd_play(level=None):
-    level = level or (STATE.read_text().strip() if STATE.exists() else '')
+    """Войти в play и НЕ ТРОГАТЬ УРОВЕНЬ.
+
+    ⛔ Сессия уровень в редакторе не меняет — он один на все сессии и
+    принадлежит Илье (инвариант 184, P422). Раньше `play` грузил уровень,
+    запомненный при `stop`, и этого хватало, чтобы подменить чужой: память
+    протухала, и лес сменялся полигоном атаки. Уровень поднимает сам редактор
+    авто-загрузкой.
+    """
+    if level:
+        print('play: уровень аргументом ЗАПРЕЩЁН — «%s» не загружаю (инвариант 184).' % level)
+        print('      Нужен другой уровень для проверки — попроси Илью, не переключай сам.')
     p, c, _, _ = state()
     if not p:
         if not ensure_game_scene():
@@ -163,11 +181,7 @@ def cmd_play(level=None):
     alive = run('return (Cozy.Grid.GridCursor.I != null) + "|" + (Cozy.Grid.PlayerRef.GameObject != null);')
     if str(alive) != 'True|True':
         print('play: КРАСНОЕ — нет GridCursor или игрока (сцена ' + active_scene() + ')'); return False
-    if level:
-        res = run('var d = Cozy.Grid.LevelIO.Load("%s"); if (d == null) return "нет уровня"; Cozy.Grid.GridCursor.I.RestoreLevel(d); return "загружен " + Cozy.Grid.LevelIO.CurrentLevelName;' % level)
-        print('play: вошли, уровень:', res)
-    else:
-        print('play: вошли (уровень не задан)')
+    print('play: вошли, уровень редактора:', state()[2] or '—', '(не трогал)')
     return True
 
 
