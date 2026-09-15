@@ -47,9 +47,10 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
 
 - Домен `dlyamastera.com` зарегистрирован 2026-09-15 на **Ultahost** (NS `ns1..ns4.ultahost.com`).
   На момент заведения зона отвечала SERVFAIL — A-записи на этот сервер ещё не было.
-- nginx 1.24 из apt, автозапуск включён. Ubuntu-ский `default` сайт снят, вместо него
-  `/etc/nginx/sites-available/dlyamastera.com` (симлинк в `sites-enabled`) с
-  `default_server` — по IP без Host тоже отдаёт этот сайт.
+- nginx 1.24 из apt, автозапуск включён. **Конфиги держим в `/etc/nginx/conf.d/*.conf`**
+  (решение Ильи 2026-09-15), `sites-available`/`sites-enabled` не используем — Ubuntu-ский
+  `default` оттуда снят, папка пустая. Домен: `/etc/nginx/conf.d/dlyamastera.com.conf`
+  с `default_server` — по IP без Host тоже отдаёт этот сайт.
 - Сейчас блок только HTTP: `server_name dlyamastera.com www.dlyamastera.com`,
   `root /var/www/dlyamastera.com` (владелец admin, там заглушка `index.html`),
   логи `/var/log/nginx/dlyamastera.com.{access,error}.log`, отдельный `location`
@@ -59,7 +60,7 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
   потом `sudo apt install certbot python3-certbot-nginx` и
   `sudo certbot --nginx -d dlyamastera.com -d www.dlyamastera.com --email admin@agg.one --agree-tos --no-eff-email`.
 - Проверка: `curl -H 'Host: dlyamastera.com' http://151.245.230.200/` → 200 и `<h1>dlyamastera.com</h1>`.
-- Правка конфига: `sudo nginx -t && sudo systemctl reload nginx`.
+- Правка конфига: `sudo nginx -t && sudo systemctl reload nginx`. Новый домен — новый файл в `conf.d/`.
 
 ## Runbook — быстрый прокси без установки (SOCKS5 через ssh)
 
