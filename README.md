@@ -24,6 +24,7 @@ claude-skills/
     lucky-infra/       серверы, деплой и CI
     lucky-back/        бэкенд: код API, модули, схема, деньги
   olimp/           olimp-api/        CMS и API мобилок OlimpBet
+                   olimp-proxy/      прокси-серверы Olimp: реестр, доступ, runbook'и
   poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
   personal/        shinobi-council/  формат ответов «Совет шиноби»
   tools/           scripts/          наши шелл-скрипты (dps) и их раскатка
@@ -77,6 +78,7 @@ ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
 ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
 ln -sfn $R/lucky/lucky-back           ~/.claude/skills/lucky-back
 ln -sfn $R/olimp/olimp-api            ~/.claude/skills/olimp-api
+ln -sfn $R/olimp/olimp-proxy          ~/.claude/skills/olimp-proxy
 ln -sfn $R/poker/poker-infra          ~/.claude/skills/poker-infra
 ln -sfn $R/personal/shinobi-council   ~/.claude/skills/shinobi-council
 ln -sfn $R/tools/scripts              ~/.claude/skills/scripts
@@ -108,5 +110,7 @@ done
 - **2026-09-07** — разложено по проектным папкам, до этого всё лежало плоско в
   корне. Тогда же удалены `debug-panel`, `admin-ui`, `vitriny-tz` — по решению
   Ильи; восстановимы из истории git.
+- **2026-09-15** — добавлен `olimp/olimp-proxy` (прокси-серверы Olimp; первый —
+  151.245.230.200, пароли в `~/password.txt`).
 - **2026-09-09** — добавлен `lucky/lucky-back` (код бэкенда Lucky); `lucky-infra`
   остаётся про серверы, деплой и CI.
