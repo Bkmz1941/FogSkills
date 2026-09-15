@@ -23,8 +23,9 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
   work-skills — установщик его не перетирает) или `ssh admin@151.245.230.200`.
 - Пользователь **`admin`** (uid 1000, группы `admin`+`sudo`), ключ `~/.ssh/id_ed25519`
   (`it@agg.one`). Других ключей на сервере нет — `claude@agg.one` НЕ добавлен.
-- **sudo по паролю.** Пароль admin — в `~/password.txt` (локально у Ильи, `chmod 600`).
-  Из скриптов: `echo "$PW" | sudo -S -p '' <cmd>`; `sudo -n` без свежего кэша не пройдёт.
+- **sudo без пароля** (`/etc/sudoers.d/90-admin-nopasswd`, с 2026-09-15): `sudo -n <cmd>`
+  работает из любой одноразовой `ssh olimp-proxy 'cmd'`. Пароль admin всё равно есть —
+  в `~/password.txt` (локально у Ильи, `chmod 600`) — на случай консоли провайдера.
 - **root по SSH закрыт, парольный вход закрыт**: `PermitRootLogin no`,
   `PasswordAuthentication no`, `KbdInteractiveAuthentication no` — и в
   `/etc/ssh/sshd_config`, и дублем в `/etc/ssh/sshd_config.d/10-hardening.conf`.
@@ -89,11 +90,13 @@ curl -sS -x socks5h://USER:PASS@151.245.230.200:1080 https://api.ipify.org; echo
 1. Первый вход root-паролем провайдера: `sshpass -p '<pw>' ssh root@<IP>`.
 2. Юзер: `adduser --disabled-password --gecos '' --ingroup admin admin` — в Ubuntu
    группа `admin` уже есть, без `--ingroup` `adduser` падает. Потом
-   `echo 'admin:<PW>' | chpasswd && usermod -aG sudo admin`.
+   `echo 'admin:<PW>' | chpasswd && usermod -aG sudo admin` и sudo без пароля:
+   `echo 'admin ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-admin-nopasswd`,
+   `chmod 440`, `visudo -c`.
 3. Ключ: `~/.ssh/id_ed25519.pub` → `/home/admin/.ssh/authorized_keys`, права 700/600,
    владелец admin.
 4. **До закрытия root** проверить с локальной машины: вход по ключу под admin и
-   `echo PW | sudo -S true`.
+   `ssh admin@<IP> 'sudo -n id -un'` → `root`.
 5. sshd: в `/etc/ssh/sshd_config` провайдер дублирует `PermitRootLogin yes` /
    `PasswordAuthentication yes` по 4–5 раз, часть ВЫШЕ `Include sshd_config.d` —
    у sshd побеждает первое вхождение, так что один drop-in не спасёт. Делать
@@ -107,7 +110,8 @@ curl -sS -x socks5h://USER:PASS@151.245.230.200:1080 https://api.ipify.org; echo
 ## Грабли
 
 - `adduser admin` без `--ingroup admin` → «The group `admin' already exists».
-- `sudo -n` под admin работает только пока жив кэш sudo (~15 мин после `sudo -S`);
-  в одноразовых `ssh host 'cmd'` кэша нет — всегда `sudo -S`.
+- Пока sudo был по паролю, `sudo -n` в одноразовых `ssh host 'cmd'` падал («a password
+  is required») — поэтому и заведён NOPASSWD. Если файл в `sudoers.d` пропал — снова
+  `echo "$PW" | sudo -S -p '' <cmd>` с паролем из `~/password.txt`.
 - Ставить drop-in в `sshd_config.d` без правки основного файла бесполезно (см. п. 5).
 - 1 GB RAM без swap: тяжёлое (docker + squid с кэшем) сюда не тащить.
