@@ -13,7 +13,7 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
 
 | # | IP | Хост | ОС / железо | Прокси-софт | Заведён |
 |---|---|---|---|---|---|
-| 1 | `151.245.230.200` | `srv713851867` | Ubuntu 24.04.5, KVM, 1 vCPU / 1 GB / 29 GB, без swap | **ещё не поднят** | 2026-09-15 |
+| 1 | `151.245.230.200` | `srv713851867` | Ubuntu 24.04.5, KVM, 1 vCPU / 1 GB / 29 GB, без swap | nginx 1.24 (домен `dlyamastera.com`), прокси-софт ещё не поднят | 2026-09-15 |
 
 Новый сервер — дописать строку сюда, пароль в `~/password.txt`, алиас в `~/.ssh/config`.
 
@@ -40,8 +40,26 @@ runbook'и. НЕ путать с `proxy-server-bff` / `proxy-server-dev` из с
 Система обновлена полностью (`apt full-upgrade` + ребут, ядро 6.8.0-139). Обновлять
 с флагом `-o APT::Get::Always-Include-Phased-Updates=true`, иначе apt отложит часть
 пакетов «due to phasing» и скажет «0 upgraded», хотя `apt list --upgradable` их видит.
-`ufw` есть, но неактивен; fail2ban и docker не стоят. **Прокси-софт не установлен** —
+`ufw` есть, но неактивен; fail2ban и docker не стоят. С 2026-09-15 ещё слушает nginx:80. **Прокси-софт не установлен** —
 тип (HTTP / SOCKS5), порт и авторизация решаются Ильёй, потом ставим по runbook ниже.
+
+## nginx и домен dlyamastera.com (2026-09-15)
+
+- Домен `dlyamastera.com` зарегистрирован 2026-09-15 на **Ultahost** (NS `ns1..ns4.ultahost.com`).
+  На момент заведения зона отвечала SERVFAIL — A-записи на этот сервер ещё не было.
+- nginx 1.24 из apt, автозапуск включён. Ubuntu-ский `default` сайт снят, вместо него
+  `/etc/nginx/sites-available/dlyamastera.com` (симлинк в `sites-enabled`) с
+  `default_server` — по IP без Host тоже отдаёт этот сайт.
+- Сейчас блок только HTTP: `server_name dlyamastera.com www.dlyamastera.com`,
+  `root /var/www/dlyamastera.com` (владелец admin, там заглушка `index.html`),
+  логи `/var/log/nginx/dlyamastera.com.{access,error}.log`, отдельный `location`
+  под ACME `/.well-known/acme-challenge/`. Чем домен должен заниматься на самом деле
+  (статика / `proxy_pass` куда-то) — Илья не говорил, блок под это ещё дописать.
+- HTTPS **не выпущен**: сперва A-запись `dlyamastera.com` и `www` → `151.245.230.200`,
+  потом `sudo apt install certbot python3-certbot-nginx` и
+  `sudo certbot --nginx -d dlyamastera.com -d www.dlyamastera.com --email admin@agg.one --agree-tos --no-eff-email`.
+- Проверка: `curl -H 'Host: dlyamastera.com' http://151.245.230.200/` → 200 и `<h1>dlyamastera.com</h1>`.
+- Правка конфига: `sudo nginx -t && sudo systemctl reload nginx`.
 
 ## Runbook — быстрый прокси без установки (SOCKS5 через ssh)
 
