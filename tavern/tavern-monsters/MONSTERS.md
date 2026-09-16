@@ -255,7 +255,7 @@ BuildValid).
 
 | | |
 |---|---|
-| модель | `BlenderWork/crow_scene.py` (две позы), FBX `Resources/Props/Crow_Sit.fbx` и `Crow_Stand.fbx`, 1260 треугольников, 0.50 × 0.20 м сидя и 0.48 × 0.32 стоя |
+| модель | `BlenderWork/crow_scene.py` (две позы), FBX `Resources/Props/Crow_Sit.fbx` и `Crow_Stand.fbx`, 1260 треугольников, 0.50 × 0.20 м сидя и 0.48 × 0.32 стоя. ⚠️ Обмотка колпаков корпуса — ПО кольцам (P443, 16.09): вывернутый колпак Unity отсекает, и сзади корпус просвечивал; после любой правки `body_mesh` — `mesh_winding_probe.py` |
 | дефы | `FurnitureCatalog.Props.CrowSit()` / `CrowStand()` — id `crow_sit`, `crow_stand`, мелкий свободностоящий объект, `walkOver`, `birdIdle = true`, прилипание к ветке дерева |
 | где брать | бар стройки, группа **«Монстры»** — «Ворона (сидит)» и «Ворона (стоит)» |
 | узлы модели | `Body`, `Head` (череп, верхняя половина клюва, глаза), `BeakLow` — ребёнок головы на шарнире рта, `WingL`, `WingR` у плеч, `Tail` у корня |
