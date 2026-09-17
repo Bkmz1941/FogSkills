@@ -349,7 +349,7 @@ CryptoJS оставлен только как запасной путь. Гот�
 
 Поэтому синк — только полный: удалить **и** эндпоинты, **и** их схемы, потом
 `import`, потом вторым проходом вернуть `preProcessors` и `example` заголовков
-(импорт их не переносит). Скрипты лежат в scratchpad-сессии как `reapply.sh`
+(импорт их не переносит). Скрипты с 2026-09-15 лежат в репо `others/.apidog/`: `reapply.py`
 (проход по id) и `verify.py` (сверка проекта со спекой: заголовок, прескрипт,
 описание, тело запроса и **каждая схема по составу свойств и required**).
 Сверять после каждой пересборки — «эндпоинты на месте» это не проверка.
@@ -426,12 +426,58 @@ baseUrl(s), parameters, type, visibility, variables, ordering, tags, servers,
 advancedSettings. Прескрипт подписи живёт на эндпоинтах и работает в любом
 окружении.
 
-**Проектов Apidog два, и у них разное назначение.**
+**Проектов Apidog три, и у них разное назначение.**
 
 | Проект | id | Команда | Что это | Источник |
 | --- | --- | --- | --- | --- |
 | `Lucky Server` | `1341455` | Lucky Project (786489) | рабочая дока: витрина + провайдер, со схемами | `front-client.openapi.yaml` |
 | `Lucky public API` | `1376800` | Lucky Team (826277) | публичная дока провайдера, **без схем** | `game-provider.openapi.yaml` |
+| `Lacky API` | `1380041` | Lucky Team (826277) | преемник 1341455: та же дока витрины + провайдера; `main` закрыт для автоматики, спека залита через AI-ветку и ручной мерж (15.09) | `front-client.openapi.yaml` |
+
+**Проект 1380041 — через AI-ветку (2026-09-15).** `main` отвечает на любой
+CLI-импорт/мерж `Automation caller branch required`: в `advancedSettings` проекта нет
+`allowAutomationWriteMainBranch` (у 1376800 стоит с 11.09, потому туда пишется напрямую;
+токен и команда те же, разница только в этом флаге). Ставится тумблером External AI Edit
+Permissions в клиенте или `project settings update` (payload готов:
+`others/.apidog/settings-update.private.json`); классификатор авто-режима эту команду
+не пропускает — гнать через `! …` руками. После включения —
+`others/.apidog/sync-1380041.sh main`: чистит остатки, импорт, второй проход, сверка,
+перенос вебсокета. Пока флага нет, синк: свежая AI-ветка от `main`
+(имя строго `ai/YYYYMMDD-from-main-<тема>`) → `import --format openapi --branch` →
+`reapply.py` → `export --branch` → `verify.py`; мерж в `main` Илья делает руками в
+клиенте (селектор веток → ветка → Merge). Всё это делает
+`others/.apidog/sync-1380041.sh`, скрипты теперь в репо, не в scratchpad. Ветка
+`ai/20260915-from-main-spec-sync` (id 1385795) **смержена в `main` руками 15.09**: в
+`main` 44 эндпоинта, 70 схем, 15 папок, 5 общих ответов, схемы безопасности
+`PublicProjectKey` + `BearerAuth`, сверка `verify.py` по выгрузке `main` чистая. Утренняя `ai/20260915-from-main-migrate-1341455` (копия 1341455)
+заархивирована: она уже отставала от спеки (`DemoActivityEvent.stake`, пустой
+`201` у сессии, снятый `POST /v1/core/providers/sessions`, 29 сиротских схем, 38
+заголовков без `{{…}}`).
+
+Что выяснилось на этом прогоне и **поправляет написанное выше**:
+
+- Импорт OpenAPI через CLI 2.2.9 в пустую ветку **переносит** плейсхолдеры
+  заголовков, именованные примеры запросов **и ответов**. Не переносит только
+  прескрипт — его ставит `reapply.py` на все эндпоинты с заголовком `x-sign`
+  (с `enable` и `defaultEnable`). Второй проход идемпотентный.
+- Не переиспользовать ветку для второго импорта — существующий эндпоинт
+  импорт не обновляет никогда. Новая ветка от пустого `main` = ноль остатков,
+  ничего удалять не надо.
+- Импортёр плодит по схеме безопасности `Combination` на каждый эндпоинт с
+  `security` (24 одинаковых `PublicProjectKey + BearerAuth`), эндпоинты на них
+  не ссылаются — сносятся `security-scheme delete --branch`, обёртка это делает.
+- Папки берутся из `x-apidog-folder`; с 15.09 спека несёт для каждой операции
+  ту папку, что была собрана руками в 1341455 (`CMS/Content`, `Core/Auth`,
+  `Core/Balance`, `Core/Profile`, `Technical/*`), а не плоский `External API`.
+  Папка `Root` с `parentId 0` — корень проекта, не артефакт.
+- У команд `websocket` нет `--branch`, зато `websocket create` на `main`
+  охранник **не блокирует**: стрим балансов `/v1/core/balances/stream` заведён
+  прямо на `main` (id 3514172) из `others/.apidog/ws-balance-stream.json` — yaml
+  вебсокет описать не может, источник этой ручки — этот JSON. После мержа
+  перенесён в `Core/Balance` (folderId 10718169) через `websocket update` — охранник его
+  тоже не блокирует. `websocket list` поле `folderId` не печатает, смотреть `websocket get`.
+- `others/.apidog/settings.json` всё ещё смотрит на 1341455 — решение о
+  переключении не принято.
 
 Запись в `1376800` открыта с 2026-09-11 (раньше падало `Automation caller branch required` —
 защита «External AI Edit Permissions»; снимается тумблером у владельца: Apidog ≥ 2.8.32 →
@@ -479,6 +525,76 @@ folderId: 0}`). Заголовок первого уровня из markdown у�
 `OVERWRITE_EXISTING` из `apidog-cli.md`. На этой машине прямой HTTP-вызов с чтением токена из
 `~/.apidog/config.toml` блокирует классификатор авто-режима — гнать такой синк через `! node …`
 руками у Ильи.
+
+## Живой баланс витрины по WebSocket (LSR-108, 2026-09-14)
+
+Игра стороннего провайдера крутится в iframe и не обязана сообщать витрине, что
+деньги двинулись. Раньше баланс в шапке обновлялся только на `postMessage` от
+фрейма — наша крашевая сборка его шлёт, чужая не будет. Теперь триггер стоит
+там, где двигаются деньги.
+
+- `FinanceService` после `createGameRoundTransaction` и
+  `rollbackGameRoundTransaction` (то есть bet / win / cancel / rollback) зовёт
+  `BalanceChangePublisher.publish({projectId, clientId})` — **после коммита**
+  транзакции, иначе клиент прочитает старый баланс. Публикатор живёт в
+  `transactions` и экспортируется из `FinanceModule`; направление импортов
+  `front → transactions` не меняется.
+- `PlayerBalanceGateway` (`src/modules/front/player-balance.gateway.ts`) держит
+  `Map<clientId, Set<socket>>`, на подключении сразу шлёт снимок, дальше шлёт по
+  каждой публикации для этого игрока.
+- Путь `/v1/core/balances/stream`. **Креды в query, а не в заголовках** —
+  браузер не может поставить заголовки на рукопожатие: `key` = публичный ключ
+  проекта, `token` = токен игрока. Невалидные — закрытие кодом **4401**, и
+  клиент по этому коду не переподключается (иначе горячий цикл на протухшем
+  токене).
+- **Кадр несёт только суммы** (решение Ильи 14.09: «по сокетам всё, что нужно —
+  обновить баланс»): `type`, `active_balance_code` и по кошельку
+  `balance_code` + `available_amount`. Имя, вид, валюта, `locked_amount`,
+  `is_open` и `is_client_selectable` при движении денег не меняются и остаются
+  за `GET /v1/core/balances`.
+- **Почему витрина именно подмешивает, а не перезаписывает кеш.**
+  `mapPlayerBalance` читает `is_client_selectable === true` строго, поэтому
+  кадр без этого поля дал бы `false`, и `BalancePicker` (настройки → Balance →
+  «Active balance», фильтр `kind === "cash" && isClientSelectable`) молча
+  потерял бы все варианты выбора. Хук берёт кошельки из кеша и заменяет в них
+  только сумму и признак активного; если кеша ещё нет — инвалидирует и даёт
+  запросу сходить за полным списком.
+- **Обработчик `postMessage` от iframe убран** (`PageGame`, константа `state_0`,
+  парсер `readGameMessage`). Путь теперь один для всех провайдеров; наша
+  крашевая сборка событие всё ещё шлёт, но витрина его не слушает.
+- Транспорт: `@nestjs/websockets` + `@nestjs/platform-ws` + `ws`,
+  `app.useWebSocketAdapter(new WsAdapter(app))` в `src/main.ts`. До этого в репо
+  вебсокетов не было вовсе (SSE был только у `demo-activity`).
+- Витрина: `src/lib/realtime/balanceStream.ts` (переподключение 3 с, кроме
+  4401) и `src/queries/balances/useBalanceStream.ts` — кладёт присланные кошельки
+  прямо в кеш TanStack (`balancesKeys.current` и `.list`), без дополнительного
+  запроса. Подключено в `LayoutStorefront` рядом с `useCurrentBalanceQuery`.
+
+**Грабля, из-за которой это не работает молча: nginx.** Вхост API должен
+пробрасывать апгрейд, иначе рукопожатие не доходит до приложения и выглядит как
+404. На деве 14.09 заголовки были **только у админки**, у `dev2.api` их не было.
+Добавлено в `location /` вхоста `luckyserver-dev2`:
+
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 3600s;
+
+плюс мапа в `/etc/nginx/conf.d/connection-upgrade.conf`:
+
+    map $http_upgrade $connection_upgrade { default upgrade; "" close; }
+
+Бэкап прежнего вхоста — `~/nginx-luckyserver-dev2.bak-*` на `lucky-dev`.
+**На проде это ещё не сделано** — при выкате `master` вхост прода надо править
+так же, иначе фича там мертва.
+
+Проверка на деве (прошла 14.09): рукопожатие с битым ключом → `4401`; живой
+игрок получает снимок; реальная ставка 25 и выигрыш 40 через крашей дали кадры
+`500.00 → 475.00 → 515.00`. Витрина `storefront.luckyserver.pro` собрана с этим
+кодом и смотрит на `dev2.api.luckyserver.pro`.
+
+**Чего пуш не покрывает:** депозиты, выводы и ручные корректировки идут другими
+путями и `publish` не зовут. Витрина их и так обновляет сама, но если понадобится
+— это по одной строке в каждом методе.
 
 ## Runbook'и
 

@@ -50,6 +50,9 @@ def measure(frames):
 BASE = {
     'forest100': (6.3, 12900, 24600),
     'Test #1': (6.0, 13700, 26100),
+    # 16.09 (ilya-bb): уровень, на котором Илья работает стычку; два замера 2.13 и 2.14 мс,
+    # мусор 12 856 и 12 840 Б, пик 26 625 — игрок на спавне (3.0, 1.0, 14.0).
+    'crown_attack': (2.2, 12900, 26600),
 }
 # Ниже этой отметки игрок в мире не стоит, а падает — замер такого кадра не
 # считается (P378): в кадре пусто, рендера нет, и кадр выходит дешевле правды
@@ -75,18 +78,28 @@ def check(frames):
     if ey < FLOOR_SANE:
         print('замер не считается: игрок провалился под мир (%s) — перезайди в play, P378' % where)
         return 1
+    # ⚠️ Первый замер после входа в play и чужих проб скачет: 16.09 на crown_attack
+    # подряд 3.78 и 2.10 мс при базе 2.20 — редактор ещё догружал уровень и
+    # переваривал пробы перед сторожем. Регрессия держится, выброс — нет: красным
+    # считается только то, что превысило порог в ДВУХ замерах подряд.
     uncap(True)
     try:
-        avg, mx, ms, p95 = measure(frames)
+        for attempt in range(2):
+            avg, mx, ms, p95 = measure(frames)
+            if avg is None:
+                break
+            bad = []
+            if ms > wantMs * FRAME_OVER: bad.append('кадр %.2f мс против порога %.2f (база %.2f)' % (ms, wantMs * FRAME_OVER, wantMs))
+            if avg > wantAvg * GARBAGE_OVER: bad.append('мусор %d Б против порога %d (база %d)' % (avg, wantAvg * GARBAGE_OVER, wantAvg))
+            if mx > wantMax * PEAK_OVER: bad.append('пик мусора %d Б против порога %d (база %d)' % (mx, wantMax * PEAK_OVER, wantMax))
+            if not bad:
+                break
+            time.sleep(2.0)
     finally:
         uncap(False)
     if avg is None:
         print('замер не ответил')
         return 1
-    bad = []
-    if ms > wantMs * FRAME_OVER: bad.append('кадр %.2f мс против порога %.2f (база %.2f)' % (ms, wantMs * FRAME_OVER, wantMs))
-    if avg > wantAvg * GARBAGE_OVER: bad.append('мусор %d Б против порога %d (база %d)' % (avg, wantAvg * GARBAGE_OVER, wantAvg))
-    if mx > wantMax * PEAK_OVER: bad.append('пик мусора %d Б против порога %d (база %d)' % (mx, wantMax * PEAK_OVER, wantMax))
     head = '%s: кадр %.2f мс (база %.2f), мусор %d Б (база %d), пик %d Б; игрок %s' % (level, ms, wantMs, avg, wantAvg, mx, where)
     if bad:
         print('КРАСНОЕ ' + head + ' :: ' + '; '.join(bad))

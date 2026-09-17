@@ -24,7 +24,9 @@
 входит и гоняется под задачу.
 
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/bird_flight_probe.py
-Нужен play и уровень С ДЕРЕВЬЯМИ (есть включённые ветки со свободными гнёздами).
+Нужен play и уровень С ДЕРЕВЬЯМИ: включённая ветка со свободным гнездом, а если таких нет —
+проба на время прогона включит выключенную ветку (`CrowPerch.SetOn`) и выключит её в уборке (16.09:
+на crown_attack все ветки выключены, и полёт не проверялся вовсе).
 Идёт около тридцати секунд: полёт и покой живые, ускорить их нечем.
 """
 import json, subprocess, sys, time
@@ -49,14 +51,25 @@ foreach (var p in Cozy.Grid.CrowPerch.All)
     }
     if (!taken) { free = p; break; }
 }
-if (free == null) return "на уровне нет ветки со свободным гнездом — проверять нечего";
+int lit = 0;
+if (free == null)
+{
+    foreach (var p in Cozy.Grid.CrowPerch.All)
+    {
+        if (p == null || p.On || p.Owner == null) continue;
+        p.SetOn(true);
+        if (p.MountCount > 0) { free = p; lit = p.Owner.GetInstanceID(); break; }
+        p.SetOn(false);
+    }
+}
+if (free == null) return "на уровне нет ветки со свободным гнездом и нет выключенной, которую можно включить — проверять нечего";
 var ground = Cozy.Grid.GridManager.FindByRole(Cozy.Grid.GridRole.Ground);
 var at = free.transform.position;
 float gx = at.x + 3f, gz = at.z;
 float gy = ground.transform.position.y + (ground.Heights != null ? ground.Heights.HeightAt(gx, gz) : 0f);
 var owl = Cozy.Grid.GridCursor.I.SpawnWorldObject(def, new UnityEngine.Vector3(gx, gy, gz), 0f);
 if (owl == null) return "сова не заспавнилась";
-return "id=" + owl.GetInstanceID() + " земля=" + gy.ToString("F2") + " ветка=" + at.ToString("F1");
+return "id=" + owl.GetInstanceID() + " земля=" + gy.ToString("F2") + " ветка=" + at.ToString("F1").Replace(" ", "") + " включена=" + lit;
 '''
 
 CHECK = r'''
@@ -87,6 +100,9 @@ return "фаза=" + (ph != null ? ph.GetValue(mine).ToString() : "?") + " гд�
 '''
 
 CLEAN = r'''
+if (__LIT__ != 0)
+    foreach (var p in Cozy.Grid.CrowPerch.All)
+        if (p != null && p.Owner != null && p.Owner.GetInstanceID() == __LIT__) p.SetOn(false);
 int gone = 0;
 foreach (var io in Cozy.Grid.InteractiveObject.All)
     if (io != null && io.GetInstanceID() == __ID__) { UnityEngine.Object.DestroyImmediate(io.gameObject); gone++; break; }
@@ -114,6 +130,7 @@ def main():
         print(head)
         return
     ident = head.split()[0][3:]
+    lit = head.split('включена=')[1].split()[0] if 'включена=' in head else '0'
     ground = float(head.split('земля=')[1].split()[0])
     bad = []
     try:
@@ -140,7 +157,7 @@ def main():
         print(('полёт совы: ' + away + ' → ' + sat + ' :: держится') if not bad
               else ('КРАСНОЕ: ' + '; '.join(bad)))
     finally:
-        tail = run(CLEAN.replace('__ID__', ident))
+        tail = run(CLEAN.replace('__ID__', ident).replace('__LIT__', lit))
         if 'убрано 1' not in tail:
             print('⚠️ уборка: ' + tail)
 

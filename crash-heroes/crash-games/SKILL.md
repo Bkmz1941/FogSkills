@@ -1,6 +1,6 @@
 ---
 name: crash-games
-description: «Crash Heroes» — краш-игры: серверы 78.141.216.99 (прод) и 167.233.24.119 (дев), *.crash-heroes.com, Laravel Octane + движки на pm2, MySQL, админка ~/Documents/Work/CrashGames/admin-panel. ОБЯЗАТЕЛЬНО активируй по «проверь игры» (= прогнать smoke.sh на обоих серверах). Также «что с апи крашей», «раунды встали», «ничего не сломали?».
+description: «Crash Heroes» — краш-игры: серверы 78.141.216.99 (прод) и 167.233.24.119 (дев), *.crash-heroes.com, Laravel Octane + движки на pm2, MySQL. Четыре репо в ~/Documents/Work/CrashGames — crash-heroes-backend-api-core (Laravel API), crash-heroes-backend-game-engine (Node-движки + calc/slot на Python), admin-panel (React-админка), catalog-app (Framework7/Vue лобби = демо-сайт и мобилка); карта каждого внутри. Активируй ВСЕГДА при работе с любым из них и с seamless-интеграцией Lucky↔краши. ОБЯЗАТЕЛЬНО по «проверь игры» (= прогнать smoke.sh на обоих серверах). Также «что с апи крашей», «раунды встали», «ничего не сломали?», «демо-сайт», «каталог игр».
 ---
 
 # Crash Heroes — инфраструктура и бэкенд
@@ -22,6 +22,8 @@ description: «Crash Heroes» — краш-игры: серверы 78.141.216.9
 `crash-prod`/`crash-dev` и сводка доступов — репо `git@github.com:Bkmz1941/work-skills.git`
 (локально `~/Documents/Work/work-skills/`, `access/ACCESS.md`; на новой машине —
 `./install.sh`). Этот скилл там — копия: после правок запускать `sync.sh`.
+**2026-09-14: клона `work-skills` на этой машине нет** — `sync.sh` не запустить,
+синхронизировать копию при следующей возможности.
 
 Домены (конфиги в `/etc/nginx/conf.d/<домен>.conf`, по файлу на домен):
 `api.` (Laravel Octane), `admin.` (статика админки), `games.`, `app.`, `demo.`,
@@ -31,15 +33,15 @@ description: «Crash Heroes» — краш-игры: серверы 78.141.216.9
 
 | Что | Где | Чем управляется |
 |---|---|---|
-| Laravel Octane (Swoole) | `127.0.0.1:8001`, 4 воркера, `--max-requests=5000` | systemd `minigames-admin-back.service` |
+| Laravel Octane (Swoole) | prod `127.0.0.1:8001`, 4 воркера; dev `:8002`, 12 воркеров + 6 task; `--max-requests=5000` | systemd `minigames-admin-back.service` |
 | nginx | 80/443 | конфиги в **`/etc/nginx/conf.d/`**, не в `sites-enabled` |
 | MySQL | 8.4.10, `3306` | systemd |
 | Redis | `127.0.0.1:6379` | systemd |
-| 13 игровых движков (Node) | `127.0.0.1:3001…3017` (WS) | **pm2**, systemd `pm2-admin.service` |
-| calc_service (Flask) | `127.0.0.1:5000` | pm2, имя «Prod CrashGames API» |
-| slot_service | — | pm2, имя «Prod Slots API» |
-| Reverb (WS) | `127.0.0.1:8080` | — |
-| integration-worker | очередь | supervisor |
+| 13 игровых движков (Node) | prod `127.0.0.1:3001…3017`, dev `4001…4017` (WS) | **pm2**, systemd `pm2-admin.service` |
+| calc_service (Flask) | prod `0.0.0.0:5000`, dev `:6000` | pm2, имя «Prod/Dev CrashGames API» |
+| slot_service (Flask) | prod `0.0.0.0:5500`, dev `:6500` | pm2, имя «Prod/Dev Slots API» |
+| Reverb (WS) | nginx `api.…/reverb` → `127.0.0.1:8080` (dev `:8888`) | **не запущен нигде и не нужен** — решение 14.09: удалить целиком, чек-лист в TODO |
+| integration-worker | `queue:work redis --queue=integration --max-time=3600` | supervisor; **перезапускается каждый час** по `max-time`, uptime < 1 ч — норма |
 
 pm2 живёт под nvm: `source ~/.nvm/nvm.sh` перед любой командой `pm2`, иначе «command not found».
 
@@ -64,25 +66,445 @@ pm2 живёт под nvm: `source ~/.nvm/nvm.sh` перед любой кома
 │   ├── calc_service/         Python, server_calculator.py
 │   ├── slot_service/         Python, slot_server.py
 │   └── ecosystem.config.js   конфиг pm2 всех 15 приложений
-├── logs/                     логи pm2 (output_N.log / error_N.log)
-├── games/  landing/
+├── logs/                     логи pm2 (output_N.log / error_N.log), ~2 ГБ
+├── games/<slug>/             сборки игр (HTML5: index.html, scripts/, styles/, assets/) → games.<домен>/<slug>/
+│                             balloonfly beerfest booblejump breezetease clownfest creepyclown
+│                             dunecopter fatguy icefish olimphockey sharkcage smashhockey (краши)
+│                             fallout wildwest (слоты); на dev ещё fake/ (тестовая)
+├── demo/                     сборка catalog-app, «Crash Heroes Demo»  → demo.<домен>
+├── app/                      сборка catalog-app, «Crash Heroes Catalog» (F7+Capacitor) → app.<домен>
+├── landing/                  Next.js-экспорт лендинга «Crash Games» → crash-heroes.com (только прод)
+├── minigames-admin-front.old/  остаток от 17.08 (прод)
 └── ~/deploy-backups/         бэкапы перед ручными правками
 ```
 
+В `~/` на серверах лежат помощники: `smoke.sh`, `gzip_logs.sh`, `sign-external.sh`
+(dev), `*.bundle` (следы деплоя бандлом) и **`resync.sh`** — разовый скрипт переливки
+базы со старого хоста `88.218.169.48`, **содержит пароли MySQL открытым текстом**.
+Не `cat`-ить в чат, по-хорошему удалить.
+
+**Сборки самих игр ни в одном репозитории нет** — приходят от фронтов игр готовыми
+файлами, на серверах лежат только в `games/`. Игра открывается по `games.link` из
+таблицы `games` (`https://games.crash-heroes.com/<slug>`), slug ≠ `sys_name`:
+`hockey_classic` → `smashhockey`, `creepy_clown` → `creepyclown`, id 8 в pm2
+зовётся ScaryClown.
+
 ### Репозитории
 
-| Что | Локальный клон (`~/Documents/Work/CrashGames/`) | Remote (`gitlab.agg.one`) | Ветка |
+| Что | Локальный клон (`~/Documents/Work/CrashGames/`) | Remote (`gitlab.agg.one`) | Разработка → прод | CI |
+|---|---|---|---|---|
+| Бэкенд API (Laravel) | `crash-heroes-backend-api-core` | `crash-heroes/backend/crash-heroes-backend-api-core` | **`develop`** → `main` | да, rsync + migrate + octane:reload |
+| Движки игр | `crash-heroes-backend-game-engine` | `crash-heroes/backend/…-game-engine` | `develop` → `main` | да, перезапуск только изменившегося |
+| **Админка (фронт)** | **`admin-panel`** | **`crash-heroes/frontend/admin-panel`** | **`dev`** → `main` | да, статика rsync |
+| Каталог / демо / мобилка | `catalog-app` | `crash-heroes/frontend/catalog-app` | `dev` → `main` (заморожен с 06.2026) | **нет**, `www/` копируется руками |
+
+> Ветки называются по-разному: у бэкенда `develop`, у админки и каталога `dev`.
+> Пуш в `main` любого из трёх репо с CI = **автоматический релиз на прод**, без
+> ручного гейта. На 2026-09-14 у всех трёх `main == develop/dev` (нечего катить),
+> локальные чекауты стоят на `main`; локальный `develop` бэкенда отстаёт от
+> `origin/develop` на 8 коммитов — просто не подтянут.
+
+Подробная карта каждого репозитория — следующий раздел.
+
+## Карта репозиториев — что про что
+
+Ревизия 2026-09-14. Один продукт, четыре роли: **API** (Laravel) — правда о
+деньгах, игроках и настройках; **движки** (Node + Python) — раунды и коэффициенты;
+**админка** (React) — бэк-офис; **каталог** (Vue + Framework7) — лобби игрока,
+оно же демо-сайт и мобильное приложение. Ниже — что где лежит и на какие грабли
+не наступать. Seamless-интеграция с Lucky описана отдельно ниже, здесь её нет.
+
+### `crash-heroes-backend-api-core` — Laravel API
+
+Laravel 10, PHP 8.2, Octane/Swoole, Sanctum, Reverb (не используется), MySQL 8.4,
+Redis. `composer.json` так и называется `laravel/laravel`. 828 коммитов с 06.2023
+(скелет — Vladimir Igonin, с 2025 практически всё — Илья). 76 миграций
+2024-04 → 2026-09.
+
+**Маршруты** (`routes/api/api.php` + `routes/api/v2/admin/{players,projects,rounds}.php`,
+префикс `/api`, `RateLimiter` **отключён**, CORS `*`):
+
+| группа | префикс | кто ходит | авторизация | контроллеры (`app/Http/Controllers/API/`) |
+|---|---|---|---|---|
+| admin | `/admin` | админка | `POST auth` (логин по полю `name`, хотя тело шлёт `email`) → Sanctum-токен **без срока**; часть — `admin.superadmin` | `Admin/*`: Currency, Projects, Player, Wallet/Admin{Deposit,Withdrawal,Transaction,ExternalTransaction}, Game, Round, GameTypeSettings, Metrics, Account |
+| v2/admin | `/v2/admin` | админка | `auth:sanctum` | `V2/Admin/*` (players aggregate/bets/block, rounds, projects), у всех метод `run` |
+| app | `/app` | каталог, Telegram mini-app, мобилки, сборки игр | публичные `token`, `auth`, `games/{g}/init`, `telegram/validate`; остальное `auth.player` (`PlayerAuth`: Bearer = `players.token` или `sess_…` → `GameSessionResolver`); `wallet/*` ещё `player.allow-money-operations` | `App/*`: AppController (auth по `source`, `device_id` расшифровывается RSA), Player, Leaderboard, GamesCategory, Banners, Wallet/* |
+| v1/app | `/v1/app/games` | фронты слотов | `auth.player` | `GamesSlotController` → `SlotsGameService` → `SLOTS_SERVER_HOST` (slot_service) |
+| server | `/server` | движки | **никакой** — только то, что Octane слушает 127.0.0.1; токен игрока в query/body | `Server/GameCrashRoundController::action` (switch по `action`), `Server/PlayerController` (`getPlayer`, `secret_bonus`), `Server/Game/ServerGameController` (`getGame`, `getGamePlayer`) |
+| external | `/external` | партнёр (Lucky), Lanpay, Telegram-бот | `projects.sign` (`x-api-key` → `projects.api_key`, `x-sign` = HMAC-SHA256 тела, две вариации по слэшам); `callback/lanpay` — **без auth**; `telegram/*` — `auth.hmac` (SHA-512, общий `HMAC_SECRET_KEY`) | `External/IntegrationController` (`gameUrl`, `getGames`), `CallbackController`, `TelegramController` |
+
+`PlayerAuth` на **каждый** запрос делает `UPDATE players SET logged_at` — фоновая
+нагрузка вдобавок к `COUNT(*)` из `RoundObserver`.
+
+**`app/`:** `Models` (21), `Services` (44 — вся логика: `TransactionService`,
+`AccountService`, `RoundService`, `CurrencyService`, `Admin/MerchantAccess`,
+`CrashGames/*`, `Slots/*`, `App/Wallet/{Deposit,Withdrawal}`,
+`External/{Lanpay,Telegram,Payment,Integration}`, `LeaderboardService`,
+`CryptoService`), `Repositories` (тонкие query-классы), `Observers` (4), `Jobs`
+(1), `Console/Commands` (3), `Enums` (15), `Utils/MoneyHelper` (bcmath,
+minor/major), `Utils/ProjectSignHelper` (подписи наружу),
+`Exceptions/Transformer` (своя цепочка исключение → JSON), `Concerns`
+(`HasQueryBuilderLikes/Sorts` — поиск и сортировка из query).
+
+**Домен.**
+- `Player` — `project_id`, `external_id` (device_id / telegram id), `token`
+  (вечный uuid, **переиздаётся** при каждом `auth`/`token`/`init`), `role`
+  (bot/guest/regular/tester/demo), `client_type` (telegram/demo/web/android/ios/
+  postman/external_project…), `game_currency`, `can_play_for_money`, `is_dev`.
+- `Project` — `is_internal`, `code`, `api_key`/`api_secret` (nullable, выдаёт
+  партнёр), `api_user_info`/`api_bet`/`api_win`/`api_rollback`.
+  `Project::innerId()` кэшируется 300 с.
+- `User` — админы: `role` superadmin | merchant, `project_id`, `merchant_role`
+  owner | finance | technical. Изоляция мерчанта — статический
+  `Services/Admin/MerchantAccess`, размазан по контроллерам условиями
+  `if (MerchantAccess::isMerchantRequest())`.
+- `GameType` (`crash-games` id 1, `slots` id 2; `settings.algorithm` — параметры
+  генератора коэффициентов, `settings.pages` — какие разделы показывает
+  админка). `Game` — `sys_name` unique, `link` (URL сборки), `settings.mode`
+  classic | arcade; для arcade `details.resource` (кошелёк-ресурс с `max` и
+  расписанием refill: сердца) и `details.score` (очки), `multiplier`.
+  Arcade сейчас — `olimp_hockey` (12) и `hockey` (15), multiplier 100.
+  Слоты `wild_west` (13) и `fallout` (14) — `type_id 2`.
+- `GameCrashRound` (`game_crash_rounds`) — `sequence_id`, `external_id` (uuid
+  движка `GAME_ID_unixSec`), `state` 0/1/2, `bank_round`, `coefficient`,
+  `players/prizes/profit`. `GameCrashBet` (`game_crash_bets`) — `bet/win` в
+  **minor USD**, `bet_native/win_native` в валюте игрока, `rate_to_usd`,
+  `bet_id` = номер ставки в раунде (1/2). `GameSlotBet` — слоты.
+- Деньги внутренних игроков: `PlayerWallet` — строка на валюту (`GEM`, `RUB`,
+  `XTR`, `GEM_DEMO`, `SCORE_N`/`RES_N` для arcade), одна `is_active`, агрегаты
+  `deposit/bets/wins/profit/withdraw/balance` в minor units.
+  `PlayerTransaction` — `scope` (award/round/spin/external/inner/admin/project)
+  + `type` (start/bet/cancel/win/deposit/withdrawal…), `balance_before/amount/
+  balance_after`, `meta.bet_id`. Пишет только `TransactionService::makeTransaction`
+  под `lockForUpdate`; **баланс = `SUM(amount)` по транзакциям**, колонка
+  `wallet.balance` перезаписывается этой суммой (отсюда несовместимость с
+  зеркалом seamless). Бонусы там же: `awardStart` (GEM 10 000, XTR/GEM_DEMO
+  9 999), `awardDaily` (GEM 500), `awardSecret` (дёргает движок через
+  `server/player action=secret_bonus`), `refillArcadeResources`.
+  Кошельки создаёт `PlayerObserver::created` по `client_type`.
+  `Player::welcomeBonusUsed()` — `SETNX` в Redis.
+- Банк казино: `Account` (одна строка «Банк»), `AccountTransaction`
+  (scope external/virtual/manual/round) — `AccountTransactionObserver` инкрементит
+  `accounts.current`; пишется в `AccountService::finishGameCrashRound` на
+  `finish_round` от движка. Это те самые 29 млн строк. `AccountHistory` — снимки
+  для графика в админке.
+- Платежи: `PlayerExternalTransaction` (`service` lanpay | telegram | partner,
+  `type` deposit/withdraw/bet/win/cancel/rollback, `status` draft/created/awaited/
+  approved/completed/canceled/expired). Депозит — `WalletDepositService` (Lanpay,
+  Telegram Stars в XTR, inner), вывод — `WalletWithdrawalService` (draft → confirm
+  → Lanpay), Apple IAP — `ApplePurchaseService::verify`. Лидерборд —
+  `leaderboard_player_rates`.
+
+**Фоновое.** Observers: `PlayerObserver` (кошельки + стартовый бонус),
+`RoundObserver::created` (только `sequence_id = COUNT(*)`), `BetObserver`
+(created/updated/deleted → `roundBet/roundWin/roundCancel` + `updateRoundStats`;
+для arcade переключает кошелёк на score), `AccountTransactionObserver`.
+`Events/Round/*` реализуют `ShouldBroadcast`, но **нигде не диспатчатся**.
+Jobs: только `PartnerOperationRetryJob` (очередь `integration`). Команды:
+`arcade:resources:refill` (единственная в scheduler, `dailyAt('00:00')`),
+`wallet:switch`, `app:update-leaderboard-command` (не в расписании, `usort`
+с булевым компаратором). **Cron `schedule:run` на серверах нет** — refill
+ресурсов arcade не выполняется. Лог-каналы: `round` (~39 МБ/сутки на каждом
+сервере: тайминги `finishGameCrashRound` и ответы на каждый раунд), `external`,
+`wallet_*`, `inapp-purchase-apple`, `arcade-refill-resources`.
+
+**Конфиги.** `config/integration.php` (TTL сессии 25 мин), `config/keys.php`
+(RSA-пара в `storage/keys/`, публичный закоммичен), `config/wallet.php` (главная
+валюта `RUB`), `config/telegram.php` ← `BOT_TOKEN` (платежи) **и параллельно**
+`config/app.php` → `telegram.*` ← `TELEGRAM_BOT_TOKEN` (валидация WebApp) — два
+источника токена, при настройке окружения задавать оба. `.env.example` отстаёт
+от `config/`. `env()` вне config в `CurrencyService:20`,
+`AuthProjectSignMiddleware:34`, `CheckIsPlayerDeveloper:20` — при `config:cache`
+вернут null.
+
+**Тесты и локалка.** `tests/`: `Feature/MerchantAccessLayerTest` (4),
+`Feature/PartnerRollbackTest` (6, `Http::fake`), два Example. Все feature —
+`RefreshDatabase`, sqlite в `phpunit.xml` закомментирован → **тесты делают
+`migrate:fresh` на MySQL из `.env`** (`DB_DATABASE=laravel`); без базы всё
+красное. Docker только для локалки, два несовместимых варианта
+(`docker-compose.yaml` — php-fpm + nginx + Dragonfly; `docker-compose.dev.yml`
+— frankenphp + redis), оба не про Octane. Сидеры: админ `crashgames`, «Банк»,
+типы, 15 игр, валюты (GEM_DEMO, GEM, XTR, RUB, KZT — **USD нет**, см. журнал
+21.08), проект `Inner`.
+
+`CHANGELOG.md` — русский, записи `## YYYY-MM-DD — заголовок` с блоками
+Контекст / Причина / Изменено / Файлы / Выкат. Последняя запись 2026-08-20;
+**коммиты 21.08–11.09 в нём не отражены**. `README.md` устарел целиком —
+описывает удалённую схему `api_get_balance`/`/api/external/auth`.
+
+**Грабли, не описанные в других разделах.**
+1. `POST /api/app/wallet/withdraw` сломан на уровне класса: `WalletController`
+   импортирует `App\Services\External\ExternalTransactionService`, которого нет.
+2. `Player::switchBlock()` содержит `dd("switchBlock")` (`app/Models/Player.php:351`).
+3. `AllowMoneyOperations` читается наоборот: `isAllowMakeMoneyOperation()`
+   возвращает **блок**, middleware кидает исключение, если он есть.
+4. Три разных `PlayerWalletService` (`Services/App/Wallet`, `Services/Player/Waller`
+   [sic], `Services/PlayerWallet`); в `PlayerTransactionType` и `DEPOSITE`, и
+   `DEPOSIT`.
+5. `storage/logs/laravel.log` **отслеживается гитом** (попал в `6a8e205`, каталог
+   без `.gitignore`) — растёт с каждым прогоном тестов.
+6. Мёртвое: `Resources/Admin/RoundResource`, `PlayerOldResource`,
+   `Events/Round/*`, `CheckIsPlayerDeveloper`, `CRUDRepository`.
+7. `Player::getProfitAttribute` и `getTotalBetsWins` считают агрегаты по
+   `game_crash_bets` на лету — N+1 на списках админки.
+8. Ветка `origin/Pavel/Dev` (02.2026, `AdminRoundsService`, список раундов через
+   ORM) — на 97 коммитов позади, `AdminRoundsController` с тех пор переписан;
+   считать мёртвой.
+
+### `crash-heroes-backend-game-engine` — движки
+
+Монорепо из трёх независимых сервисов. 299 коммитов с 05.2023 (Igonin), в 2026
+ведёт Илья. `main == develop`, тегов нет. Ни одного теста ни в одном сервисе.
+
+| | `app_service` | `calc_service` | `slot_service` |
 |---|---|---|---|
-| Бэкенд API (Laravel) | `crash-heroes-backend-api-core` | `crash-heroes/backend/crash-heroes-backend-api-core` | **`develop`** |
-| Движки игр | `crash-heroes-backend-game-engine` | `crash-heroes/backend/…-game-engine` | — |
-| **Админка (фронт)** | **`admin-panel`** | **`crash-heroes/frontend/admin-panel`** | **`dev`** |
+| стек | Node ESM (`.mjs`), `ws` 8, `axios` | Python, Flask 3.1 | Python, Flask 3.1, numpy, pandas |
+| запуск | `node --env-file .env src/main.mjs`, по процессу на игру | `server_calculator.py --port --log` | `slot_server.py --port` |
+| env | `HOST`, `PORT`, `GAME_ID`, `UPDATE_INTERVAL_MS=50`, `API_URL` (`http://127.0.0.1:8001/api/`, dev `:8002`), `CALC_SERVICE` (`http://127.0.0.1:5000/`, dev `:6000/`) | — | — |
+| venv | — | `calc_service/venv`, ставится на сервере | `slot_service/venv` |
 
-> Ветки называются по-разному: у бэкенда `develop`, у админки `dev`. Легко перепутать.
+Версия Node не закреплена (CI собирает на `node:22-alpine`); `.pyc` в репо от
+cpython-39. `ecosystem.config.js` / `dev-ecosystem.config.js` — одинаковая
+структура, разные префиксы имён, порты, `API_URL`; секции `deploy` в них
+устарели (github `minigames-agg`), реальный деплой — rsync из CI.
 
-**Админка** — React 19 + Vite 6 + TypeScript 5.7 + Tailwind 4 (в `package.json` зовётся `adminnew`).
-Скрипты: `dev`, `build`, `preview`, `lint`, `lint:fix`, `prettier:fix`.
-Раскатывается как статика в `/home/admin/crashgames/minigames-admin-front`,
-nginx отдаёт с `try_files $uri /index.html` (SPA). Ходит в API на `api.crash-heroes.com`.
+**Игра → id → порт → pm2** (`GAME_ID` = `games.id` в БД):
+
+| id | pm2 (prod / dev) | порт prod / dev | slug сборки |
+|---|---|---|---|
+| 1 | Prod 1 BallonFly / Dev 1 BallonFly | 3001 / 4001 | balloonfly |
+| 2 | … 2 SharkCage | 3002 / 4002 | sharkcage |
+| 3 | … 3 ClownFest | 3003 / 4003 | clownfest |
+| 4 | … 4 FatGuy | 3004 / 4004 | fatguy |
+| 5 | … 5 IceFish | 3005 / 4005 | icefish |
+| 6 | … 6 BoobleJump | 3006 / 4006 | booblejump |
+| 7 | … 7 BeerFest | 3007 / 4007 | beerfest |
+| 8 | … 8 ScaryClown | 3008 / 4008 | creepyclown |
+| 11 | … 11 Breeze Tease | 3011 / 4011 | breezetease |
+| 12 | … 12 Olimp Hockey (arcade) | 3012 / 4012 | olimphockey |
+| 15 | … 15 Hockey (arcade) | 3015 / 4015 | hockey |
+| 16 | … 16 Hockey Classic | 3016 / 4016 | smashhockey |
+| 17 | **`17 DunaCopter`** на проде (без `Prod `), Dev 17 DunaCopter | 3017 / 4017 | dunecopter |
+
+id 9, 10, 13, 14 движков не имеют (13/14 — слоты). Все 13 процессов — **один и
+тот же `main.mjs`**, различие только `GAME_ID`/`PORT`; вся специфика (режим
+arcade, множитель, `Coef_2_sec`/`Coef_15_sec`, банк) приходит из Laravel.
+
+**`app_service/src/`:** `main.mjs` (297 строк — WS-сервер, обработчик сообщений,
+`setInterval` игрового цикла, глобальные `currentRound`, `bank`, `ratesHistory`,
+`creatingRoundLock`); `external.mjs` (`apiGetPlayer(token)`, попутно патчит
+`String.prototype.toHHMMSS`, от которого зависит `Round.getDurationTime()`);
+`models/round.class.mjs` (`Round`: состояния `BETS 0 / RUN 1 / WAITING 2 /
+FINISHED 3`, ставки, выплаты); `models/player/player.class.mjs`;
+`services/round-service.class.mjs` (создание раунда + репозиторий на каждое
+событие); `services/client-message-service/*` (`BetMessageHandler`,
+`CancelMessageHandler`, `JumpMessageHandler`; `auth`/`rates`/`balance`/`info`
+остались в `main.mjs`); `services/game-version-service.class.mjs` (синглтон,
+помнит `version` из **последнего** `auth` любого клиента);
+`http/repository/http-round-repository.class.mjs` (`update` → `POST
+{API_URL}server/round`, `getRoundCoef` → calc); `enums/round-action.mjs`
+(`create_round`, `store_bet`, `remove_bet`, `remove_bets`, `store_take`,
+`store_takes`, `update_round`, `finish_round`).
+
+**Жизненный цикл раунда.** `uuid = GAME_ID_unixSec`.
+1. Создание: `create_round` в Laravel → `round_id`; всем клиентам
+   `resetBetsData()` и **без await** `updateClientData` — GET игрока на каждого
+   подключённого (в т.ч. анонимного → `Player not found` в логе Laravel;
+   `smoke.sh` даёт по 2 такие строки за прогон).
+2. `BETS` — 5 с. 3. `RUN` — `update_round` (до 100 попыток по 100 мс, потом
+   `process.exit(1)`), из ответа `settings` → calc `/calculate` + `/get_coefs`;
+   коэффициент ступенькой из таблицы `coefs[t]`; стоп при `rate >= coef`, `rate >=
+   100` или `runElapsed > 30 с` (страховка 03.2026). Формула времени в `runRound`
+   накопительная — полёт нелинеен относительно реального времени, 40 «расчётных
+   секунд» ≈ 16 с реальных. 4. `WAITING` — 5 с, `ratesHistory.unshift(rate)`
+   (20 штук). 5. `FINISHED` → `finish_round`.
+
+**Протокол WS** (JSON, сокет = игрок). При подключении `{success, id}`.
+Клиент → сервер: `auth {token, version?}` → ответ `auth {balances{main,
+secondary}, blocks, interval}`; `bet {set, bet_id}` → `bet {success, bet_id}`
+(проверка только `balances.main.balance >= set`, локально вычитает);
+`cancel {bet_id | all_bets}`; `jump {bet_id | all_bets}` (только в RUN, выигрыш
+`rate * bet`, в `secondary` при arcade); `rates` → `{rates: "2.31 1.05 …"}`
+(строка через пробел, 20 последних, **без авторизации**); `balance`; `info`.
+Сервер → клиент каждый тик (только с `player.token`): `tick {step, state,
+rate, countdown, game_uuid, player{jump, bets[], balances, blocks}}`.
+
+**В Laravel** два эндпоинта, оба без серверной авторизации: `GET
+server/games/{GAME_ID}/player?token=` и `POST server/round` с `action`.
+Каждое событие ставки — **два** POST подряд (`store_*` + `update_round`).
+`bank` — процессный счётчик, обнуляется рестартом.
+
+**`calc_service`** (переписан 03.2026, Titov): `POST /calculate`
+(`{Expectation, TotalBets, MaxAccount, CurrentAccount, MaxDrawDown%,
+MaxDrawDownRound%, Coef_2_sec, Coef_15_sec}` → `{crash_time, coef}`), `POST
+/get_coefs` (таблица 401 точка, шаг 0.1 с до 40 с), `GET /rng_status`. Кривая
+`c(t) = 1 + α·t^β` через точки (2, Coef_2_sec) и (15, Coef_15_sec); `p(c) =
+(μ+1)/c`, `μ = Expectation` (−0.04 ⇒ RTP 96 %); потолок `c_max = 1 +
+MaxDrawDownRound/TotalBets` — коэффициент ограничен банком. RNG —
+`os.urandom`, self-test, лимит 1000 вызовов/с, аудит в `--log`. Зовёт его только
+`app_service`. При ошибке 500 с **полным traceback** в теле.
+
+**`slot_service`** — отдельный продукт, генератор исходов слота 5×3, с крашами
+не связан: `POST /setup` (строит таблицу исходов из `slot_settings.json`,
+`symbols.json`, `combinations.json`; **недетерминирована между рестартами**;
+вызывается сам на старте), `POST /place_bet {bet_size}` → матрица 3×5 и
+`fin_result`. `bank_file.json` — банк слота (`current_max`, `current`,
+`max_drawdown_pct`), перезаписывается целиком после каждой ставки, в rsync
+исключён — **создаётся на сервере руками**, без него `/place_bet` падает 400.
+Исход выбирается `np.random.choice` (не CSPRNG). Клиент — Laravel
+`SlotsGameService`.
+
+**Грабли движка.**
+1. **`all_bets` действует на всех игроков раунда**: `Round.cancelBets(player)`
+   обнуляет `bets.list` целиком, `takeAllWinnings(player)` выплачивает по
+   **каждой** ставке в раунде вызывающему (`round.class.mjs:196-252`). При одном
+   игроке на процесс незаметно.
+2. `GameVersionService` — процессный синглтон: клиент с `version != 1` ломает
+   `getInfo` всем.
+3. uuid раунда с точностью до секунды; если Laravel не вернул `round_id`, цикл
+   создаёт раунд каждые 50 мс (`persistenceId === null`), тиков нет.
+4. `SIGTERM` только логируется — pm2 добивает по `kill_timeout`; `exit` пишет
+   `FATAL Exit` при штатном выходе.
+5. Ставка до `auth` → `TypeError` → `{type:'bet', message:'Error…'}`; `blocks` из
+   Laravel сервером не проверяются.
+6. `.env.example` устарел (`API_URL` без `/api/` и слэша — склейка даст
+   `…:8000server/round`). `LOGS_PATH`/`NODE_ENV` кодом не читаются.
+7. Мёртвое: `postHttpsJSON`, `HttpPlayerRepository`, `apiGetGame`, `apiGetBonus`,
+   `Round.drop`, `random`/`seedrandom`, `lodash`, `axios-retry`.
+
+### `admin-panel` — админка
+
+React 19, react-router 7 (импорты вперемешку из `react-router` и
+`react-router-dom`), Vite 6 + SWC, TS 5.7, Tailwind 4, TanStack Query 5 + Table 8,
+`ky`, react-hook-form + zod 4, shadcn (`components.json`, style `new-york`) +
+**приватный реестр `@agg`** (`pages.agg.one/frontend-libs/admin-ui`, нужен
+`REGISTRY_TOKEN`) — оттуда `src/components/agg/*` (`AggTable`). Пакетный
+менеджер **npm** (`bun.lockb` мёртв с 02.2026). `.nvmrc` v22, CI собирает на
+`node:24`. Husky pre-commit → lint-staged. 158 коммитов с 09.2025 (Maxim
+Spiridonov, coolstory), с 07.2026 — Илья.
+
+**Структура `src/`:** `main.tsx` — все маршруты; `components/routing/`
+(`public-routes`, `private-routes` — гейт по типу игры); `components/layout/`
+(шапка «Mini Games», сайдбар с **селектором типа игры**); `components/ui/` (28
+shadcn), `components/agg/`, `components/common/` (старый `DataTable`, фильтры);
+`lib/api/` (`api-client.ts` — `ky.extend({prefixUrl: VITE_API_URL})`, Bearer из
+`localStorage['token']` (JSON-строка), `afterResponse` парсит **каждый** ответ
+как JSON; по домену `endpoints.ts` + `types.ts`); `queries/` (TanStack-хуки);
+`pages/<раздел>/` (`page-*.tsx`, `components/`, `hooks/use*Filters.ts`,
+`schemas/*SearchParamsSchema.ts` — **фильтры живут в URL**);
+`providers/TypeIdProvider.tsx` (`localStorage['typeId']`, дефолт `'1'`, уходит
+почти во все запросы).
+
+**Разделы:**
+
+| маршрут | что | эндпоинты |
+|---|---|---|
+| `/login` | форма «User name / Password» (поле `email`) | `admin/auth` |
+| `/rounds` | сводка `AggregateTable` + список раундов; фильтр игра/даты, сортировка | `admin/games/rounds/aggregate`, `v2/admin/rounds`, `admin/games?typeId` |
+| `/rounds/:gameId/:id` | карточка раунда + ставки | `admin/games/{g}/rounds/{r}[/bets]` |
+| `/users`, `/users/:id` | игроки, блокировка, ставки игрока | `v2/admin/players[/{id}[/bets|/block/switch]]` |
+| `/deposits` | пополнения, только чтение | `admin/wallets/deposits` |
+| `/transactions` | вкладки **Внутренние / Внешние**; у внешних диалог «Детали» с аккордеоном попыток (url, http, ms, error), табы Запрос/Ответ, строки Crash session / Launch token; keyset-пагинация `cursor`/`direction`; поиск только по точным значениям | `admin/wallets/transactions[/external]` |
+| `/statistics` | график банка, пользователи, метрики; **имена игр захардкожены** в `UserMetrics.tsx` | `admin/account/history`, `admin/metrics` |
+| `/settings` | `typeId === '1'` → `CrashGamesForm` (коэф. на 2 и 15 с, ожидание, просадки, демо-режим), иначе `SlotsForm` | `admin/settings/{typeId}[/reset]` |
+| `/currencies` | CRUD валют | `admin/currencies` |
+| `/projects` | проекты-партнёры: имя, «Внутренний проект», ключи `gpk_…`/секрет, URL user-info / bet / win / rollback | `admin/projects` |
+
+Ролей в UI **нет**: один тип пользователя, любой залогиненный видит всё
+(мерчантская изоляция — только на бэке). Разделы users/roles/merchants/games
+существуют лишь в ветке `sandbox/dev-admin2-redesign` (61 коммит Полины,
+06–08.2026, на моках, отстаёт от `main` на 55 коммитов — в лоб не сливать).
+`pages/withdrawals/*` — мёртвый код (маршрут снят).
+
+**Окружения:** `.env.dev` и `.env.local` → `https://dev.api.crash-heroes.com/api`,
+`.env.main` → `https://api.crash-heroes.com/api`; выбираются `vite build --mode
+dev|main` (`build:dev`/`build:main`). **Обычный `npm run build` без mode берёт
+dev-API из `.env.local`**, поэтому `scripts/check-api-url.mjs` после сборки
+проверяет, что нужный URL попал в `dist/`. Все три `.env.*` закоммичены force
+(в `.gitignore`), секретов нет.
+
+**CI** (`.gitlab-ci.yml`): только `dev` и `main`; `node:24`, `npm ci`, `npm run
+build:dev|build:main` (**`tsc -b` и eslint в CI не запускаются** — они только в
+скрипте `build`), артефакт `dist/`; деплой `alpine` + rsync `--delete` в
+`/home/admin/crashgames/minigames-admin-front/`, до 5 попыток. `SERVER_HOST` и
+`SSH_PRIVATE_KEY_BASE64` — переменные GitLab по environment.
+`.github/workflows/` — реликт первого коммита, не работает.
+
+**Грабли:** `afterResponse` роняет не-JSON ответы (HTML от nginx при 408/502)
+непонятной ошибкой парсинга; `clearAccessToken` — переприсваиваемая переменная,
+no-op до первого `useAccessToken`; два табличных движка (новое — на `AggTable`);
+сортировка раундов по `duration/coefficient/prizes/profit` вешает MySQL на 30 с
+(см. грабли и TODO); интерфейс по-русски без i18n, часть заголовков английские;
+`yup` в зависимостях не используется.
+
+### `catalog-app` — каталог, демо-сайт, мобилка
+
+**Что это:** лобби игрока «Crash Heroes Catalog» — Framework7 8 + Vue 3 + Vite 5
++ TypeScript, Capacitor 6 (iOS/Android), workbox (PWA). Показывает баннеры,
+категории игр, лидерборд, профиль и кошелёк; саму игру открывает в
+**`<iframe>` внутри f7-popup** по `game.link` из API. **WebSocket каталог не
+открывает** — его открывает сборка игры внутри iframe. Сгенерирован
+framework7-cli (`framework7.json`, template `tabs`). 132 коммита с 08.2024
+(Ilya Titov, Valery Shcherbinin), последний — 2026-06-09; **заморожен**. CI нет.
+
+**Два таргета** (`src/targets/origin/` и `src/targets/demo/`, каждый — корень
+Vite со своим `index.html`, `core/app.ts`, `core/routes.ts`, `.env`,
+`manifest.json`): `origin` — полноценный продукт (Telegram Mini App + iOS/Android
++ web; GEM/RUB/XTR, Apple IAP, LanPay, Telegram Stars) → `app.<домен>`; `demo` —
+его копия для `demo.<домен>` (`client_type=demo`, `game_currency=GEM_DEMO`,
+бонусов нет). Копипаста: 26 файлов отличаются в основном импортами, фиксы делать
+дважды, уже разошлись (`close()` в origin зовёт `f7.popup.close`, в demo — нет).
+Общий код — `src/global/`: `services/service-app/ServiceApp.ts` (синглтон-DI
+`ServiceApp.of().service<T>("key")`), `service-api/ServiceApi.ts` (fetch-обёртка,
+`{success,data}`), `services/data/*` (стор на Vue `ref()`: auth, games, banners,
+categories, leaderboard, balance-operations), `service-telegram/`
+(initData, safe-area, `openInvoice`), `service-inapp-purchase/` (продукты
+`coins100/500/1000/10000`, верификация `/api/app/purchase/apple/verify`),
+`service-errors/` (401 → сброс токена и реинициализация), `repositories/`,
+`models/` (class-transformer, `lodash-humps-ts` snake→camel).
+Роуты: `/mobile/games|leaderboard|profile|balance-operations|history-balance-operations`,
+`/desktop/games|leaderboard|profile` (выбор по `innerWidth > 600`).
+
+**API** — всё `/api/app/*`: `token`, `auth` (Telegram), `profile`,
+`profile/avatars`, `balance`, `deposit/demo`, `banners`, `categories`,
+`categories/{id}/games`, `leaderboard`, `wallet/history|deposit|withdraw/*`,
+`purchase/apple/verify`. **Авторизация web:** `device_id = crypto.randomUUID()`
+в localStorage → RSA публичным ключом `APP_PUBLIC_KEY` (node-forge) → `GET
+/api/app/token?device_id=<base64>` (demo: `&client_type=demo&game_currency=GEM_DEMO`)
+→ `token` → `Authorization: Bearer`. В Telegram — `POST /api/app/auth` с `initData`.
+
+**Запуск игры** (`targets/*/popups/popup-game/PopupGameController.ts::generateGameURL`):
+`game.link + '?' + params`. Вне Telegram — `authToken=<players.token>&bets=2&loaded=true`;
+в Telegram — `type=telegram`, токен уходит `postMessage` в iframe после события
+`ready` (`{gameParams:{token,bets,loaded}, userProfile}`). Всегда `safeAreaTop/Bottom`,
+`tgContentSafeAreaInset*`, `currency=<gameCurrency>`. **`balanceFraction` и
+`closeIcon` здесь нет** — их добавляет только `GameLaunchService::makeGameUrl`
+для партнёрских сессий. Обратный канал: `message` из iframe — `{event:
+'close'|'ready'}`, `redirect: 'payment'` → попап Telegram Stars.
+
+**Окружения и сборка.** `demo.config.js` ≈ `origin.config.js` (`root`/`envDir` =
+`src/targets/<target>`, `envPrefix: 'APP'`, `outDir: www/`); окружение выбирает
+**npm-скрипт**: `dev`/`build` → origin, `dev:demo`/`build:demo` → demo;
+`build-capacitor-ios|android` → `cap copy`. Переменные `APP_API_BASE_URL`,
+`APP_PUBLIC_KEY`, `APP_FIREBASE_*`, `APP_TARGET_TYPE`. Грабля: `.env` есть только
+в `src/targets/origin/` (не в гите) и в нём `APP_TARGET_TYPE=demo` — демо-сайт,
+похоже, собирается origin-таргетом с типом demo; `src/targets/demo/.env`
+отсутствует, `build:demo` соберётся с пустыми `APP_*`. Деплой руками: `www/`
+копируется в `/home/admin/crashgames/demo` или `app`.
+
+**Мобильные сборки** реальные: `capacitor.config.ts` `appId com.crashheroes`;
+iOS `MARKETING_VERSION 1.0.2` build 3, только портрет; Android
+`applicationId` **`fanbattle.ru`** (след другого проекта), versionCode 1.
+**В гит закоммичен keystore** (`android/*.keystore`) и `.idea/`.
+
+**Грабли:** `ServiceApi.ts` — `import * as console from "console"` (Node-модуль
+в браузере), GET при не-401 ошибке молча `null`; `ServerResponse.ts` тянет
+мусорные автоимпорты из `@capacitor/assets` и `dom7`; Firebase инициализируется
+всегда, хотя чтение настроек из Firestore закомментировано; workbox ждёт
+`.core`/`.styles`, Vite выпускает `.js`/`.css` → JS/CSS не в precache;
+`index.html` обоих таргетов ссылается на `/src/targets/origin/manifest.json`
+(dev-путь); `alert(e)` в отладке; UI по-русски без i18n; незакоммиченный
+`console.log(url)` в `demo/.../PopupGameController.ts:67`.
 
 ## Как работают игры
 
@@ -213,11 +635,12 @@ done
     игрок жмёт игру у Лаки
       → POST /v1/core/games/{gameId}/launch (x-public-key + JWT игрока)
       → Лаки создаёт свою сессию, зовёт наш POST /api/external/game/url
-        тело { game_id, sessionToken }
+        тело { game_id, session }  (до 11.09 — sessionToken; старое имя
+        принимается как запасное, см. журнал 14.09)
       → мы создаём game_sessions, отдаём ссылку с sess_-токеном
       → игра открывается, идёт в /api/app/profile
       → GameSessionResolver видит префикс, находит сессию, при первом
-        обращении зовёт партнёрский /playerInfo, заводит игрока,
+        обращении зовёт партнёрский /user/info (до 11.09 — /playerInfo), заводит игрока,
         заполняет player_id / external_player_id / currency и зеркалит баланс
       → движок авторизует тот же токен через GET server/games/{id}/player
       → тики идут
@@ -242,8 +665,9 @@ done
 браузер (до 20.08 `session_local`); `launch_token` — токен партнёра, выданный
 при запуске игры, наружу не попадает (до 20.08 `session_external`). У Лаки
 колонка `game_sessions.launch_token` и ключ `metadata.launch_token` в
-транзакции расчёта (раньше `session`). Wire-контракт не менялся: `/game/url` и
-`/playerInfo` — `sessionToken`, `/bet` и `/win` — `session`. В админках: у нас в
+транзакции расчёта (раньше `session`). Wire-контракт **с 11.09 везде `session`**:
+`/game/url`, `/user/info`, `/bet`, `/win`, `/rollback` (до того `/game/url` и
+`/playerInfo` принимали `sessionToken`). В админках: у нас в
 деталях внешней транзакции строки «Crash session» и «Launch token» (ресурс
 отдаёт плоские `crash_session` / `launch_token`, поиск ищет по обеим), у Лаки в
 деталях транзакции — «Launch token».
@@ -253,8 +677,16 @@ done
 Локальный кошелёк сессионного игрока — **зеркало, а не счёт**. Правда живёт у
 партнёра.
 
-- ставка → `POST /bet` партнёру, `/win` с `SettleBet` на выигрыш и `CancelBet`
-  на отмену;
+- ставка → `POST api_bet`, выигрыш → `POST api_win`. **Два разных «отката»,
+  не путать** (проверено по коду 14.09):
+  - *игрок сам снял ставку до старта раунда* (`remove_bet`, `remove_bets`) →
+    `PartnerWalletService::cancel()` → **тот же `api_win`** с суммой ставки и
+    полем **`cancel: true`**; у нас тип `cancel`, у Lucky `WinRequest.cancel`
+    → `CancelBet`. Отдельного URL для этого нет и не нужно;
+  - *ставка не подтвердилась* (таймаут/5xx на `/bet`) → `rollback()` →
+    `POST api_rollback {session, txId}` (с 11.09, см. ниже).
+  Поля `operation` (`SettleBet`/`CancelBet`), `playerId`, `gameId`, `currency`
+  из тела **убраны 09.09**;
 - `txId` генерим мы, это ключ идемпотентности: повтор не двигает деньги второй
   раз и возвращает тот же баланс. `txId` = **uuid строки журнала**
   `player_external_transactions` (отдельной колонки `tx_id` нет, она дублировала
@@ -282,30 +714,54 @@ done
 (партнёрский `processedTxId` из ответа — обратная ссылка на их запись).
 Индексы `pet_service_status_index`, `pet_bet_id_index`.
 
-**Связка со ставкой и раундом.** В теле `/bet` и `/win` уходят первичные ключи:
-`betId`, `roundId`, `gameId` и раунд-скоупный `betNumber` (номер ставки внутри
-раунда, 1/2) — чтобы у партнёра строка была привязана к ставке и раунду. На
-**ретраях** `/win` зеркало обновляется из ответа так же, как на первой попытке;
-компенсирующий `CancelBet` при неясном отказе `/bet` устойчив (переживает
-перезапуск воркера). Ставка на крашах создаётся до похода к партнёру
-(`wasRecentlyCreated`) и удаляется, если партнёр отказал.
+**Тело `/bet` и `/win` (с 09.09):** `txId` (uuid строки журнала), `betId`,
+`roundId`, `betNumber` (номер ставки внутри раунда, 1/2), `amount` (**minor
+units**, `MoneyHelper::toMinorUnits`), `session` (= `launch_token` партнёра).
+Игрок, игра и валюта у партнёра выводятся из `session`. На **ретраях** `/win`
+зеркало обновляется из ответа так же, как на первой попытке. Ставка на крашах
+создаётся до похода к партнёру (`wasRecentlyCreated`) и удаляется, если партнёр
+отказал.
+
+**Rollback (с 11.09, `d804f7a`).** Если `/bet` отказал непонятно (таймаут,
+`5xx` — списание могло пройти), шлём `POST api_rollback {session, txId}`, где
+`txId` — uuid исходной ставки. Это **отдельная строка журнала** типа `rollback`
+с `amount 0`, своим uuid и `game_session_id`; ретраится по общей лестнице.
+До 09.09 компенсацией был `CancelBet` в `/win`, 09–11.09 — отдельный `api_cancel`
+(колонка добавлена и через два дня удалена миграцией
+`2026_09_11_100001_rename_api_player_info_and_drop_api_cancel`).
+Тесты — `tests/Feature/PartnerRollbackTest.php`.
+
+**Подпись исходящих (с 09.09, `ProjectSignHelper::signRequest`):**
+`HMAC-SHA256(secret, "METHOD\n/path\n{}\n<ksort-json тела>")` — метод и путь
+входят в подпись, перехваченное тело нельзя переиграть на другой эндпоинт.
+**Входящие** `/api/external/*` по-прежнему проверяются по одному телу
+(`AuthProjectSignMiddleware`, `ProjectSignHelper::sign`). `~/sign-external.sh` на
+dev считает только тело — годится **только для входящих**, для проверки ключей в
+сторону Лаки он больше не подходит.
 
 > Разделение: **у нас журнал операций, у партнёра — счёт.** `account_transactions`
 > остаётся навсегда для внутренних игроков, партнёрские туда не попадают.
 
 **Ретраи по правилам Aviatrix:** повтор только на `5xx` (кроме `501`) и `429`,
-на `4xx` — никогда. Backoff `1s, 2s, 5s … 1h, 3h`, 12 попыток,
-`PartnerOperationRetryJob` в Redis (`QUEUE_CONNECTION=redis`, воркер
-`crashgames-integration-worker` под supervisor).
+на `4xx` — никогда. С 11.09 (`94863bd`): `PartnerOperationRetryJob` — `$tries = 0`
+(**бесконечно**), очередь **`integration`** (раньше уходила в `default`, которую
+воркер не слушал), лестница `1s, 2s, 5s, 15s, 1m, 5m, 15m, 30m, 1h, 3h, 12h` и
+дальше по 12 ч. Redis (`QUEUE_CONNECTION=redis`), воркер
+`crashgames-integration-worker` под supervisor (`--queue=integration
+--max-time=3600`, перезапуск раз в час — норма).
 
-Асимметрия: **`/win` ретраится** (мы должны деньги), **`/bet` — нет**. Не дошло —
-ставка отклоняется, а если отказ был непонятный (таймаут, `5xx`, то есть
-списание могло пройти), сразу шлём компенсирующий `CancelBet` с тем же `betId`.
+Асимметрия: **`/win` и `/rollback` ретраятся** (мы должны деньги или
+подтверждение отката), **`/bet` — нет**. Не дошло — ставка отклоняется, а если
+отказ был непонятный — сразу `rollback` с `txId` ставки.
 
 ### Настройки проекта
 
 `projects`: `is_internal` (boolean, **новый проект по умолчанию внутренний**),
-`api_player_info`, `api_bet`, `api_win`. Старые `api_get_balance` /
+`api_key` / `api_secret` (nullable с 10.09, выдаёт партнёр), `api_user_info`
+(до 11.09 `api_player_info`; миграция заодно заменила `/player/info` →
+`/user/info` в существующих URL), `api_bet`, `api_win`, `api_rollback`.
+У Lucky это `POST …/external/game-provider/{user/info,bet,win,rollback}`.
+Старые `api_get_balance` /
 `api_post_balance` **удалены вместе со всей асинхронной схемой** — джобы
 `IntegrationPlayersGetBalanceJob` / `IntegrationPlayersUpdateBalanceJob` и их
 вызовы в наблюдателях снесены.
@@ -314,8 +770,9 @@ done
 `'Inner'` — раньше переименование проекта в админке молча ломало создание
 внутренних игроков.
 
-В админке у внутреннего проекта скрыты ключи и все три адреса — переключатель
-управляет видимостью.
+В админке у внутреннего проекта скрыты ключи и все четыре адреса —
+переключатель управляет видимостью. Удаление проекта с живыми `game_sessions`
+починено 10.09 (`756637b`).
 
 ### Ключи и проекты — где легко ошибиться
 
@@ -402,7 +859,15 @@ NestJS на `/docs-json`), поэтому **спека правится рука
 
 ## Runbook'и
 
-### Деплой кода на сервер (гит-бандлом)
+### Деплой кода на сервер (гит-бандлом) — УСТАРЕЛО
+
+> **С 17.08 на серверах нет `.git`** (снесён при переходе на CI, бэкап в
+> `~/deploy-backups/git-metadata-*.tgz`), поэтому бандл-деплой ниже больше не
+> работает. Актуальный путь: push в `develop` (dev) или `main` (прод) → CI
+> делает rsync + `migrate --force` + `octane:reload`. Ручной аварийный вариант —
+> скопировать изменённые файлы поверх `/home/admin/crashgames/minigames-admin-back/`
+> и `php artisan config:clear && php artisan octane:reload`. Раздел оставлен как
+> история.
 
 **На серверах нет приватных ssh-ключей** — ни на проде, ни на dev. `git pull` оттуда
 невозможен в принципе: `Permission denied (publickey)`, а на проде вдобавок не было
@@ -851,6 +1316,109 @@ mtime файла на проде свежее перезагрузки octane и
 - Интеграцию Lucky↔краши (провайдер, ключи, sync-games) Илья делал сам;
   на проде Lucky провайдер «Crash Games» → `api.crash-heroes.com/api/external/game/url`.
 
+## Журнал: 2026-09-09…11 — контракт партнёра v2 (user/info, rollback, подпись)
+
+Три дня правок бэка и админки вслед за переделкой контракта на стороне Lucky
+(там: «session field standardization», rollback, переименование player info).
+Всё через `develop` → `main`, на прод уехало CI 11.09 (~13:44 UTC, миграции
+применены на обоих серверах, `octane:reload` прошёл). CHANGELOG **не обновлён**.
+
+- `5b57c73` — тело `/bet`/`/win` сведено к `txId, betId, roundId, betNumber,
+  amount, session`; подпись `signRequest(method, path, body)`; отдельный
+  `cancel()` и колонка `api_cancel`. `444d6c9` — user-info подписывается своим
+  URL, `661c521` — валюта операции из сессии.
+- `505f8fa`, `e5e6706` — ключи `api_key`/`api_secret` принимаются от партнёра,
+  свои больше не генерируются (nullable). `756637b` — удаление проекта с
+  сессиями. `48f68e3` — из user-info убран `timestamp`.
+- `e0e8c3b` — `api_player_info` → `api_user_info`, `PartnerPlayerInfoService` →
+  `PartnerUserInfoService`, `api_cancel` удалён. `d804f7a` — компенсация
+  неподтверждённой ставки = `rollback` на `api_rollback`, тип `rollback` в
+  журнале. `94863bd`/`569a989` — ретраи в очередь `integration`, бесконечно.
+  `6a8e205` — rollback своей строкой + `PartnerRollbackTest`; **сюда же случайно
+  попал `storage/logs/laravel.log`** (тестовый лог, теперь tracked).
+- Админка: `540d2d6`, `07d9fe4` (поля ключей партнёра сверху, генерация убрана),
+  `aa2d881`, `cec6d3d` (URL user-info, поле rollback), релиз `5e3720e`.
+- На проде после релиза: 2 проекта внешних (`Lucky server` id 2 — все четыре URL
+  и ключи заполнены; `test` id 3 — только ключ), 60 сессий, 83 партнёрские
+  операции (60 bet / 23 win, все `completed`), последняя 10.09. На dev — 173
+  операции, в т.ч. 10 `cancel` (август) и 1 `rollback` (11.09 12:23, прошёл).
+- Незакоммиченный хвост в `api-core`: `GameUrlRequest` + `GameLaunchService`
+  переводят входящий `/game/url` с `sessionToken` на `session` (старое имя
+  принимается через `prepareForValidation`). Спека `docs/openapi-external.yaml`
+  под это **не правлена** — по правилу выше её нужно менять тем же коммитом.
+
+## Журнал: 2026-09-14 — ревизия репозиториев и серверов
+
+Сессия без правок кода: изучены все четыре репо (см. «Карта репозиториев»),
+прогнан `smoke.sh` и снят статус обоих серверов. **Оба зелёные**: 13 игр живы,
+коэффициенты меняются, pm2 16/16, очереди пустые, `failed_jobs` 0, висящих
+SQL нет, nginx без 5xx/408, сертификаты до 29.11.2026, fail2ban активен.
+Код на серверах совпадает с локальным `main` по md5 (`routes/api/api.php`,
+`ServerGameController`, `composer.lock`, `main.mjs`, `server_calculator.py`).
+
+| | prod | dev |
+|---|---|---|
+| uptime | 58 дней | 74 дня |
+| диск | 28 % (40 / 150 ГБ) | 21 % |
+| `game_crash_rounds` | 14.3 млн, 7.26 ГБ (16.08 было 12.5) | 7.2 млн |
+| `account_transactions` | 29.0 млн, 4.13 ГБ | 13.0 млн |
+| раундов / ставок за сутки | 77 218 / 80 | 77 277 / 0 |
+| игроков | 3 969 | 191 |
+| `innodb_buffer_pool_size` | 128 МБ (не поднят) | 128 МБ |
+| Octane | 4 воркера :8001, `APP_DEBUG=false` | 12 + 6 task :8002, `APP_DEBUG=true` |
+| `LOG_LEVEL` | debug | debug |
+| `storage/logs` | 256 МБ | 327 МБ |
+| ядро | 6.12.95, доступно 6.12.107 | 6.12.88, доступно 6.12.107 |
+| `pm2-admin.service` | active, pid совпадает | **inactive**, демон мимо systemd (TODO) |
+
+Что выяснилось нового:
+- **Запуск игр из Lucky сломан на обоих серверах с 11.09.** Lucky в тот день
+  перешёл в `/game/url` на поле `session` (`01e10bb`, master и dev), а краши
+  требовали `sessionToken` → `400 Invalid request` (проверено подписанным
+  запросом на dev; на проде запусков после 10.09 просто не было, поэтому в
+  логах пусто). Фикс `25d9a68` («Accept the partner session field on game url
+  and keep sessionToken as a fallback») закоммичен в `develop`, ff в `main`,
+  спека `docs/openapi-external.yaml` в том же коммите (`session` обязательное,
+  `sessionToken` deprecated). **Запушено и раскатано CI 14.09** на dev и прод:
+  проверено подписанным запросом — оба хоста отдают 200 и на `session`, и на
+  старом `sessionToken`, `smoke.sh` зелёный. Осталось: перезалить спеку в
+  Apidog (проект 1347186).
+- **Регресс Lucky↔краши на dev — зелёный (14.09).** Денежная проба
+  `game-provider-regress.mjs` **29/29** (user/info, bet, идемпотентность, win,
+  отмена через `win+cancel`, rollback ставки/отмены/выигрыша, подпись, битые
+  тела, гонки), каталог и модерация `provider-catalog-regress.mjs` **16/16**
+  (провайдерская половина, рут-токен в vault недоступен). Прогонялись **на
+  crash-dev** (ключ провайдера не выносится с сервера — классификатор режет
+  materialization приватного ключа) против `dev2.api.luckyserver.pro`. Как
+  готовить вход — `lucky-back/REGRESS.md`.
+- **Оба сервера просят перезагрузку** (`/var/run/reboot-required`, по 5–7
+  ядер в очереди, 20–23 пакета к обновлению). Перезагрузка = минута простоя
+  игр; на dev заодно вернёт pm2 под systemd. Делать по согласованию.
+- В `laravel-*.log` по 300–350 `ERROR` в сутки — это **сканеры ботов** (404 на
+  `sitemap.xml`, `bitrix/`, `.env`; nginx их режет `access forbidden by rule`)
+  плюс `Player not found` из `ServerGameController:29` — движок дёргает
+  `GET server/games/{id}/player` на каждого подключённого клиента при создании
+  раунда, в том числе на анонимного; `smoke.sh` сам оставляет 2 такие строки.
+  Всплеск 108 штук 10.09 и 66 на dev 09.09 — тесты интеграции (`Undefined
+  variable $url` в `playerInfo` — починено `444d6c9`). Реальных ошибок нет.
+- Канал `round` пишет ~39 МБ/сутки на каждом сервере (тайминги
+  `finishGameCrashRound` + полный ответ на каждый раунд) при `LOG_LEVEL=debug`.
+  С `daily` (14 дней) это ~550 МБ, не критично, но шум.
+- Reverb сконфигурирован в nginx (`/reverb` → 8080 / 8888), но **не запущен
+  ни на одном сервере** и в коде не используется (`Events/Round/*` не
+  диспатчатся). **Решение Ильи 14.09: Reverb неактуален, удалить** — чек-лист
+  в TODO.
+- `schedule:run` в cron нет ни на одном сервере → `arcade:resources:refill`
+  (сердца в хоккеях) **не выполняется** с момента переезда с supervisor
+  (`supervisor_scheduler.log` на dev кончился 02.07).
+- Нумерация `sequence_id` здорова: на проде у всех 13 игр `count == max`, на dev
+  у игр 11 и 15 `max = count − 1` (следы гонок, не растёт).
+- `/home/admin/crashgames/games/` на проде обновлялись 04.09 (все краши),
+  `olimphockey` — 25.05, слоты — 24.07; на dev есть тестовая `fake/` (31.08).
+  Сборки игр в репозиториях не живут.
+- Прод: `~/resync.sh` с паролями открытым текстом; `minigames-admin-front.old`
+  от 17.08 можно удалить.
+
 ## TODO
 
 ### Планы по seamless (следующая сессия)
@@ -887,17 +1455,79 @@ mtime файла на проде свежее перезагрузки octane и
 - [ ] **Что делать с проектом 5.** Провайдер у Лаки сейчас на его ключах, но
       проект 2 «Lucky server» тоже жив и на нём висят старые данные. Нужно
       выбрать один и убрать второй, иначе снова разъедется.
-- [ ] **Прод.** Ничего из seamless на прод не катилось. Перед релизом: `main`
-      отстаёт от `develop` на большой объём, миграции роняют
-      `api_get_balance` / `api_post_balance` (на проде там адрес legacy-хоста),
-      и **партнёр без `/bet` и `/win` останется без синхронизации баланса
-      вообще** — старую схему мы удалили.
+- [x] **Прод.** Seamless выкачен 21.08, контракт v2 — 11.09 (см. журналы).
 - [ ] **Прод-джоба CI движка** написана (`.gitlab-ci.yml`, ветка `main`,
-      автомат по пушу), но **ни разу не запускалась**. Первый прогон — под
-      присмотром: раскатка на прод перезапустит 13 игр по одной.
+      автомат по пушу), но **ни разу не запускалась** — движок с 18.08 не
+      менялся. Первый прогон — под присмотром: раскатка на прод перезапустит
+      13 игр по одной.
+- [x] **`25d9a68` запушен и раскатан** (14.09, dev+прод): запуск из Lucky
+      работает, `smoke.sh` зелёный. Осталось: `apidog import` спеки в проект
+      1347186; позже, когда Lucky точно не шлёт `sessionToken`, убрать запасное
+      имя из `GameUrlRequest` и спеки.
+- [ ] **Удалить отозванную пробу каталога** `35e1ff2a-277d-4ae6-8956-91ff48bc06d5`
+      на Lucky dev рутом (осталась от регресса 14.09, у `revoked` нет выхода без
+      рут-токена).
+- [ ] **`CHANGELOG.md` бэкенда** — дописать 21.08–11.09 (ключи партнёра,
+      user/info, rollback, ретраи).
+- [ ] **Убрать `storage/logs/laravel.log` из гита** (`git rm --cached` +
+      `storage/logs/.gitignore` с `*` / `!.gitignore`).
+- [ ] **Перезагрузить оба сервера** (ядро, `reboot-required`), заодно проверить,
+      что pm2 на dev поднимется под `pm2-admin.service`. Простой игр ~1 мин.
+- [ ] **`schedule:run` в cron** на обоих серверах (`* * * * * php artisan
+      schedule:run`) — иначе `arcade:resources:refill` не работает.
+- [ ] **Удалить `~/resync.sh` на проде** (пароли открытым текстом, разовая
+      переливка со старого хоста давно сделана) и `minigames-admin-front.old`.
+- [ ] **`sign-external.sh` на dev** — добавить режим `signRequest` (метод + путь),
+      чтобы проверять ключи в сторону Lucky.
+- [ ] **Удалить Reverb целиком** (решение 14.09, он неактуален). Что снести:
+      - репо: `laravel/reverb` из `composer.json` (+ `composer update`),
+        `config/reverb.php`, `App\Providers\BroadcastServiceProvider` из
+        `config/app.php`, `app/Events/Round/{RoundCreated,RoundUpdated,RoundFinished}.php`
+        (не диспатчатся), `app/Concerns/InteractsWithBroadcastChannels.php`,
+        случайный автоимпорт `use Laravel\Reverb\Loggers\Log` в
+        `App/Banners/BannersController.php` и `BannerRepository.php` (без него
+        пакет не удалить — классы перестанут грузиться; заменить на
+        `Illuminate\Support\Facades\Log` или убрать),
+        `REVERB_*` из `.env.example`; `BROADCAST_DRIVER=log` оставить;
+      - серверы (оба): `location /reverb` в
+        `/etc/nginx/conf.d/api.crash-heroes.com.conf` и
+        `dev.api.crashgames.app.conf` + `nginx -t && reload`; в `.env`
+        `BROADCAST_DRIVER=reverb` → `log` и восемь `REVERB_*`, затем
+        `config:clear` + `octane:reload`; `storage/logs/supervisor_reverb_worker.log`
+        (4 МБ, последняя запись 01.07).
+      Порядок: сначала серверные `.env` и nginx (ничего не сломается — сервис и
+      так не работает), потом код через `develop` → `main`.
+- [ ] **Сломанный `POST /api/app/wallet/withdraw`** (класс
+      `ExternalTransactionService` не существует) и `dd()` в
+      `Player::switchBlock()` — проверить, нужны ли эти пути каталогу/мобилке.
+- [ ] **`README.md` бэкенда** переписать или свести к ссылке на спеку — описывает
+      удалённую схему.
+- [ ] **`catalog-app`**: `console.log(url)` в демо-таргете закоммичен 14.09 по
+      просьбе Ильи (`98f5ea0`, не запушен) — при следующем касании убрать;
+      решить, нужен ли отдельный `.env` для demo-таргета, вынести keystore из гита.
+- [ ] **`admin-panel`**: удалить влитые ветки `feature/fix-layout`,
+      `feature/update-tables`, `fix/various-fixes`; решить судьбу
+      `sandbox/dev-admin2-redesign` и `feature/icon-click-pointer-changes`.
 
 
-- [ ] **У движка нет канала для отказа — ставка подтверждается до похода на бэк.**
+- [~] **У движка нет канала для отказа — ставка подтверждается до похода на бэк.**
+      **Сделано 14.09**, лежит **в рабочем дереве** `develop` обоих репо —
+      не закоммичено и не запушено:
+      `SeamlessWalletGateway::bet` теперь возвращает статус
+      `accepted` / `declined` / `not_confirmed` вместо `bool`; `store_bet`
+      отдаёт его движку в ответе (`data.bet.status`); `RoundService.handleBet`
+      возвращает ответ, а слушатель `on('bet')` в `main.mjs` при
+      `not_confirmed` шлёт **тому же сокету** сообщение
+      `{type:'bet_error', bet_id, round_uuid, reason:'not_confirmed', message}`
+      и обёрнут в `try/catch` (раньше непойманный reject убивал процесс).
+      Решения Ильи по объёму: фантомную ставку в `bets.list` **не чистим**
+      (что делать — решает фронт), сообщение шлём **только** на
+      `not_confirmed` (на `declined` молчим), гейт по версии протокола **не
+      делаем** — `GameVersionService` процессный синглтон и протёк бы между
+      игроками. Тесты: `PartnerRollbackTest` 6/6.
+      Осталось от исходного пункта:
+
+      **Исходная проблема:** 
       `Round.makeBet()` кладёт ставку в список и эмитит событие, `BetMessageHandler`
       тут же отвечает клиенту `{type:'bet', success:true}` и списывает зеркало
       баланса — всё это **до** того, как бэк вообще спросят. Ответ бэка движок не

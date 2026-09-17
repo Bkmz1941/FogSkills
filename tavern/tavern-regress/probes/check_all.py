@@ -39,6 +39,15 @@ def lint():
     return out.returncode == 0
 
 
+def probes_lint():
+    out = subprocess.run(['python3', REG + '/probes/probes_lint.py'], capture_output=True, text=True, timeout=60)
+    lines = [l for l in out.stdout.strip().split('\n') if l.strip()]
+    print('ссылки проб:', lines[-1] if lines else 'нет ответа')
+    for line in lines[:-1]:
+        print('   ', line[:300])
+    return out.returncode == 0
+
+
 def compile_check():
     out = subprocess.run(['python3', PROJECT + '/compile_check.py'],
                          capture_output=True, text=True, timeout=600, cwd=PROJECT)
@@ -120,6 +129,7 @@ def probe(name, *args):
 def main():
     print('=== проверка «всё, что работало, работает» ===')
     ok_lint = lint()
+    ok_probes = probes_lint()
     ok_compile = compile_check()
     play, compiling = editor_state()
     print('редактор: play =', play, ', компилируется =', compiling)
@@ -140,10 +150,11 @@ def main():
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')
     print('грабли:', 'ок' if ok_lint else 'КРАСНОЕ')
+    print('ссылки проб:', 'ок' if ok_probes else 'КРАСНОЕ — защита умерла, чинить пробу')
     print('компиляция:', 'ок' if ok_compile else 'КРАСНОЕ')
     print('тесты:', 'ок' if ok_tests else ('КРАСНОЕ' if ok_tests is False else 'не прогнаны'))
     print('живые пробы: смотри строки выше')
-    sys.exit(0 if ok_lint and ok_compile and ok_tests is not False else 1)
+    sys.exit(0 if ok_lint and ok_probes and ok_compile and ok_tests is not False else 1)
 
 
 if __name__ == '__main__':

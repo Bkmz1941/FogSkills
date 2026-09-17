@@ -1,23 +1,29 @@
-"""Характеризующий замер стычки: числа сцен, гейт по энергии, плашки цены, треки птицы и камеры, исход развязок.
+"""Характеризующий замер стычки: правила сцен, треки из Blender, исход сцен в живой игре.
 
 Всё, что здесь печатается, обязано быть ДЕТЕРМИНИРОВАННЫМ: замер снимается до
 правки и после, строки сверяются посимвольно (`diff`). Числа, которые плывут
 сами (энергия восстанавливается, жизнь подтекает от среды, мировые координаты
-зависят от разворота игрока), либо не печатаются, либо огрублены — см. ниже.
+зависят от разворота игрока), либо не печатаются, либо огрублены.
 
-    python3 encounter_probe.py effects   эффекты сцен, гейт, плашки под кнопками
-    python3 encounter_probe.py core      треки птицы и камеры, крылья, исход трёх развязок
-    python3 encounter_probe.py all       и то и другое
+    python3 encounter_probe.py rules    таблица сцен: урон, проверка, варианты, гейт по энергии, смерть, камера
+    python3 encounter_probe.py track    треки птицы и камеры из crowEncounter.json по кадрам
+    python3 encounter_probe.py scenes   каждая развязка в живой игре: цепочка сцен, жизнь, ошеломление
+    python3 encounter_probe.py scenes --moves   то же плюс сдвиг игрока в его осях и разворот — НЕ детерминирован
+                                        (ворона заходит откуда была, опрос раз в 0.4 с): смотреть глазами, не diff
+    python3 encounter_probe.py fps      кадр и мусор в РЕДАКТОРЕ: покой против удержания решения сцены 1 спереди и сзади
+                                        (сцена на паузе, камера стычки). Сборка этот кадр не видит — меряет спавн
+    python3 encounter_probe.py all      rules, track, scenes
 
-⚠️ Редактор должен быть в play И НЕ НА ПАУЗЕ (P407): в паузе мост отвечает, а
-мир стоит, и замер разойдётся по всем строкам сразу. Проверить —
-`python3 cycle.py status`.
+Переписана 16.09 под таблицу `CrowEncounter.Scenes` (прежняя звала снятые
+`BraceEffect`/`GuardEffect` и ползунки крыльев и молча не работала с ночи 15→16.09).
+⚠️ Редактор должен быть в play И НЕ НА ПАУЗЕ (P407). Нужна ворона на уровне
+(crown_attack): без неё `scenes` честно скажет «не стартовала».
 """
 import json, math, subprocess, sys, time, pathlib
 
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
-SETTLE = 2.0
+SCENES = ['brace', 'guard', 'dodge', 'hit', 'fall', 'back', 'backDodge', 'backHit']
 
 
 def run(code):
@@ -25,73 +31,104 @@ def run(code):
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
     line = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else '{}'
     try:
-        return ((json.loads(line).get('data') or {}).get('result') or '').strip()
+        d = json.loads(line)
+        res = (d.get('data') or {}).get('result')
+        return (res if res is not None else d.get('message') or d.get('error') or '').strip()
     except Exception:
-        return 'НЕ РАЗОБРАЛОСЬ: ' + line[:200]
+        return 'НЕ РАЗОБРАЛОСЬ: ' + line[:300]
 
 
-NUMBERS = r'''
-string s = "";
-s += "brace: hp=" + Cozy.Combat.BraceEffect.Health + " en=" + Cozy.Combat.BraceEffect.Energy
-   + " showHp=" + Cozy.Combat.BraceEffect.ShowHealth + " showEn=" + Cozy.Combat.BraceEffect.ShowEnergy + "\n";
-s += "guard: hp=" + Cozy.Combat.GuardEffect.Health + " en=" + Cozy.Combat.GuardEffect.Energy
-   + " showHp=" + Cozy.Combat.GuardEffect.ShowHealth + " showEn=" + Cozy.Combat.GuardEffect.ShowEnergy + "\n";
-s += "dodge: hp=" + Cozy.Combat.DodgeEffect.Health + " en=" + Cozy.Combat.DodgeEffect.Energy
-   + " showHp=" + Cozy.Combat.DodgeEffect.ShowHealth + " showEn=" + Cozy.Combat.DodgeEffect.ShowEnergy + "\n";
-s += "hit: hp=" + Cozy.Combat.HitEffect.Health + " en=" + Cozy.Combat.HitEffect.Energy
-   + " showHp=" + Cozy.Combat.HitEffect.ShowHealth + " showEn=" + Cozy.Combat.HitEffect.ShowEnergy + "\n";
+IDS = 'new[] { %s }' % ', '.join('"%s"' % s for s in SCENES)
+
+RULES = r'''
 var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
 float keepE = st.Energy, keepH = st.Health;
-foreach (var e in new[] { 100f, 25f, 10f })
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+string s = "";
+foreach (var stat in new[] { Cozy.Combat.SceneCheck.Strength, Cozy.Combat.SceneCheck.Agility })
+    s += "стат " + stat + "=" + Cozy.Combat.CrowEncounter.StatOf(stat).ToString("0.##", inv) + "\n";
+foreach (var id in IDS)
 {
-    st.SetEnergy(e);
-    s += "энергия " + e + ":";
-    foreach (var c in Cozy.Combat.CrowEncounter.ChoicesOf("brace"))
-        s += " " + c.Id + "=" + Cozy.Combat.CrowEncounter.Affordable(c);
-    s += "\n";
-}
-st.SetEnergy(keepE); st.SetHealth(keepH);
-s += "decides: brace=" + Cozy.Combat.CrowEncounter.Decides("brace")
-   + " guard=" + Cozy.Combat.CrowEncounter.Decides("guard")
-   + " dodge=" + Cozy.Combat.CrowEncounter.Decides("dodge")
-   + " hit=" + Cozy.Combat.CrowEncounter.Decides("hit") + "\n";
-s += "таймаут brace=" + Cozy.Combat.CrowEncounter.TimeoutOf("brace")
-   + " guard=" + (Cozy.Combat.CrowEncounter.TimeoutOf("guard") ?? "нет") + "\n";
-foreach (var id in new[] { "guard", "dodge", "hit" })
-{
+    var e = Cozy.Combat.CrowEncounter.EffectOf(id);
+    var rec = Cozy.Combat.CrowEncounter.RecoveryOf(id);
+    s += id + ": урон hp=" + e.Health.ToString("0.##", inv) + " en=" + e.Energy.ToString("0.##", inv)
+       + " оглушает=" + e.Stuns + " на кнопке hp=" + e.ShowHealth + " en=" + e.ShowEnergy
+       + " решаем=" + Cozy.Combat.CrowEncounter.Decides(id)
+       + " таймаут=" + (Cozy.Combat.CrowEncounter.TimeoutOf(id) ?? "-")
+       + " постановка=" + Cozy.Combat.CrowEncounter.StageOf(id)
+       + " лёжа=" + Cozy.Combat.CrowEncounter.EndsFallen(id) + " (" + rec.Item1 + "/" + rec.Item2 + ")"
+       + " замедление=" + Cozy.Combat.CrowEncounter.SlowOf(id).ToString("0.##", inv) + "\n";
+    var check = Cozy.Combat.CrowEncounter.CheckOf(id);
+    if (check != null) s += "   проверка " + check.Stat + " сложность=" + check.Difficulty.ToString("0.##", inv) + "\n";
+    var cam = Cozy.Combat.CrowEncounter.CamOf(id);
+    s += "   камера " + (cam == null ? "общая" : "своя") + "\n";
+    foreach (var c in Cozy.Combat.CrowEncounter.ChoicesOf(id))
+    {
+        s += "   вариант " + c.Id + " слот=" + c.Slot + " «" + c.Label + "» → " + c.Next
+           + " шанс=" + Cozy.Combat.CrowEncounter.ChanceOf(c).ToString("0.##", inv) + " по энергии:";
+        foreach (var en in new[] { 100f, 25f, 10f })
+        {
+            st.SetEnergy(en);
+            s += " " + en + "=" + Cozy.Combat.CrowEncounter.Affordable(c);
+        }
+        s += "\n";
+    }
+    foreach (var hp in new[] { 100f, 25f })
+    {
+        st.SetHealth(hp);
+        s += "   при жизни " + hp + " смерть→" + Cozy.Combat.CrowEncounter.Lethal(id) + "\n";
+    }
     st.SetEnergy(100f); st.SetHealth(100f);
     Cozy.Combat.CrowEncounter.Apply(id);
-    s += "Apply(" + id + "): hp=" + st.Health + " en=" + st.Energy + "\n";
+    s += "   Apply: hp=" + st.Health.ToString("0.##", inv) + " en=" + st.Energy.ToString("0.##", inv) + "\n";
 }
 st.SetEnergy(keepE); st.SetHealth(keepH);
+return s;
+'''.replace('IDS', IDS)
+
+TRACK = r'''
+var data = Cozy.Combat.EncounterData.Load();
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+string s = "голова=" + data.headCenter.Local.ToString("F4") + " шов=" + (data.crowSeam != null ? data.crowSeam.Local.ToString("F4") : "-") + "\n";
+foreach (var scene in data.scenes)
+{
+    s += scene.id + " клип=" + scene.clip + " кадров=" + scene.frames + " fps=" + scene.fps + " сек=" + scene.Seconds.ToString("0.000", inv)
+       + " смешение камеры=" + scene.cameraBlendFrames + " настраиваемая=" + scene.Tunable + " таз=" + scene.HasHips + "\n";
+    int last = System.Math.Max(1, scene.frames);
+    foreach (var f in new[] { 1f, last * 0.25f, last * 0.5f, last * 0.75f, (float)last })
+    {
+        var p = scene.CrowAt(f);
+        s += "   к" + f.ToString("0.##", inv) + " pos=" + p.Pos.ToString("F4") + " dive=" + p.Dive.ToString("0.###", inv)
+           + " yaw=" + p.Yaw.ToString("0.###", inv) + " roll=" + p.Roll.ToString("0.###", inv)
+           + " flap=" + p.Flap.ToString("0.###", inv) + " tail=" + p.Tail.ToString("0.###", inv)
+           + " legs=" + p.Legs.ToString("0.###", inv) + " aim=" + p.HeadAim.ToString("0.###", inv)
+           + " beak=" + p.Beak.ToString("0.###", inv) + "\n";
+        Vector3 cp, cl; float lens;
+        if (scene.CameraAt(f, out cp, out cl, out lens))
+            s += "      кам=" + cp.ToString("F4") + " смотрит=" + cl.ToString("F4") + " объектив=" + lens.ToString("0.##", inv) + "\n";
+    }
+}
 return s;
 '''
 
 START = r'''
+if (Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
 Cozy.Combat.CrowAttack.CancelCurrent();
+var p = Cozy.Grid.PlayerRef.Transform;
 var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
 st.SetEnergy(100f); st.SetHealth(100f);
-Cozy.Combat.CrowAttack.StartScene1();
-return "go";
+Cozy.Combat.CrowAttack.StartAt("SCENE");
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+return p.position.x.ToString("R", inv) + ";" + p.position.z.ToString("R", inv) + ";" + p.eulerAngles.y.ToString("R", inv);
 '''
 
-CHIPS = r'''
-if (Cozy.Combat.Encounter.Running && !Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
-var canvas = GameObject.Find("EncounterChoicesCanvas");
-string s = "сцена=" + Cozy.Combat.Encounter.SceneId + " решаем=" + Cozy.Combat.Encounter.Deciding + "\n";
-foreach (var rt in canvas.GetComponentsInChildren<RectTransform>(true))
-{
-    if (rt.name != "Cost") continue;
-    var text = rt.GetComponentsInChildren<TMPro.TMP_Text>(true);
-    string value = text.Length > 1 ? text[1].text : "?";
-    s += rt.parent.name + " плашка: видна=" + rt.gameObject.activeSelf
-       + " число=" + value
-       + " w=" + rt.sizeDelta.x.ToString("0.00")
-       + " x=" + rt.anchoredPosition.x.ToString("0.00")
-       + " y=" + rt.anchoredPosition.y.ToString("0.00")
-       + " alpha=" + (text.Length > 0 ? text[0].color.a.ToString("0.00") : "?") + "\n";
-}
-return s;
+READ = r'''
+var p = Cozy.Grid.PlayerRef.Transform;
+var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+return Cozy.Combat.Encounter.Running + ";" + (Cozy.Combat.Encounter.SceneId ?? "-") + ";"
+     + p.position.x.ToString("R", inv) + ";" + p.position.z.ToString("R", inv) + ";" + p.eulerAngles.y.ToString("R", inv) + ";"
+     + st.Health.ToString("R", inv) + ";" + Cozy.Effects.PlayerExposure.Stunned + ";" + Cozy.Character.PlayerTarget.Ready;
 '''
 
 CLEAN = r'''
@@ -102,141 +139,122 @@ st.SetEnergy(st.maxEnergy); st.SetHealth(st.maxHealth);
 return "чисто, timeScale=" + Time.timeScale;
 '''
 
-TRACK = r'''
-var data = Cozy.Combat.EncounterData.Load();
-string s = "";
-foreach (var id in new[] { "brace", "guard", "dodge", "hit" })
-{
-    var scene = data.Scene(id);
-    if (scene == null) { s += id + ": нет сцены\n"; continue; }
-    s += id + " кадров=" + scene.frames + " fps=" + scene.fps + " сек=" + scene.Seconds.ToString("0.000")
-       + " настраиваемая=" + scene.Tunable + "\n";
-    foreach (var f in new[] { 1f, 12f, 24f, 60f, 132f })
-    {
-        var p = scene.CrowAt(f);
-        s += "   к" + f + " pos=" + p.Pos.ToString("F4") + " dive=" + p.Dive.ToString("0.###")
-           + " yaw=" + p.Yaw.ToString("0.###") + " roll=" + p.Roll.ToString("0.###")
-           + " flap=" + p.Flap.ToString("0.###") + " twist=" + p.Twist.ToString("0.###")
-           + " sweep=" + p.Sweep.ToString("0.###") + " tail=" + p.Tail.ToString("0.###")
-           + " legs=" + p.Legs.ToString("0.###") + " aim=" + p.HeadAim.ToString("0.###")
-           + " beak=" + p.Beak.ToString("0.###") + "\n";
-        if (scene.CameraAt(f, out Vector3 cp, out Vector3 cl, out float lens))
-            s += "      кам=" + cp.ToString("F4") + " смотрит=" + cl.ToString("F4") + " объектив=" + lens.ToString("0.##") + "\n";
-    }
-}
-return s;
-'''
+OUTCOMES = ['guard', 'dodge', 'hit', 'backDodge', 'backHit']
+MOVES = '--moves' in sys.argv
 
-WINGS_START = r'''
-Cozy.Combat.CrowAttack.CancelCurrent();
-Cozy.Combat.CrowAttack.DiveFlapHz = 0f;
-Cozy.Combat.CrowAttack.StartScene1();
-return "go";
-'''
-
-WINGS_READ = r'''
-if (Cozy.Combat.Encounter.Running && !Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
-string s = "мах выключен, сцена=" + Cozy.Combat.Encounter.SceneId + "\n";
-var wings = new System.Collections.Generic.List<string>();
-foreach (var t in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
-{
-    if (t.name != "WingLFly" && t.name != "WingRFly") continue;
-    wings.Add(t.name + " local=" + t.localEulerAngles.ToString("F2"));
-}
-wings.Sort(System.StringComparer.Ordinal);
-foreach (var w in wings) s += w + "\n";
-s += "ползунки: lift=" + Cozy.Combat.CrowAttack.WingLift + " twist=" + Cozy.Combat.CrowAttack.WingTwist
-   + " sweep=" + Cozy.Combat.CrowAttack.WingSweep + "\n";
-return s;
-'''
-
-OUTCOME_START = r'''
-if (Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
-Cozy.Combat.CrowAttack.CancelCurrent();
-var p = Cozy.Grid.PlayerRef.Transform;
-var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
-st.SetEnergy(100f); st.SetHealth(100f);
-string mark = p.position.x + ";" + p.position.z + ";" + p.eulerAngles.y;
-Cozy.Combat.CrowAttack.StartAt("SCENE");
-return mark;
-'''
-
-OUTCOME_READ = r'''
-var p = Cozy.Grid.PlayerRef.Transform;
-var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
-return Cozy.Combat.Encounter.Running + ";" + p.position.x + ";" + p.position.z + ";" + p.eulerAngles.y + ";" + st.Health;
-'''
 
 def outcome(scene):
-    mark = run(OUTCOME_START.replace('SCENE', scene)).split(';')
+    mark = run(START.replace('SCENE', scene)).split(';')
     if len(mark) != 3:
         return scene + ': НЕ СТАРТОВАЛА ' + str(mark)
     x0, z0, yaw0 = (float(v) for v in mark)
-    started = False
-    line = ''
-    for _ in range(60):
-        line = run(OUTCOME_READ)
-        parts = line.split(';')
-        if len(parts) != 5:
+    seen, started, parts = [], False, []
+    for _ in range(90):
+        parts = run(READ).split(';')
+        if len(parts) != 8:
             time.sleep(0.4)
             continue
-        running = parts[0].lower().startswith('t')
+        running, sid = parts[0].lower().startswith('t'), parts[1]
         if running:
             started = True
+            if sid != '-' and (not seen or seen[-1] != sid):
+                seen.append(sid)
             time.sleep(0.4)
             continue
         if not started:
             time.sleep(0.4)
             continue
-        x, z, yaw, hp = (float(v) for v in parts[1:])
+        x, z, yaw, hp = (float(v) for v in parts[2:6])
         dyaw = (yaw - yaw0 + 540.0) % 360.0 - 180.0
         rad = math.radians(yaw0)
         dx, dz = x - x0, z - z0
         side = dx * math.cos(rad) - dz * math.sin(rad)
         ahead = dx * math.sin(rad) + dz * math.cos(rad)
-        return '%s: вбок=%.2f вперёд=%.2f разворот=%.0f жизнь≈%d' % (
-            scene, side + 0.0, ahead + 0.0, dyaw + 0.0, round(hp / 10.0) * 10)
-    return scene + ': НЕ ДОИГРАЛАСЬ (стартовала=%s) %s' % (started, line)
+        line = '%s: сцены=%s жизнь≈%d оглушён=%s' % (scene, '→'.join(seen), round(hp / 10.0) * 10, parts[6])
+        if MOVES:
+            line += ' | вбок=%.1f вперёд=%.1f разворот=%d' % (round(side, 1) + 0.0, round(ahead, 1) + 0.0, int(round(dyaw)))
+        return line
+    return scene + ': НЕ ДОИГРАЛАСЬ (стартовала=%s) %s' % (started, ';'.join(parts))
 
 
-def effects():
-    print('--- числа и гейт ---')
-    print(run(NUMBERS))
-    run(START)
-    time.sleep(SETTLE)
-    print('--- плашки под кнопками ---')
-    print(run(CHIPS))
-    print('--- уборка ---')
-    print(run(CLEAN))
+def wait_ready():
+    for _ in range(60):
+        parts = run(READ).split(';')
+        if len(parts) == 8 and not parts[0].lower().startswith('t') and parts[7].lower().startswith('t') \
+                and not parts[6].lower().startswith('t'):
+            return True
+        time.sleep(0.5)
+    return False
 
 
-def core():
-    print('--- треки птицы и камеры по кадрам ---')
-    print(run(TRACK))
-    print('--- крылья сцены 1 без маха ---')
-    run(WINGS_START)
-    time.sleep(SETTLE)
-    print(run(WINGS_READ))
-    print('--- исход развязок ---')
-    for scene in ('guard', 'dodge', 'hit'):
-        print(outcome(scene))
-    print('--- уборка ---')
-    print(run(CORE_CLEAN))
-
-
-CORE_CLEAN = r'''
+FPS_START = r'''
 if (Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
-Cozy.Combat.CrowAttack.CancelCurrent();
-Cozy.Combat.CrowAttack.DiveFlapHz = 8f;
-var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
-st.SetEnergy(st.maxEnergy); st.SetHealth(st.maxHealth);
-return "чисто, мах=" + Cozy.Combat.CrowAttack.DiveFlapHz + " timeScale=" + Time.timeScale;
+Cozy.Combat.CrowAttack.StartAt("SCENE");
+return "go";
 '''
+
+FPS_HOLD = r'''
+if (!Cozy.Combat.Encounter.Running) return "не идёт";
+if (!Cozy.Combat.Encounter.Paused) Cozy.Combat.Encounter.TogglePause();
+return Cozy.Combat.Encounter.SceneId;
+'''
+
+
+def fps(frames=120):
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import gc_probe
+    gc_probe.uncap(True)
+    rows = []
+    try:
+        run(CLEAN)
+        time.sleep(1.0)
+        avg, mx, ms, p95 = gc_probe.measure(frames)
+        print('покой            кадр %.2f мс, p95 %.2f, мусор %d Б' % (ms, p95, avg), flush=True)
+        base = ms
+        for scene in ('brace', 'back'):
+            run(FPS_START.replace('SCENE', scene))
+            time.sleep(1.2)
+            held = run(FPS_HOLD)
+            if held == 'не идёт':
+                print('%-16s не стартовала' % scene)
+                continue
+            avg, mx, ms, p95 = gc_probe.measure(frames)
+            print('%-16s кадр %.2f мс (%+.2f), p95 %.2f, мусор %d Б' % (scene + ' (' + held + ')', ms, ms - base, p95, avg), flush=True)
+            run(CLEAN)
+            wait_ready()
+    finally:
+        print(run(CLEAN))
+
+
+def rules():
+    print('--- правила сцен ---')
+    print(run(RULES))
+
+
+def track():
+    print('--- треки птицы и камеры ---')
+    print(run(TRACK))
+
+
+def scenes():
+    print('--- исход сцен ---')
+    try:
+        for scene in OUTCOMES:
+            wait_ready()
+            print(outcome(scene), flush=True)
+    finally:
+        print(run(CLEAN))
 
 
 if __name__ == '__main__':
     what = sys.argv[1] if len(sys.argv) > 1 else 'all'
-    if what in ('effects', 'all'):
-        effects()
-    if what in ('core', 'all'):
-        core()
+    if what in ('rules', 'all'):
+        rules()
+    if what in ('track', 'all'):
+        track()
+    if what in ('scenes', 'all'):
+        scenes()
+    if what == 'fps':
+        fps()
+    if what not in ('rules', 'track', 'scenes', 'all', 'fps'):
+        print(__doc__)

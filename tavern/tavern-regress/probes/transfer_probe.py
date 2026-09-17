@@ -87,6 +87,34 @@ var pp = player.transform.position;
 return "взят|" + best.GetInstanceID() + "|" + best.Def.id + "|" + p.x.ToString("R") + "|" + p.y.ToString("R") + "|" + p.z.ToString("R") + "|" + r.y.ToString("R") + "|" + best.name + "|" + pp.x.ToString("R") + "|" + pp.y.ToString("R") + "|" + pp.z.ToString("R");
 '''
 
+# Уровень без носимых предметов (crown_attack, 16.09) оставлял крит-сценарий без проверки вовсе:
+# «шаг 1: нет кандидата». Тогда проба кладёт у ног игрока свой предмет из каталога, гоняет
+# сценарий на нём и сносит его в уборке — уровень остаётся как был.
+SPAWN = PRELUDE + r'''
+if (gc.HandPlacing) return "в руке уже что-то есть — не мешаю";
+Cozy.Grid.ObjectDef def = null;
+foreach (var id in new[] { "apple", "matches", "cup", "mug", "battery" })
+{
+    var d = Cozy.Grid.FurnitureCatalog.ById(id);
+    if (d != null && !d.builtIn && d.mount == Cozy.Grid.ObjectMount.Surface && (d.movable || !string.IsNullOrEmpty(d.pickupItemId))) { def = d; break; }
+}
+if (def == null) return "в каталоге нет носимого предмета для пробы";
+var fwd = UnityEngine.Vector3.ProjectOnPlane(player.transform.forward, UnityEngine.Vector3.up).normalized;
+if (fwd.sqrMagnitude < 0.01f) fwd = UnityEngine.Vector3.forward;
+var at = player.transform.position + fwd * 0.9f;
+float gy = gc.GroundY(at.x, at.z, 0f);
+var spawned = gc.SpawnWorldObject(def, new UnityEngine.Vector3(at.x, gy, at.z), 0f);
+if (spawned == null) return "предмет пробы не заспавнился";
+return "заспавнен|" + spawned.GetInstanceID() + "|" + def.id;
+'''
+
+DESPAWN = r'''
+int gone = 0;
+foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+    if (io != null && io.GetInstanceID() == %ID%) { UnityEngine.Object.DestroyImmediate(io.gameObject); gone++; break; }
+return "снесён предмет пробы: " + gone;
+'''
+
 REPICK = PRELUDE + r'''
 if (gc.HandPlacing) return "в руке уже что-то есть — не мешаю";
 var pickAgain = byId(%ID%);
@@ -338,8 +366,20 @@ def main():
         print('полный прогон: transfer_probe.py --run (только в своём play)')
         return
     picked = str(call(PICK))
+    spawned = None
+    if picked == 'нет кандидата':
+        made = str(call(SPAWN))
+        if not made.startswith('заспавнен|'):
+            print('шаг 1: нет кандидата, и свой предмет не положить —', made)
+            sys.exit(1)
+        spawned = made.split('|')[1]
+        print('шаг 0: на уровне нет носимых — положен свой', made.split('|')[2])
+        time.sleep(1.0)
+        picked = str(call(PICK))
     if not picked.startswith('взят|'):
         print('шаг 1:', picked)
+        if spawned:
+            print('уборка:', call(fill(DESPAWN, ID=spawned)))
         sys.exit(1)
     _, oid, did, ox, oy, oz, oyaw, oname, ppx, ppy, ppz = picked.split('|')
     print('шаг 1: взят', did, oname)
@@ -371,6 +411,8 @@ def main():
             step += 2
     finally:
         print('возврат:', call(fill(RESTORE, ID=oid, X=ox, Y=oy, Z=oz, YAW=oyaw, PX=ppx, PY=ppy, PZ=ppz)))
+        if spawned:
+            print('уборка:', call(fill(DESPAWN, ID=spawned)))
     print(('перенос: КРАСНОЕ' if red else 'перенос: ок') + ' :: ' + '; '.join(notes))
     sys.exit(1 if red else 0)
 
