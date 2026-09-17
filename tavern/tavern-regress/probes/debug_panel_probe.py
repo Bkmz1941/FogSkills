@@ -23,7 +23,7 @@ import gc_probe
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 OUT = pathlib.Path.home() / '.cache/tavern-probes'
-TABS = ['general', 'view', 'weather', 'player', 'character', 'objects', 'effects', 'monsters', 'census', 'system', 'ui']
+TABS = ['general', 'view', 'seethrough', 'weather', 'player', 'character', 'objects', 'effects', 'monsters', 'census', 'system', 'ui']
 
 CODE = r'''
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();

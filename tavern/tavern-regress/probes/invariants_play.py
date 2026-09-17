@@ -671,19 +671,26 @@ int handLamp = 0;
     var fanim = frig != null ? frig.GetComponentInChildren<UnityEngine.Animator>() : null;
     var flamp = frig != null ? frig.transform.Find("Flashlight") : null;
     var flight = flamp != null ? flamp.GetComponentInChildren<UnityEngine.Light>(true) : null;
-    if (fanim != null && fanim.isHuman && flight != null)
+    if (fanim != null && fanim.isHuman && flight != null && frig.Held)
     {
-        var fhand = fanim.GetBoneTransform(UnityEngine.HumanBodyBones.RightHand);
-        var ffore = fanim.GetBoneTransform(UnityEngine.HumanBodyBones.RightLowerArm);
+        bool fleft = frig.HeldSide == Cozy.Character.FlashlightRig.Side.Left;
+        var fhand = fanim.GetBoneTransform(fleft ? UnityEngine.HumanBodyBones.LeftHand : UnityEngine.HumanBodyBones.RightHand);
+        var ffore = fanim.GetBoneTransform(fleft ? UnityEngine.HumanBodyBones.LeftLowerArm : UnityEngine.HumanBodyBones.RightLowerArm);
         if (fhand != null && ffore != null)
         {
             var faxis = (fhand.position - ffore.position).normalized;
             float ftip = 0f;
-            var fbones = new UnityEngine.HumanBodyBones[] {
-                UnityEngine.HumanBodyBones.RightIndexDistal,
-                UnityEngine.HumanBodyBones.RightMiddleDistal,
-                UnityEngine.HumanBodyBones.RightRingDistal,
-                UnityEngine.HumanBodyBones.RightLittleDistal };
+            var fbones = fleft
+                ? new UnityEngine.HumanBodyBones[] {
+                    UnityEngine.HumanBodyBones.LeftIndexDistal,
+                    UnityEngine.HumanBodyBones.LeftMiddleDistal,
+                    UnityEngine.HumanBodyBones.LeftRingDistal,
+                    UnityEngine.HumanBodyBones.LeftLittleDistal }
+                : new UnityEngine.HumanBodyBones[] {
+                    UnityEngine.HumanBodyBones.RightIndexDistal,
+                    UnityEngine.HumanBodyBones.RightMiddleDistal,
+                    UnityEngine.HumanBodyBones.RightRingDistal,
+                    UnityEngine.HumanBodyBones.RightLittleDistal };
             foreach (var fb in fbones)
             {
                 var ft = fanim.GetBoneTransform(fb);
@@ -772,7 +779,17 @@ int farHidden = 0, farInView = 0;
     }
 }
 
-return " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " дождь снаружи=" + rainOutside + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
+// Дебаг-слои, которые ПРЯЧУТ мир, вне дебаг-режима подняты быть не должны:
+// они сохраняются в DebugTune и переживают перезаход, а дом изнутри становится
+// чёрным (P457).
+int viewLayers = 0;
+if (!Cozy.View.ViewState.Debug)
+{
+    if (Cozy.View.ViewState.ShowCeiling) { bad.Append("поднят дебаг-слой «Показать потолок» вне дебага; "); viewLayers++; }
+    if (Cozy.View.ViewState.HiddenRooms) { bad.Append("поднят дебаг-слой «Скрытые комнаты» вне дебага; "); viewLayers++; }
+}
+
+return " слоёв вида поднято=" + viewLayers + " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " дождь снаружи=" + rainOutside + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
 '''
 
 CODE_B = r'''

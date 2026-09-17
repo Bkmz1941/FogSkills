@@ -75,6 +75,14 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
     if (!(io.Def.movable || !string.IsNullOrEmpty(io.Def.pickupItemId))) continue;
     if (Cozy.Grid.ContainerSlot.HoldsClosed(io)) continue;
     if (io.GetComponentInParent<Cozy.Grid.InteractiveObject>() != io) continue;
+    float feetY = Cozy.Character.PlayerTarget.Feet.y;
+    if (io.transform.position.y < feetY - 0.5f || io.transform.position.y > feetY + 2.5f) continue;
+    var sizeRends = io.GetComponentsInChildren<UnityEngine.Renderer>(false);
+    if (sizeRends.Length > 0)
+    {
+        var sizeBox = Cozy.Grid.FurnitureModel.Combined(sizeRends);
+        if (UnityEngine.Mathf.Max(sizeBox.size.x, sizeBox.size.z) > 0.6f) continue;
+    }
     float d = UnityEngine.Vector3.Distance(io.transform.position, player.transform.position);
     string id = io.Def.id;
     if (id.Contains("key") || id.Contains("batter") || id.Contains("apple") || id.Contains("cup") || id.Contains("match")) d -= 2f;
@@ -102,7 +110,7 @@ if (def == null) return "в каталоге нет носимого предм�
 var fwd = UnityEngine.Vector3.ProjectOnPlane(player.transform.forward, UnityEngine.Vector3.up).normalized;
 if (fwd.sqrMagnitude < 0.01f) fwd = UnityEngine.Vector3.forward;
 var at = player.transform.position + fwd * 0.9f;
-float gy = gc.GroundY(at.x, at.z, 0f);
+float gy = UnityEngine.Mathf.Max(gc.GroundY(at.x, at.z, 0f), Cozy.Character.PlayerTarget.Feet.y);
 var spawned = gc.SpawnWorldObject(def, new UnityEngine.Vector3(at.x, gy, at.z), 0f);
 if (spawned == null) return "предмет пробы не заспавнился";
 return "заспавнен|" + spawned.GetInstanceID() + "|" + def.id;
@@ -264,7 +272,8 @@ var b = Cozy.Grid.FurnitureModel.Combined(own);
 var p = io.transform.position;
 float support;
 string mode = "%MODE%";
-if (mode == "ground") support = gc.GroundY(p.x, p.z, 0f);
+float floorLift = UnityEngine.Mathf.Max(0f, %FLOORY%f - gc.GroundY(p.x, p.z, 0f));
+if (mode == "ground") support = gc.GroundY(p.x, p.z, 0f) + floorLift;
 else
 {
     var mTop = tgc.GetMethod("SurfaceTopAt", bf);
@@ -311,7 +320,7 @@ if (taken && mCancel != null) mCancel.Invoke(gc, null);
 var bad = new System.Text.StringBuilder();
 if (gap < -0.02f) bad.Append("утонул в опоре на " + (-gap).ToString("F3") + " м; ");
 if (gap > 0.15f) bad.Append("висит над опорой на " + gap.ToString("F3") + " м; ");
-if (mode == "ground" && (above < -0.2f || above > 0.4f)) bad.Append("этаж над рельефом " + above.ToString("F2") + "; ");
+if (mode == "ground" && (above - floorLift < -0.2f || above - floorLift > 0.4f)) bad.Append("этаж над рельефом " + above.ToString("F2") + "; ");
 if (!shown) bad.Append("скрыт гейтом этажа; ");
 if (off > 0 || seen == 0) bad.Append("не виден (выключено " + off + ", в кадре " + seen + "); ");
 if (!reach) bad.Append("недосягаем; ");

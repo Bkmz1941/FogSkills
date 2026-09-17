@@ -12,6 +12,11 @@
                                         (ворона заходит откуда была, опрос раз в 0.4 с): смотреть глазами, не diff
     python3 encounter_probe.py fps      кадр и мусор в РЕДАКТОРЕ: покой против удержания решения сцены 1 спереди и сзади
                                         (сцена на паузе, камера стычки). Сборка этот кадр не видит — меряет спавн
+    python3 encounter_probe.py pose     поза птицы в каждой сцене на пяти долях клипа (t = 0, ¼, ½, ¾, 1): положение и
+                                        разворот птицы в осях игрока и локальные углы узлов модели — детерминирован,
+                                        сцена ставится на паузу и прокручивается по _t напрямую; ворона нужна на уровне.
+                                        Узлы покоя WingL/WingR не печатаются: сцена их не ставит, и в них остаётся
+                                        доля взмаха покоя той птицы, что взята напрокат (0.4° в замере 17.09)
     python3 encounter_probe.py all      rules, track, scenes
 
 Переписана 16.09 под таблицу `CrowEncounter.Scenes` (прежняя звала снятые
@@ -200,6 +205,81 @@ return Cozy.Combat.Encounter.SceneId;
 '''
 
 
+POSE = r'''
+var enc = Cozy.Combat.Encounter.Current;
+if (enc == null) return "не идёт";
+var p = Cozy.Grid.PlayerRef.Transform;
+var t = typeof(Cozy.Combat.Encounter);
+var bf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var tField = t.GetField("_t", bf);
+var drive = t.GetMethod("Drive", bf);
+var scene = (Cozy.Combat.SceneData)t.GetField("_scene", bf).GetValue(enc);
+var actor = t.GetField("_actor", bf).GetValue(enc);
+var crow = (Cozy.Grid.CrowFlight)actor.GetType().GetField("_crow", bf).GetValue(actor);
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+var sb = new System.Text.StringBuilder();
+float[] shares = { 0f, 0.25f, 0.5f, 0.75f, 1f };
+foreach (var share in shares)
+{
+    tField.SetValue(enc, scene.Seconds * share);
+    drive.Invoke(enc, null);
+    Vector3 rel = p.InverseTransformPoint(crow.transform.position);
+    Vector3 rot = (Quaternion.Inverse(p.rotation) * crow.transform.rotation).eulerAngles;
+    sb.Append("  t=" + share.ToString("0.00", inv) + " птица=" + rel.ToString("F3") + " курс=" + rot.ToString("F1") + "\n");
+    foreach (var node in crow.GetComponentsInChildren<Transform>(true))
+    {
+        if (node == crow.transform || node.name == "WingL" || node.name == "WingR") continue;
+        sb.Append("     " + (node.parent != null ? node.parent.name + "/" : "") + node.name
+            + " поз=" + node.localPosition.ToString("F3") + " угл=" + node.localEulerAngles.ToString("F1") + "\n");
+    }
+}
+return sb.ToString();
+'''
+
+POSE_SCENES = SCENES + ['slip']
+POSE_CHAINS = {'brace': 'guard', 'back': 'backDodge'}
+
+CHAIN = r'''
+var enc = Cozy.Combat.Encounter.Current;
+if (enc == null) return "не идёт";
+var t = typeof(Cozy.Combat.Encounter);
+var bf = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var data = (Cozy.Combat.EncounterData)t.GetField("_data", bf).GetValue(enc);
+var scene = (Cozy.Combat.SceneData)t.GetField("_scene", bf).GetValue(enc);
+t.GetField("_t", bf).SetValue(enc, scene.Seconds);
+t.GetMethod("Drive", bf).Invoke(enc, null);
+var next = data.Scene("NEXT");
+if (next == null) return "нет сцены NEXT";
+t.GetMethod("StartScene", bf).Invoke(enc, new object[] { next, false, null });
+return "переход " + scene.id + " → " + next.id;
+'''
+
+
+def pose():
+    print('--- поза птицы по сценам ---')
+    try:
+        for scene in POSE_SCENES:
+            wait_ready()
+            run(START.replace('SCENE', scene))
+            held = ''
+            for _ in range(40):
+                held = run(FPS_HOLD)
+                if held and held != 'не идёт':
+                    break
+                time.sleep(0.25)
+            if not held or held == 'не идёт':
+                print(scene + ': НЕ СТАРТОВАЛА', flush=True)
+                continue
+            print(scene + ' (' + held + '):', flush=True)
+            print(run(POSE), flush=True)
+            if scene in POSE_CHAINS:
+                print(run(CHAIN.replace('NEXT', POSE_CHAINS[scene])), flush=True)
+                print(run(POSE), flush=True)
+            run(CLEAN)
+    finally:
+        print(run(CLEAN))
+
+
 def fps(frames=120):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
     import gc_probe
@@ -256,5 +336,7 @@ if __name__ == '__main__':
         scenes()
     if what == 'fps':
         fps()
-    if what not in ('rules', 'track', 'scenes', 'all', 'fps'):
+    if what == 'pose':
+        pose()
+    if what not in ('rules', 'track', 'scenes', 'all', 'fps', 'pose'):
         print(__doc__)

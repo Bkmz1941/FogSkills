@@ -1,7 +1,7 @@
 """Луч фонаря раздвигает туман (инвариант 177): под конусом света клуб прозрачнее, вне луча — как был.
 
 python3 fog_lamp_probe.py     только в СВОЁМ play: ставит игрока в 3 м от ближайшей клетки тумана лицом к ней,
-                              выбирает фонарь в хотбаре (через _activeQuick + SyncHand, иначе хотбар вернёт руку
+                              выбирает фонарь в хотбаре (через _activeQuick + SyncHands и SyncLight, иначе хотбар вернёт руку
                               за четверть секунды), ждёт кадр, читает глобали конуса и рендерит кадр дважды —
                               «Растворяет туман днём/ночью» 100 % и 0 %; считает пиксели, которые потемнели (туман ушёл).
                               Возвращает хотбар и игрока. Второй замер — игрок ВНУТРИ клетки тумана, где поверх работает пелена «Ничего не видно»
@@ -38,12 +38,12 @@ if (rig == null) return "нет FlashlightRig";
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
 var th = typeof(Tavern.UI.HudUI);
 var bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
-var fQuick = th.GetField("_activeQuick", bf); var mAt = th.GetMethod("PocketPlacedAt", bf); var mSync = th.GetMethod("SyncHand", bf);
-if (hud == null || fQuick == null || mAt == null || mSync == null) return "нет доступа к хотбару";
+var fQuick = th.GetField("_activeQuick", bf); var mAt = th.GetMethod("PocketPlacedAt", bf); var mSync = th.GetMethod("SyncHands", bf); var mLight = th.GetMethod("SyncLight", bf);
+if (hud == null || fQuick == null || mAt == null || mSync == null || mLight == null) return "нет доступа к хотбару";
 int wasQuick = (int)fQuick.GetValue(hud); int torchSlot = -1;
 for (int i = 0; i < 5 && torchSlot < 0; i++) { var placed = mAt.Invoke(hud, new object[] { i }); if (placed == null) continue; var def = placed.GetType().GetField("def").GetValue(placed) as Cozy.Grid.ItemDef; if (def != null && Cozy.Grid.Items.IsFlashlight(def)) torchSlot = i; }
 if (torchSlot < 0) return "в карманах нет фонаря";
-fQuick.SetValue(hud, torchSlot); mSync.Invoke(hud, null);
+fQuick.SetValue(hud, torchSlot); mSync.Invoke(hud, null); mLight.Invoke(hud, null);
 return "туман @" + best.ToString("F1") + " клеток " + fogs.Length + " | игрок был " + pp.ToString("F2") + " → стоит " + player.transform.position.ToString("F2") + " | фонарь в ячейке " + torchSlot + " (было " + wasQuick + "): held=" + rig.Held + " lit=" + rig.Lit + "|" + pp.x.ToString("R") + "|" + pp.y.ToString("R") + "|" + pp.z.ToString("R") + "|" + wasQuick;
 '''
 MEASURE = r'''
@@ -86,7 +86,7 @@ var rig = player.GetComponent<Cozy.Character.FlashlightRig>();
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
 var th = typeof(Tavern.UI.HudUI);
 var bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
-th.GetField("_activeQuick", bf).SetValue(hud, %QUICK%); th.GetMethod("SyncHand", bf).Invoke(hud, null);
+th.GetField("_activeQuick", bf).SetValue(hud, %QUICK%); th.GetMethod("SyncHands", bf).Invoke(hud, null); th.GetMethod("SyncLight", bf).Invoke(hud, null);
 var cc = player.GetComponent<UnityEngine.CharacterController>();
 float rise = cc != null ? cc.height * 0.5f - cc.center.y : 0f;
 gc.TeleportPlayerTo(new UnityEngine.Vector3(%X%f, %Y%f - rise, %Z%f));
