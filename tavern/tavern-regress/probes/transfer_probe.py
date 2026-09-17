@@ -272,7 +272,8 @@ var b = Cozy.Grid.FurnitureModel.Combined(own);
 var p = io.transform.position;
 float support;
 string mode = "%MODE%";
-float floorLift = UnityEngine.Mathf.Max(0f, %FLOORY%f - gc.GroundY(p.x, p.z, 0f));
+float floorLift = %FLOORY%f - gc.GroundY(p.x, p.z, 0f);
+if (floorLift < 1.5f) floorLift = 0f;
 if (mode == "ground") support = gc.GroundY(p.x, p.z, 0f) + floorLift;
 else
 {

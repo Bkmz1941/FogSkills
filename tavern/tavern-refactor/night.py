@@ -385,12 +385,24 @@ def stable(lines):
     return [SLEEPING.sub('', l) for l in lines if not l.startswith('gc_probe.py:') and not l.startswith('редактор:')]
 
 
+def level_now():
+    """Уровень, открытый в редакторе: у живых проб и отпечатков база СВОЯ на каждый
+    уровень. Ночью 17→18.09 Илья сменил уровень после `verify base`, и все следующие
+    шаги краснели на «живых пробах» не по своей вине (327 объектов против 378)."""
+    out = sh([CYCLE, 'status'], 60)
+    m = re.search(r'уровень=(.*?) стартовый=', out)
+    name = (m.group(1).strip() if m else '') or 'без_уровня'
+    return re.sub(r'[^0-9A-Za-zА-Яа-яЁё_#-]+', '_', name)
+
+
 def compare(name, label, text):
     PROBES.mkdir(parents=True, exist_ok=True)
     (PROBES / ('%s_%s.txt' % (name, label))).write_text(text)
-    base = PROBES / ('%s_base.txt' % name)
+    level = level_now()
+    base = PROBES / ('%s_base@%s.txt' % (name, level))
     if label == 'base' or not base.exists():
-        return None, 'база записана' if label == 'base' else 'базы нет — `verify base`'
+        base.write_text(text)
+        return None, ('база записана (%s)' % level) if label == 'base' else ('базы для уровня «%s» не было — записана сейчас, сверка со следующего шага' % level)
     a = stable(base.read_text().splitlines())
     b = stable(text.splitlines())
     if a == b:
@@ -420,8 +432,16 @@ def verify(args):
     row('тесты', 'красных 0' in out, ' '.join(tail[-3:])[:300])
     out = sh([CYCLE, 'play'], 300)
     row('play', 'вошли' in out, out.strip().splitlines()[-1] if out.strip() else 'нет ответа')
+    if 'вошли' not in out:
+        # Сосед остановил play посреди цепочки (ночь 17→18.09): пробы по мёртвому
+        # редактору дают мусор, который выглядит как регрессия шага.
+        print('ИТОГ: ЦЕПОЧКА СОРВАНА — play не поднялся (чужой stop или компиляция); пробы не гонялись, повторить verify')
+        return 2
     time.sleep(SETTLE)
     out = sh([REG / 'check_all.py'])
+    if 'play=True' not in sh([CYCLE, 'status'], 60):
+        print('ИТОГ: ЦЕПОЧКА СОРВАНА — play выключили во время живых проб; сверка не делалась, повторить verify')
+        return 2
     live = [l for l in out.splitlines() if l.split(':')[0].endswith('.py')]
     ok, text = compare('check', label, '\n'.join(live))
     red = [l for l in live if 'КРАСНОЕ' in l or 'ЗАЩИТА МЕРТВА' in l]

@@ -23,7 +23,47 @@ import gc_probe
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 OUT = pathlib.Path.home() / '.cache/tavern-probes'
-TABS = ['general', 'view', 'seethrough', 'weather', 'player', 'character', 'objects', 'effects', 'monsters', 'census', 'system', 'ui']
+# Запасной список — на случай, если игра не ответила. Живой список проба берёт
+# из самой игры (`HudUI.DebugTabs`): зашитый уже отставал на три вкладки
+# (zones, sudden, ranged — ночь 17→18.09), и их правки шли мимо отпечатка.
+FALLBACK_TABS = ['general', 'view', 'zones', 'seethrough', 'weather', 'player', 'character', 'objects', 'effects', 'sudden', 'ranged', 'monsters', 'census', 'system', 'ui']
+
+TABS_CODE = r'''
+var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+if (hud == null) return "";
+var prop = typeof(Tavern.UI.HudUI).GetProperty("DebugTabs", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+var tabs = prop != null ? prop.GetValue(hud, null) as System.Array : null;
+if (tabs == null) return "";
+var ids = new System.Collections.Generic.List<string>();
+foreach (var tab in tabs) ids.Add((string)tab.GetType().GetField("Item1").GetValue(tab));
+return string.Join(",", ids.ToArray());
+'''
+
+
+def live_tabs():
+    res = run(TABS_CODE)
+    ids = [t for t in str(res or '').split(',') if t and ' ' not in t]
+    if not ids:
+        print('⚠️ список вкладок из игры не получен — беру запасной, он мог отстать', flush=True)
+        return list(FALLBACK_TABS)
+    missing = [t for t in ids if t not in FALLBACK_TABS]
+    if missing:
+        print('новые вкладки, которых нет в запасном списке: ' + ', '.join(missing), flush=True)
+    return ids
+
+
+class _Tabs(list):
+    """Ленивый список: первое обращение спрашивает игру."""
+    def _load(self):
+        if not self:
+            self.extend(live_tabs())
+        return self
+
+    def __iter__(self):
+        return list.__iter__(self._load())
+
+
+TABS = _Tabs()
 
 CODE = r'''
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();

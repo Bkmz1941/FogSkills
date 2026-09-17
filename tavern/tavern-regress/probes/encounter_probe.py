@@ -47,7 +47,7 @@ IDS = 'new[] { %s }' % ', '.join('"%s"' % s for s in SCENES)
 
 RULES = r'''
 var st = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.CharacterStats>();
-float keepE = st.Energy, keepH = st.Health;
+float keepE = st.Energy, keepH = st.Health, keepMax = st.maxHealth;
 var inv = System.Globalization.CultureInfo.InvariantCulture;
 string s = "";
 foreach (var stat in new[] { Cozy.Combat.SceneCheck.Strength, Cozy.Combat.SceneCheck.Agility })
@@ -83,9 +83,16 @@ foreach (var id in IDS)
         st.SetHealth(hp);
         s += "   при жизни " + hp + " смерть→" + Cozy.Combat.CrowEncounter.Lethal(id) + "\n";
     }
-    st.SetEnergy(100f); st.SetHealth(100f);
+    // Урон меряем на шкале с запасом: Apply сцены «погиб» снимает 100 жизней, и на
+    // обычной шкале игрок ГИБ — экран смерти помечал его погибшим, а проба потом
+    // возвращала здоровье мимо «Возродиться»: после каждого verify герой стоял
+    // столбом с поднятым «ввод отобран» (ночь 17→18.09). Печатаем как от 100.
+    st.SetEnergy(100f); st.maxHealth = keepMax + 1000f; st.SetHealth(keepMax + 1000f);
     Cozy.Combat.CrowEncounter.Apply(id);
-    s += "   Apply: hp=" + st.Health.ToString("0.##", inv) + " en=" + st.Energy.ToString("0.##", inv) + "\n";
+    float hpLeft = 100f - (keepMax + 1000f - st.Health);
+    s += "   Apply: hp=" + hpLeft.ToString("0.##", inv) + " en=" + st.Energy.ToString("0.##", inv) + "\n";
+    st.maxHealth = keepMax;
+    st.SetHealth(100f);
 }
 st.SetEnergy(keepE); st.SetHealth(keepH);
 return s;

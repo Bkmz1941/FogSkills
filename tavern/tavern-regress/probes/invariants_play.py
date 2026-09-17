@@ -789,7 +789,22 @@ if (!Cozy.View.ViewState.Debug)
     if (Cozy.View.ViewState.HiddenRooms) { bad.Append("поднят дебаг-слой «Скрытые комнаты» вне дебага; "); viewLayers++; }
 }
 
-return " слоёв вида поднято=" + viewLayers + " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " дождь снаружи=" + rainOutside + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
+// «Ввод отобран» (PlayerPosture.Veiled) держат только сцена стычки, подъём после
+// неё, сцена броска, гибель и сон. Поднят без них — игрок стоит столбом и не
+// открывает экраны (17.09: флаг завис после чьей-то оборванной сцены).
+int veilStuck = 0;
+if (Cozy.Grid.PlayerPosture.Veiled && !Cozy.Combat.Encounter.Running && !Cozy.Combat.RangedAttack.SceneRunning
+    && Cozy.Character.PlayerTarget.Alive)
+{
+    var recField = typeof(Cozy.Combat.Encounter).GetField("_recovery", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+    bool recovering = recField != null && recField.GetValue(null) != null;
+    var sleepHud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+    var sleepField = typeof(Tavern.UI.HudUI).GetField("_sleepRun", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    bool sleeping = sleepHud != null && sleepField != null && sleepField.GetValue(sleepHud) != null;
+    if (!recovering && !sleeping) { bad.Append("«ввод отобран» (Veiled) поднят без сцены, гибели и сна; "); veilStuck = 1; }
+}
+
+return " занавес завис=" + veilStuck + " слоёв вида поднято=" + viewLayers + " объектов=" + checkedObjects + " на своих местах=" + posed + " поверхностей=" + surfaces + " хостов осмотра=" + hosts + " рядов слотов=" + slotRows + " кукол=" + dolls + " у стен=" + nearWall + " в закрытых секциях=" + closed + " подвесов=" + mounts + " вложенных=" + nested + " с преградой у фокуса=" + touching + " на открытых поверхностях=" + onSurface + " порожков=" + thresholds + " скрытых=" + hiddenObjs + " настенных=" + wallMounted + " стен=" + wallTops + " порывов ветра=" + gusts + " клеток дождя=" + rainCells + " дождь снаружи=" + rainOutside + " фонарь в руке=" + handLamp + " гейт спавна=" + spawnGate + " молния=" + lightning + " скрыто радиусом=" + farHidden + " в кадре=" + farInView + " :: " + bad.ToString();
 '''
 
 CODE_B = r'''
