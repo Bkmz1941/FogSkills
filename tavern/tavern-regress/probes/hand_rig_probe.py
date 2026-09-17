@@ -18,6 +18,8 @@ MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 def run(code):
     out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({'action': 'execute', 'code': code})],
                          capture_output=True, text=True, timeout=120)
+    # ⚠️ «не в play» — НЕ результат: два таких прогона совпадают между собой и
+    # выглядят как доказательство (поймано 18.09 на самом себе).
     try:
         d = json.loads(out.stdout.strip().splitlines()[-1])
     except Exception:
@@ -81,6 +83,64 @@ foreach (string side in new[] { "Left", "Right" })
 return sb.ToString();
 '''
 
+# Переход «опущена → поднята» снимается НЕ по времени, а по весу подъёма: вес
+# ставится в поле рига, вызывается LateUpdate и меряется поза. Иначе числа
+# зависят от кадров и сравнивать два прогона нельзя.
+RAISE_CURVE = HEAD + r'''
+var side = rig.HeldSide;
+bool left = side == Cozy.Character.FlashlightRig.Side.Left;
+var hand = anim.GetBoneTransform(left ? UnityEngine.HumanBodyBones.LeftHand : UnityEngine.HumanBodyBones.RightHand);
+var upper = anim.GetBoneTransform(left ? UnityEngine.HumanBodyBones.LeftUpperArm : UnityEngine.HumanBodyBones.RightUpperArm);
+var fore = anim.GetBoneTransform(left ? UnityEngine.HumanBodyBones.LeftLowerArm : UnityEngine.HumanBodyBones.RightLowerArm);
+var fRaise = typeof(Cozy.Character.FlashlightRig).GetField("_raise", bf);
+var fYaw = typeof(Cozy.Character.FlashlightRig).GetField("_aimYaw", bf);
+var fPitch = typeof(Cozy.Character.FlashlightRig).GetField("_aimPitch", bf);
+var mLate = typeof(Cozy.Character.FlashlightRig).GetMethod("LateUpdate", bf);
+if (fRaise == null || mLate == null) return "подъём: полей рига не видно";
+float keep = (float)fRaise.GetValue(rig);
+// Базовую позу пришпиливаем к началу текущего состояния аниматора: дыхание
+// стойки иначе шевелит доворот на ±0.7° и два прогона не сходятся.
+var state = anim.GetCurrentAnimatorStateInfo(0);
+float keepTime = state.normalizedTime;
+float keepSpeed = anim.speed;
+anim.speed = 0f;
+var sb = new System.Text.StringBuilder("подъём по весу:");
+foreach (float w in new[] { 0f, 0.25f, 0.5f, 0.75f, 1f })
+{
+    // Аниматор обязан переиграть позу ПЕРЕД каждым вызовом: риг доворачивает
+    // кости поверх анимационной позы, и два вызова подряд без Update(0) дают
+    // накопленный поворот — числа скакали между двумя состояниями.
+    // Меряем ВКЛАД РИГА, а не позу в мире: разворот каждой кости от той, что
+    // дал аниматор. Иначе дыхание стойки шевелит числа между прогонами.
+    // Наводка фонаря (_aimYaw/_aimPitch) сглаживается ОТ ПРОШЛОГО кадра: без
+    // обнуления каждый вызов доводил её чуть дальше, и доворот плеча гулял на
+    // градус между прогонами.
+    fRaise.SetValue(rig, w);
+    if (fYaw != null) fYaw.SetValue(rig, 0f);
+    if (fPitch != null) fPitch.SetValue(rig, 0f);
+    anim.Play(state.fullPathHash, 0, 0f);
+    anim.Update(0f);
+    var wasU = upper.rotation; var wasF = fore.rotation; var wasH = hand.rotation;
+    mLate.Invoke(rig, null);
+    var torch = Cozy.Grid.PlayerRef.GameObject.transform.Find("Flashlight");
+    // Десятые доли градуса не печатаем: игрок с раскачкой корпуса даёт ±0.1°,
+    // а нам важна ФОРМА подъёма (0 → ~9 → ~26 → ~36 → ~37), а не точность до
+    // десятой.
+    sb.Append("\n  вес " + w.ToString("0.00") + " | доворот рига: плечо " + UnityEngine.Mathf.Round(UnityEngine.Quaternion.Angle(wasU, upper.rotation))
+        + "° предплечье " + UnityEngine.Mathf.Round(UnityEngine.Quaternion.Angle(wasF, fore.rotation))
+        + "° кисть " + UnityEngine.Mathf.Round(UnityEngine.Quaternion.Angle(wasH, hand.rotation)) + "°");
+    if (torch != null && torch.gameObject.activeSelf)
+        sb.Append(" | фонарь в кисти " + hand.InverseTransformPoint(torch.position).ToString("F3") + " ось " + hand.InverseTransformDirection(torch.forward).ToString("F2"));
+    sb.Append(" | светит=" + rig.Lit);
+}
+fRaise.SetValue(rig, keep);
+anim.Play(state.fullPathHash, 0, keepTime);
+anim.speed = keepSpeed;
+anim.Update(0f);
+mLate.Invoke(rig, null);
+return sb.ToString();
+'''
+
 RESTORE = HEAD + r'''
 var saved = System.AppDomain.CurrentDomain.GetData("probe.rig.saved") as System.Collections.Generic.List<object[]>;
 if (saved == null) return "нечего возвращать";
@@ -106,7 +166,10 @@ CASES = [
 
 
 def main():
-    print(run(SAVE))
+    first = run(SAVE)
+    print(first)
+    if isinstance(first, str) and 'не в play' in first:
+        raise SystemExit('редактор не в play — замер не снят')
     try:
         for name, items, active in CASES:
             placed = run(PLACE.replace('%ITEMS%', items).replace('%ACTIVE%', str(active)))
@@ -115,6 +178,8 @@ def main():
                 continue
             time.sleep(2.5)
             print(run(MEASURE.replace('%NAME%', name)))
+            if name.startswith('raise'):
+                print(run(RAISE_CURVE))
     finally:
         print(run(RESTORE))
 

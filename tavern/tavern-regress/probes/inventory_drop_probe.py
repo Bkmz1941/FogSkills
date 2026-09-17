@@ -162,7 +162,12 @@ SCENARIOS = [
 
 
 def main():
-    print(run(SETUP))
+    first = run(SETUP)
+    print(first)
+    # «не в play» — не результат: два пустых прогона совпадают и выглядят
+    # доказательством (поймано 18.09).
+    if isinstance(first, str) and 'не в play' in first:
+        raise SystemExit('редактор не в play — замер не снят')
     time.sleep(0.8)
     try:
         for item, target in SCENARIOS:

@@ -129,7 +129,12 @@ return "свои вещи возвращены: " + (back == saved.Count ? "вс
 def main():
     label = sys.argv[1] if len(sys.argv) > 1 else 'now'
     path = OUT / ('inventory_layout_%s.txt' % label)
-    print(run(SETUP))
+    first = run(SETUP)
+    print(first)
+    # «не в play» — не результат: два пустых прогона совпадают и выглядят
+    # доказательством (поймано 18.09).
+    if isinstance(first, str) and 'не в play' in first:
+        raise SystemExit('редактор не в play — замер не снят')
     try:
         time.sleep(1.0)
         print(run(DUMP.replace('%DIR%', str(OUT)).replace('%FILE%', str(path))))

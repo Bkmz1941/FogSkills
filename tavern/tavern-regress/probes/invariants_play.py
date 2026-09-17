@@ -236,6 +236,11 @@ if (mSurfSup != null)
         if (io == null || io.Def == null || io.Def.mount != Cozy.Grid.ObjectMount.Surface || io.HostObject != null) continue;
         var p = io.transform.position; var rot = io.transform.rotation;
         if (Cozy.Grid.ContainerSlot.Under(p) != null) continue;
+        // Вещь В ВЫКЛАДКЕ (горка в мойке, стопки в шкафу) опирается на своего
+        // хозяина, а не на мир: у шкафа один коллайдер-коробка на весь корпус,
+        // луч опоры стартует внутри него и дна не видит — каждая вещь на дне
+        // читалась как «висит над пустотой» (18.09).
+        if (Cozy.Grid.Piles.HolderOf(io) != null) continue;
         onSurface++;
         bool held = (bool)mSurfSup.Invoke(gc, new object[] { io.gameObject, p.x, p.y, p.z, rot.eulerAngles.y, null });
         io.transform.SetPositionAndRotation(p, rot);
