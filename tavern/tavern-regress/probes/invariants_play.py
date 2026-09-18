@@ -241,6 +241,12 @@ if (mSurfSup != null)
         // луч опоры стартует внутри него и дна не видит — каждая вещь на дне
         // читалась как «висит над пустотой» (18.09).
         if (Cozy.Grid.Piles.HolderOf(io) != null) continue;
+        // Вещь в ВЫКЛАДКЕ контейнера (фрукты в миске, поленья ярусом в камине)
+        // живёт В ИЕРАРХИИ хозяина и опирается на него, а не на мир: луч опоры
+        // стартует внутри коробки хозяина и дна не видит — каждая такая вещь
+        // читалась как «висит над пустотой» (18.09, та же причина, что у горки).
+        var under = io.transform.parent != null ? io.transform.parent.GetComponentInParent<Cozy.Grid.InteractiveObject>() : null;
+        if (under != null && under != io) continue;
         onSurface++;
         bool held = (bool)mSurfSup.Invoke(gc, new object[] { io.gameObject, p.x, p.y, p.z, rot.eulerAngles.y, null });
         io.transform.SetPositionAndRotation(p, rot);

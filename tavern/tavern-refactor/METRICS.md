@@ -20,6 +20,7 @@
 | 2026-09-17 | ilya-15 | 401 | 83144 | 65 | 10 | GridCursor.UpdateMoveObject 133 | 2 | база ночи 17→18.09 |
 | 2026-09-17 | ilya-15 | 401 | 83482 | 61 | 10 | GridCursor.UpdateMoveObject 133 | 2 | после шагов 1–4, ночь 17→18.09 |
 | 2026-09-18 | ilya-15 | 403 | 84462 | 60 | 10 | GridCursor.UpdateMoveObject 133 | 2 | после шага 7 (карточка вещи) |
+| 2026-09-18 | ilya-77 | 404 | 85535 | 56 | 8 | GridCursor.UpdateMoveObject 133 | 2 | база ночи 18→19.09 |
 
 ## Кадр в сборке
 

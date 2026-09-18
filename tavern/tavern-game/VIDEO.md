@@ -524,3 +524,27 @@ ffmpeg -y -i in.mp4 -ss 30 -t 4 \
 под голос — `amix` с `volume`, ускорение скучных мест — `setpts=PTS/2` +
 `atempo`, наезд — `zoompan`. Сценарий с таймингом и английские субтитры
 пишутся до записи.
+
+## ⭐ Съёмка из рендера — Unity Recorder (18.09, ilya-0c; Илья: «разрешение HD нужно», «ставь, я разрешаю»)
+
+Захват экрана (`x11grab`, OBS, vokoscreen) в этом проекте даёт мыло: монитор
+1920×1080, а Game view в редакторе стоит на 3840×2160 — панель показывает
+ужатый рендер, и экранный рекордер пишет ужатое. Поэтому съёмку сессия ведёт
+из рендера пакетом `com.unity.recorder` (5.1.7, поставлен 18.09 через
+`UnityEditor.PackageManager.Client.Add` из execute_code; на Linux Recorder
+mp4 не кодирует — пишем PNG-последовательность + wav, mp4 собирает ffmpeg).
+
+- Рекордер собирается кодом из execute_code (окно Recorder не нужно):
+  `RecorderControllerSettings` + `ImageRecorderSettings` (PNG,
+  `GameViewInputSettings` 3840×2160, `OutputFile = <папка>/f_<Frame>`) +
+  `AudioRecorderSettings` (wav), `FrameRate 60`, `CapFrameRate true`,
+  `SetRecordModeToFrameInterval(0, N)`. Recorder ведёт время игры сам
+  (`Time.captureFramerate`): кадры не выпадают, но игра на время записи
+  притормаживает — играть руками во время записи неудобно, съёмка сценарная
+  (телепорты, камера, триггеры сцен через мост).
+- Папка ролика — `/home/ilya/Documents/Fog/Videos/<ролик>/`, как у дублей Ильи.
+- Мастер 4K60 → `ffmpeg -framerate 60 -i f_%04d.png -i audio.wav -c:v libx264
+  -crf 18 -pix_fmt yuv420p -vf scale=1920:1080` → 1080p; для загрузки можно
+  1440p/4K (YouTube даёт больший битрейт).
+- Пилот 18.09: 30 секунд, лес (`forest100`), тема «Сражения и как работают»;
+  текст по-русски → правка Ильи → перевод → `vt say` его голосом → монтаж.

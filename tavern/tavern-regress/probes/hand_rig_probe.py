@@ -95,6 +95,8 @@ var fore = anim.GetBoneTransform(left ? UnityEngine.HumanBodyBones.LeftLowerArm 
 var fRaise = typeof(Cozy.Character.FlashlightRig).GetField("_raise", bf);
 var fYaw = typeof(Cozy.Character.FlashlightRig).GetField("_aimYaw", bf);
 var fPitch = typeof(Cozy.Character.FlashlightRig).GetField("_aimPitch", bf);
+var pNeutral = typeof(Cozy.Character.FlashlightRig).GetProperty("NeutralPitch", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+float neutral = pNeutral != null ? (float)pNeutral.GetValue(null) : 0f;
 var mLate = typeof(Cozy.Character.FlashlightRig).GetMethod("LateUpdate", bf);
 if (fRaise == null || mLate == null) return "подъём: полей рига не видно";
 float keep = (float)fRaise.GetValue(rig);
@@ -112,12 +114,21 @@ foreach (float w in new[] { 0f, 0.25f, 0.5f, 0.75f, 1f })
     // накопленный поворот — числа скакали между двумя состояниями.
     // Меряем ВКЛАД РИГА, а не позу в мире: разворот каждой кости от той, что
     // дал аниматор. Иначе дыхание стойки шевелит числа между прогонами.
-    // Наводка фонаря (_aimYaw/_aimPitch) сглаживается ОТ ПРОШЛОГО кадра: без
-    // обнуления каждый вызов доводил её чуть дальше, и доворот плеча гулял на
-    // градус между прогонами.
-    fRaise.SetValue(rig, w);
+    // Наводка фонаря (_aimYaw/_aimPitch) сглаживается ОТ ПРОШЛОГО кадра, и шаг
+    // сглаживания зависит от длины кадра: с нуля один вызов доводил наклон на
+    // разную долю пути, и плечо гуляло на градус между прогонами. Ставим НЕ
+    // ноль, а покой наводки (NeutralPitch) — лерп к самому себе не зависит от
+    // Time.deltaTime, и замер перестаёт зависеть от нагрузки редактора.
+    // Первым делом LateUpdate зовёт AdvanceRaise: он двигает _raise к цели на
+    // долю кадра (шаг/0.4 с ≈ 4 % при 60 fps), поэтому «вес 0.50» мерился как
+    // 0.54 и гулял вместе с длиной кадра. Ставим вес С УПРЕЖДЕНИЕМ на тот же
+    // шаг — после AdvanceRaise он равен ровно w при любом кадре.
+    float goalRaise = rig.Held ? 1f : 0f;
+    float raiseSeconds = rig.Held ? Cozy.Character.FlashlightRig.RaiseSeconds : Cozy.Character.FlashlightRig.LowerSeconds;
+    float raiseStep = raiseSeconds <= 0.01f ? 0f : UnityEngine.Mathf.Min(UnityEngine.Time.deltaTime, 1f / 30f) / raiseSeconds;
+    fRaise.SetValue(rig, goalRaise > w ? w - raiseStep : w + raiseStep);
     if (fYaw != null) fYaw.SetValue(rig, 0f);
-    if (fPitch != null) fPitch.SetValue(rig, 0f);
+    if (fPitch != null) fPitch.SetValue(rig, neutral);
     anim.Play(state.fullPathHash, 0, 0f);
     anim.Update(0f);
     var wasU = upper.rotation; var wasF = fore.rotation; var wasH = hand.rotation;

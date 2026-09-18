@@ -131,6 +131,7 @@ def main():
     ok_lint = lint()
     ok_probes = probes_lint()
     ok_compile = compile_check()
+    probe('export_facing_probe.py')
     play, compiling = editor_state()
     print('редактор: play =', play, ', компилируется =', compiling)
     ok_tests = None
