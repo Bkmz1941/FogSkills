@@ -282,22 +282,36 @@ def measure(exe, level, frames):
     log = SCRATCH / ('%s.log' % re.sub(r'\W+', '_', level))
     if log.exists():
         log.unlink()
-    proc = subprocess.Popen([str(exe), '-gcprobe', str(frames), '-level', level, '-screen-fullscreen', '0',
+    proc = subprocess.Popen([str(exe), '-gcprobe', str(frames), '-level', level, '-loadtiming', '-screen-fullscreen', '0',
                              '-screen-width', '1280', '-screen-height', '720', '-logFile', str(log)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     result, loaded = None, None
+    started = time.time()
+    START.clear()
     try:
         for _ in range(240):
             time.sleep(0.5)
+            sample_rss(proc.pid)
             if not log.exists():
                 continue
             text = log.read_text(errors='replace')
             m = re.search(r'\[level\] (.+)', text)
             if m:
                 loaded = m.group(1).strip()
+                START.setdefault('level_s', round(time.time() - started, 1))
+            m = re.search(r'RestoreLevel (\d+) мс', text)
+            if m:
+                START['restore_ms'] = int(m.group(1))
+            m = re.search(r'\[boot\] t=(\S+) frame=(\d+)', text)
+            if m:
+                START['boot_s'] = float(m.group(1))
+            m = re.search(r'\[mem\] (.+)', text)
+            if m:
+                START['mem'] = m.group(1).strip()
             m = re.search(r'\[gc\] (avg=\S+ max=\S+ frames=\S+ ms=\S+ p95=\S+ msmax=\S+)', text)
             if m:
                 result = dict(p.split('=') for p in m.group(1).split())
+                START['phases'] = phases_of(text)
                 break
             if proc.poll() is not None:
                 break
@@ -309,6 +323,29 @@ def measure(exe, level, frames):
             except subprocess.TimeoutExpired:
                 os.killpg(proc.pid, signal.SIGKILL)
     return result, loaded
+
+
+START = {}
+
+
+def sample_rss(pid):
+    try:
+        for line in open('/proc/%d/status' % pid):
+            if line.startswith('VmRSS:'):
+                START['rss_mb'] = int(line.split()[1]) // 1024
+            elif line.startswith('VmHWM:'):
+                START['peak_mb'] = int(line.split()[1]) // 1024
+    except OSError:
+        pass
+
+
+def phases_of(text):
+    m = re.search(r'RestoreLevel \d+ мс\n((?:  \S+ +[\d.]+ мс\n)+)', text)
+    if not m:
+        return ''
+    rows = re.findall(r'  (\S+) +([\d.]+) мс', m.group(1))
+    rows.sort(key=lambda r: -float(r[1]))
+    return ' '.join('%s=%s' % (n, v) for n, v in rows[:4])
 
 
 def fps(args):
@@ -335,6 +372,7 @@ def fps(args):
     exe = PROJECT / 'Builds' / ('Linux' if dev else 'LinuxProd') / 'Tavern.x86_64'
     kind = 'дев' if dev else 'прод'
     rows = []
+    starts = []
     print('\n%-12s %-6s %8s %7s %7s %9s %6s' % ('уровень', 'прогон', 'кадр мс', 'p95', 'пик', 'мусор Б', 'FPS'))
     for level in levels:
         got = []
@@ -349,6 +387,13 @@ def fps(args):
             ms, p95, mx, avg = float(res['ms']), float(res['p95']), float(res['msmax']), int(res['avg'])
             got.append((ms, p95, mx, avg))
             print('%-12s %-6d %8.2f %7.2f %7.2f %9d %6.0f' % (level, r + 1, ms, p95, mx, avg, 1000 / ms), flush=True)
+            start = dict(START)
+            starts.append((level, start))
+            print('%-12s        старт: уровень через %s с, загрузка %s мс (%s), кадр [gc] на %s с; RSS %s МБ, пик %s МБ' % (
+                '', start.get('level_s', '?'), start.get('restore_ms', '?'), start.get('phases', '—'),
+                start.get('boot_s', '?'), start.get('rss_mb', '?'), start.get('peak_mb', '?')), flush=True)
+            if start.get('mem'):
+                print('%-12s        память: %s' % ('', start['mem']), flush=True)
         if got:
             ms = sum(g[0] for g in got) / len(got)
             p95 = sum(g[1] for g in got) / len(got)
@@ -362,6 +407,15 @@ def fps(args):
             append_row('## Кадр в сборке', '| %s | %s | %s | %s | %.2f | %.2f | %.2f | %d | %.0f | %s+%d | %s |' % (
                 datetime.datetime.now().strftime('%Y-%m-%d %H:%M'), save_who(), kind, level, ms, p95, mx, avg,
                 1000 / ms, commit, dirty, note))
+        seen = set()
+        for level, start in starts:
+            if level in seen or 'restore_ms' not in start:
+                continue
+            seen.add(level)
+            append_row('## Старт и память в сборке', '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s+%d | %s |' % (
+                datetime.datetime.now().strftime('%Y-%m-%d %H:%M'), save_who(), kind, level,
+                start.get('level_s', '?'), start.get('restore_ms', '?'), start.get('boot_s', '?'),
+                start.get('peak_mb', '?'), start.get('rss_mb', '?'), start.get('mem', '—').replace('|', '/'), commit, dirty, note))
         print('\nстроки записаны в', METRICS)
     return 0
 

@@ -31,7 +31,7 @@ FURNITURE = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/Furniture
 # модель → нода → куда смотрит: 'wall' (к стене) или 'room' (в комнату)
 EXPECT = {
     'homeToilet': {'Tank': 'wall', 'Bowl': 'room'},
-    'homeBath': {'WallBack': 'wall', 'WallFront': 'room'},
+    'homeBath': {'RailFlangeL': 'wall', 'TapLever': 'room'},
     'homeBathroomSink': {'Back': 'wall', 'TapBody': 'wall', 'DrawerTop': 'room', 'DrawerBottom': 'room'},
     'homeBathroomMirror': {'Body': 'wall', 'Glass': 'room', 'LightBar': 'room'},
     'homeBathroomCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room', 'Divider': 'room'},
@@ -39,6 +39,13 @@ EXPECT = {
     'homeTowelRail': {'StubB': 'room', 'StubT': 'room', 'BracketL1': 'room', 'StubBFlange': 'wall', 'StubTFlange': 'wall', 'BracketL1Flange': 'wall', 'BracketR6Flange': 'wall'},
     'homeLaundryBasket': {'Lid': 'wall', 'HingeL': 'wall', 'HingeR': 'wall', 'LidKnob': 'room'},
     'homeWasher': {'FootBL': 'wall', 'FootBR': 'wall', 'FootFL': 'room', 'FootFR': 'room', 'Door': 'room', 'Console': 'room', 'Knob': 'room', 'Drawer': 'room'},
+    'bathHook': {'HookPlate': 'wall', 'HookTip': 'room'},
+    'bathTowelHook01': {'HookPlate': 'wall'},
+    'bathTowelHook02': {'HookPlate': 'wall'},
+    'bathTowelHook03': {'HookPlate': 'wall'},
+    'bathPaperHolder': {'Plate': 'wall', 'RodTip': 'room', 'Roll': 'room'},
+    'bathShelf': {'Rail': 'wall', 'BracketL': 'wall'},
+    'bathMop': {'Grip': 'wall'},
     # эталоны, на которых правило и выведено: они в игре стоят верно
     'homeWallCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room'},
     'hallwayRack': {'Mount_Hook0': 'wall', 'DoorL': 'room', 'DoorR': 'room'},

@@ -1418,7 +1418,42 @@ if (soilOffNow > 0.01f) { soilOff++; if (soilOffNow > soilMax) soilMax = soilOff
 }
 if (soilOff > 0) bad.Append("коллайдер земли расходится с полем высот: " + soilOff + " из " + soilPts + " точек, до " + soilMax.ToString("F3") + " м — ходят и ставят не по той земле, что нарисована (P360, P384); ");
 }
-return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " :: " + bad.ToString();
+// 203. Ярус зоны в стопке — по типам, которые ЕСТЬ на уровне (P477): одинокая
+// техническая зона висела на 1.6 м, потому что ярус брался из номера типа в
+// `Kinds`. Стопку включаем на время одного вызова — кадр не проходит, визуал
+// не двигается — и сверяем ярус каждой зоны с числом типов, у которых есть
+// клетки.
+int zonesRanked = 0;
+{
+bool zpWasAll = Cozy.Grid.ZonePiece.AllLayers;
+var zpKinds = new System.Collections.Generic.HashSet<Cozy.Grid.ZoneKind>();
+foreach (var zp in Cozy.Grid.ZonePiece.All) if (zp != null && zp.Cells.Count > 0) zpKinds.Add(zp.kind);
+Cozy.Grid.ZonePiece.AllLayers = true;
+foreach (var zp in Cozy.Grid.ZonePiece.All)
+{
+if (zp == null || zp.Cells.Count == 0) continue;
+zonesRanked++;
+float zpThick = 2f * (zp.TopY - zp.VisualLift - zp.Cells[0].y);
+int zpStep = zpThick > 0.001f ? UnityEngine.Mathf.RoundToInt(zp.VisualLift / (zpThick * 1.6f)) : 0;
+if (zpStep >= zpKinds.Count) bad.Append("зона выше стопки: " + zp.DisplayName + " ярус " + zpStep + " при " + zpKinds.Count + " типах; ");
+}
+Cozy.Grid.ZonePiece.AllLayers = zpWasAll;
+}
+// 44. СТОЛБИК УГЛА НЕ ВЫСТУПАЕТ ИЗ ПЛОСКОСТИ СТЕН (P478; инвариант 204): WallCorner
+//     на Г-углу с дверью/окном утоплен в обе стены на 2 мм. Выступ +1 см давал
+//     пунктирную линию по фасаду в 26 см от угла и засечку сверху; вровень — z-fight.
+int cornerPosts = 0;
+{
+float postT = gcp != null ? gcp.placeThickness : 0.25f;
+foreach (var wc in Cozy.Grid.WallCorner.All)
+{
+if (wc == null) continue;
+cornerPosts++;
+var ps = wc.transform.localScale;
+if (ps.x > postT - 0.001f || ps.z > postT - 0.001f) bad.Append("столбик угла выступает из стены: " + ps.x.ToString("F3") + "×" + ps.z.ToString("F3") + " при толщине " + postT.ToString("F3") + " @ " + wc.transform.position.ToString("F1") + "; ");
+}
+}
+return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " :: " + bad.ToString();
 '''
 
 
@@ -1457,7 +1492,7 @@ RULE_OF = {
     'растений на ветру': '24', 'статусы': '27', 'крон': '28', 'низких слотов': '30',
     'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
     'веток': '35', 'источников': '36', 'точек прицела': '37',
-    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43',
+    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43', 'столбиков угла': '44',
 }
 
 
@@ -1495,7 +1530,10 @@ def main():
         left, _, right = res.partition(' :: ')
         counters.append(left.strip())
         complaints.append(right.strip())
-    tail = ' '.join(c for c in complaints if c)
+    # Жалобы сортируются: порядок FindObjectsByType гуляет между заходами в play,
+    # и verify ночи краснел на переставленных «гнёзда на ветке» (18.09, ilya-77).
+    items = [x.strip() for c in complaints if c for x in c.split(';') if x.strip()]
+    tail = '; '.join(sorted(items))
     counters = ' '.join(counters)
     idle = idle_rules(counters, strike)
     quiet = ''
