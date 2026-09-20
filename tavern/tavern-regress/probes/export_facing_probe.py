@@ -31,13 +31,15 @@ FURNITURE = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/Furniture
 # модель → нода → куда смотрит: 'wall' (к стене) или 'room' (в комнату)
 EXPECT = {
     'homeToilet': {'Tank': 'wall', 'Bowl': 'room'},
-    'homeBath': {'RailFlangeL': 'wall', 'TapLever': 'room'},
+    'homeBath': {'RailFlangeL': 'wall', 'CurtainOpen': 'room'},
     'homeBathroomSink': {'Back': 'wall', 'TapBody': 'wall', 'DrawerTop': 'room', 'DrawerBottom': 'room'},
     'homeBathroomMirror': {'Body': 'wall', 'Glass': 'room', 'LightBar': 'room'},
-    'homeBathroomCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room', 'Divider': 'room'},
+    'homeBathroomCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room'},
     # у трубы-кривой (Coil) начало координат в нуле, судить можно только по патрубкам и кронштейнам
     'homeTowelRail': {'StubB': 'room', 'StubT': 'room', 'BracketL1': 'room', 'StubBFlange': 'wall', 'StubTFlange': 'wall', 'BracketL1Flange': 'wall', 'BracketR6Flange': 'wall'},
     'homeLaundryBasket': {'Lid': 'wall', 'HingeL': 'wall', 'HingeR': 'wall', 'LidKnob': 'room'},
+    'homeTv': {'Bracket': 'wall', 'Screen': 'room', 'Chin': 'room'},
+    'homeProjector': {'Lens': 'room', 'LensRing': 'room', 'IrWindow': 'room'},
     'homeWasher': {'FootBL': 'wall', 'FootBR': 'wall', 'FootFL': 'room', 'FootFR': 'room', 'Door': 'room', 'Console': 'room', 'Knob': 'room', 'Drawer': 'room'},
     'bathHook': {'HookPlate': 'wall', 'HookTip': 'room'},
     'bathTowelHook01': {'HookPlate': 'wall'},

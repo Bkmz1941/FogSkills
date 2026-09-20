@@ -150,7 +150,7 @@ ss -ltnp | grep 9876      # владельцем обязан остаться �
 Помощники `blender_kit.py` (317 строк), из которых собираются сцены:
 `material_factory(prefix, hex_map, rough_map)`, `srgb_to_linear`, `hex_rgb`,
 `wipe`, `node`/`root`, `cube` (с chamfer), `cyl`/`pipe`/`sphere`/`limb`/`tube`/
-`lathe`, `bend_path`, `deviate`, `join` (join + `transform_apply`),
+`lathe` (круг, `section` для овала/долек или `outline` — свой план кольца, напр. `rounded_outline`), `bend_path`, `deviate`, `join` (join + `transform_apply`),
 `bevel_sharp`, `rounded_outline`, `slab_bm`, `flat`, `row_start`,
 `context_row`/`context_table`. Сцена делает `from blender_kit import *` и
 содержит только геометрию; ей нужен `__file__` в globals.
@@ -1051,6 +1051,16 @@ tris/verts/bounds конкретных корней.
 `top_scale` < 1 сужает верх (мягкая губка). Проверка при подобных правках:
 headless-проба `scratchpad/geom_probe.py` (строит сцену по реестру и печатает
 tris/verts/bounds корней) до и после, дифф должен быть пустым.
+
+**Тело вращения с прямоугольным планом** (2026-09-20, корзина для белья):
+`lathe(..., outline=fn)` — `fn(r, y)` отдаёт список точек кольца вместо
+окружности, `seg` тогда не используется; `r` в профиле становится масштабом
+плана. Скруглённый прямоугольник с сужением книзу — `plan_of` в
+`laundry_basket_scene.py`: `rounded_outline(hw*k, hd*k, corner*k, arc)`, низ
+`k=taper`. Углы лежат точно (по `arc` точек на угол), бок — один квад, поэтому
+28 вершин на кольцо читаются ровнее 32-сегментного круга с `section`. Старые
+сцены с кругом и `section` кит собирает теми же вершинами в том же порядке —
+дымовой тест яблока, таза и флаконов после правки зелёный.
 
 ### Узлы состояний в моделях: нагар и масло сковороды
 

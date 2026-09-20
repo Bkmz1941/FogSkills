@@ -81,6 +81,7 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 | Постановка объекта | `GridCursor.Objects` (пайплайн позы), `GridCursor.ObjectSnap` (магниты и прижимы), `GridCursor.Support` (опора, слоты, пересечения), `GridCursor.PlaceQueries` (лучи к миру), `GridCursor.PlaceGhost` (призрак), `PlaceMath` (чистая арифметика) |
 | Передача продуктов | `GridCursor.Transfer` (TransferOffer: Pour/Serve/Put), `GridCursor.Layout` (раскладки и призраки), `GridCursor.ObjectMove` (перенос в руках), `HudUI.ActionLabel` (подпись) |
 | Вода | `LiquidVolume`, `WaterSource`, `GridCursor.Liquid` |
+| Зеркало | `MirrorReflection` (камера-двойник, матрица отражения, косая проекция), `MirrorGlass.shader` |
 | Сейв/лоад | `LevelIO`, `GridCursor.Levels` |
 | UI | `Game/UI/HudUI.*` (15 партиалов; интерактив — Interact «поток выбора/ховера», InteractCard «содержимое карточки», InteractBadges «бейджи»), `UiFactory.*`, `UiTheme`, экраны `*ScreenUI` |
 | Тесты | `Assets/Tests/EditMode` (сборка `Tavern.Tests.EditMode`) |
