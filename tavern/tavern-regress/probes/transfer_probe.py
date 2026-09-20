@@ -8,7 +8,9 @@ python3 transfer_probe.py --run    полный сценарий ДЕЙСТВИ�
 1. В руке предмет видим: рендереры включены, хотя бы один в кадре, альфа не нулевая.
 2. Положенный на землю лёг НА поверхность: низ модели над `GroundY` в пределах −2…+15 см,
    этаж над рельефом около нуля, объект виден, досягаем (`Interactor.InReach`), наводится
-   (`Interactor.Raycast`) и берётся в руку снова.
+   (`Interactor.Raycast`) и берётся в руку снова. У ЁМКОСТИ наведением считается
+   и попадание в её содержимое: луч в миску с яблоками отдаёт яблоко, и это верно
+   — сама миска под ними не видна (20.09, ilya-8c).
 3. То же на плоскости — верх ближайшей мебели в досягаемости (стол, тумба, полка); если
    такой нет, шаг честно пропускается, это не зелёный.
 Кладёт тем же путём, что клик игрока: камера доворачивается так, чтобы луч через настоящий
@@ -309,7 +311,8 @@ if (inter != null)
             clearRay = mine < other;
             obstacle = otherName;
             var hit = mRay.Invoke(inter, new object[] { mouse }) as UnityEngine.Component;
-            hovered = hit != null && hit.GetComponentInParent<Cozy.Grid.InteractiveObject>() == io;
+            var hio = hit == null ? null : hit.GetComponentInParent<Cozy.Grid.InteractiveObject>();
+            hovered = hio == io || hio != null && hio.Container == io;
         }
         finally { cam.transform.rotation = savedCam; }
     }

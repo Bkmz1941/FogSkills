@@ -49,6 +49,7 @@
 | Скругление | `UiFactory.Round(img, radius = UiTheme.Radius)` | 9-slice `UiSprites.Rounded`; радиус кита `UiTheme.Radius` = 10 |
 | Обводка выделения | `UiFactory.Outline(bg, on, radius)` | дочерняя рамка `Outline` (`UiSprites.Frame`, ширина `UiTheme.OutlineWidth` = 2, цвет `UiTheme.Outline`), фон элемента не трогает, `ignoreLayout` |
 | Сегментный переключатель | `UiFactory.Segmented(parent, labels, active, onPick)` | дорожка `Chip` со скруглением, кнопки делят ширину, активная = `Active` + обводка |
+| Табы | `UiFactory.Tabs(parent, labels, active, onPick)` → ряд; один таб — `UiFactory.Tab(parent, label, active, onPick)` | ряд подписей БЕЗ плашек: активная в полный тон `UiTheme.Text` и черта `TabLook.Underline` = 1.5 px под ней, спящие `UiTheme.Muted`, наведение подтягивает тон к активному (`targetGraphic` — сам текст). Начертание у всех одно, жирный активный отвергнут (Илья 2026-09-20). Весь вид — в `UiFactory.TabLook` (шрифт, высота, зазор, толщина и отступ черты, четыре цвета: активный, спящий, наведение, нажатие). Крутится живьём во вкладке дебага «Инвентарь», переживает перезапуск через `DebugTune` |
 | Строка-карточка | `UiFactory.CardRow(parent, label, thumb, onClick, out bg)` + `SelectCardRow(bg, on)` | `ListRow` со скруглением; выбор = `SetSelected` + обводка |
 | Карточка | `UiFactory.CardPanel(parent, name, pad = UiTheme.CardPad)` | `StatBack`, скругление, VStack с паддингом 16 |
 | Плитка картинки | `UiFactory.PictureTile(parent, tex, size)` | `Popover`, скругление, квадрат, `RawImage` на растяжку |
@@ -3233,6 +3234,19 @@ null, null)` на выходе из режима, гасят и чип — от�
 перерисовываются при показе. Полнота таблицы `Resources/Localization/en.json`
 держится тестами `LocalizationTests` и скриптом `loc_extract.py` (корень
 проекта). Подробности — ARCHITECTURE.md «Локализация», DESIGN_LOG 2026-09-02.
+
+⚠️ **`loc_extract.py` чистит «устаревшее» по литералам В КОДЕ.** Ключ, чей
+русский текст приезжает не из `Loc.T("…")`, а из ПОЛЯ дефа (`ObjectDef.patternLabel`,
+`primaryColorLabel` — их переводит `Loc.T(s.primaryColorLabel)` в `HudUI.Selection`),
+держится только потому, что сам литерал всё же присвоен в C#. Уйдёт такая
+подпись в json или в сейв — экстрактор сочтёт ключ ненужным и вычистит, а
+перевод пропадёт молча. Прогнал экстрактор — сверься со списком подписей из
+дефов (20.09, предупреждение ilya-e5; проверено, «Рисунок» и «Цвет панелей
+внутри» на месте):
+
+```
+grep -rhoP '(primaryColorLabel|patternLabel)\s*=\s*"[^"]+"' Assets --include=*.cs
+```
 
 ### Карточка объекта: когда её вообще перестраивать (2026-09-03, Илья)
 

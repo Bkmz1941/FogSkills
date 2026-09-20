@@ -496,7 +496,11 @@ if (pwT != null && !moving)
                 {
                     if (col.transform.IsChildOf(io.transform) || col.GetComponentInParent<Cozy.Grid.InteractiveObject>() != null) continue;
                     if (col.GetComponentInParent<Cozy.Grid.DoorPiece>() != null || col.GetComponentInParent<Cozy.Grid.WindowPiece>() != null) continue;
-                    if ((bool)mObsP.Invoke(gc, new object[] { col, io.gameObject, io.transform, null, wallOk, c, half, false }))
+                    var obsArgs = new object[mObsP.GetParameters().Length];
+                    obsArgs[0] = col; obsArgs[1] = io.gameObject; obsArgs[2] = io.transform; obsArgs[3] = null;
+                    obsArgs[4] = wallOk; obsArgs[5] = c; obsArgs[6] = half;
+                    for (int oi = 7; oi < obsArgs.Length; oi++) obsArgs[oi] = false;
+                    if ((bool)mObsP.Invoke(gc, obsArgs))
                         env += col.name + " " + col.bounds.center.ToString("F1") + "/" + col.bounds.size.ToString("F2") + ",";
                 }
             }
