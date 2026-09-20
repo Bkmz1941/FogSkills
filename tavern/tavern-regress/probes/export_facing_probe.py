@@ -33,6 +33,7 @@ EXPECT = {
     'homeToilet': {'Tank': 'wall', 'Bowl': 'room'},
     'homeBath': {'RailFlangeL': 'wall', 'CurtainOpen': 'room'},
     'homeBathroomSink': {'Back': 'wall', 'TapBody': 'wall', 'DrawerTop': 'room', 'DrawerBottom': 'room'},
+    'homeHallMirror': {'PlateL1': 'wall', 'PlateR2': 'wall', 'Glass': 'room'},
     'homeBathroomMirror': {'Body': 'wall', 'Glass': 'room', 'LightBar': 'room'},
     'homeBathroomCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room'},
     # у трубы-кривой (Coil) начало координат в нуле, судить можно только по патрубкам и кронштейнам
@@ -40,6 +41,7 @@ EXPECT = {
     'homeLaundryBasket': {'Lid': 'wall', 'HingeL': 'wall', 'HingeR': 'wall', 'LidKnob': 'room'},
     'homeTv': {'Bracket': 'wall', 'Screen': 'room', 'Chin': 'room'},
     'homeProjector': {'Lens': 'room', 'LensRing': 'room', 'IrWindow': 'room'},
+    'homeVacuum': {'WheelL': 'wall', 'WheelR': 'wall', 'Head': 'room', 'NoseBlock': 'room'},
     'homeWasher': {'FootBL': 'wall', 'FootBR': 'wall', 'FootFL': 'room', 'FootFR': 'room', 'Door': 'room', 'Console': 'room', 'Knob': 'room', 'Drawer': 'room'},
     'bathHook': {'HookPlate': 'wall', 'HookTip': 'room'},
     'bathTowelHook01': {'HookPlate': 'wall'},
