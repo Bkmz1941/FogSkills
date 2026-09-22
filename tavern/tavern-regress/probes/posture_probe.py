@@ -32,6 +32,14 @@
 
 Поза игрока, позиция выдвинутого стула, состояние створок укрытия и активная
 поза возвращаются в finally. Правило осмотра — инвариант 75.
+
+Стадия «тело на хозяине» (инвариант 225, P532): для каждого хоста «Сесть»/
+«Лечь» вход ОДНИМ вызовом, замер СЛЕДУЮЩИМ — поза клипа ложится на кости только
+после кадра аниматора, в кадре входа таз ещё стоит по-старому. Таз гуманоида
+обязан быть внутри `WorldBounds` хозяина по XZ (запас 0.15) и не выше его верха
++ 0.6; иначе «КРАСНОЕ: тело вне хозяина» — так ловится клип, собранный не от
+того начала или не тем лицом (диван: тело левитировало перед сиденьем).
+Игрок возвращается на место последним вызовом.
 """
 import json, subprocess, sys, time
 
@@ -277,6 +285,126 @@ return "осмотр: кнопки=[" + string.Join(",", labels.ToArray()) + "] 
 '''
 
 
+BODY_LIST = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var sb = new System.Text.StringBuilder();
+foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (io == null || io.Def == null) continue;
+    foreach (var f in io.Features)
+    {
+        string k = f is Cozy.Grid.SitFeature ? "sit" : (f is Cozy.Grid.SleepFeature ? "sleep" : "");
+        if (k == "") continue;
+        sb.Append(io.Def.id + "@" + io.transform.position.ToString("0.00") + "|" + k + "\n");
+    }
+}
+return sb.Length == 0 ? "хостов нет" : sb.ToString();
+'''
+
+BODY_POS = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var player = Cozy.Grid.PlayerRef.GameObject;
+if (player == null) return "КРАСНОЕ: нет игрока";
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+var p = player.transform.position;
+return p.x.ToString("R", inv) + "," + p.y.ToString("R", inv) + "," + p.z.ToString("R", inv) + "|" + player.transform.eulerAngles.y.ToString("R", inv);
+'''
+
+BODY_ENTER = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
+if (hud == null) return "КРАСНОЕ: нет HudUI";
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
+Cozy.Grid.InteractiveObject host = null;
+foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+    if (io != null && io.Def != null && io.Def.id == "{ID}" && io.transform.position.ToString("0.00") == "{POS}") { host = io; break; }
+if (host == null) return "хост не найден";
+Cozy.Grid.ObjectFeature f = "{KIND}" == "sit"
+    ? (Cozy.Grid.ObjectFeature)Cozy.Grid.FeatureHost.Get<Cozy.Grid.SitFeature>(host)
+    : Cozy.Grid.FeatureHost.Get<Cozy.Grid.SleepFeature>(host);
+if (f == null) return "фичи нет";
+bool entered = false;
+foreach (var b in f.Buttons(hud)) { if (b.Enabled) { b.OnClick(); entered = true; } break; }
+return entered ? "вошёл" : "войти нельзя";
+'''
+
+BODY_CHECK = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var player = Cozy.Grid.PlayerRef.GameObject;
+var pc = Cozy.Grid.PlayerPosture.Current;
+if (player == null || pc == null) return "КРАСНОЕ: поза не удержалась до следующего кадра";
+var host = Cozy.Grid.SitFeature.Seat != null ? Cozy.Grid.SitFeature.Seat : Cozy.Grid.SleepFeature.Bed;
+var anim = player.GetComponentInChildren<UnityEngine.Animator>();
+var hips = anim != null && anim.isHuman ? anim.GetBoneTransform(UnityEngine.HumanBodyBones.Hips) : null;
+string res;
+if (hips == null || host == null) res = "таза или хозяина нет";
+else
+{
+    var hb = host.WorldBounds;
+    var p = hips.position;
+    bool inXZ = p.x >= hb.min.x - 0.15f && p.x <= hb.max.x + 0.15f && p.z >= hb.min.z - 0.15f && p.z <= hb.max.z + 0.15f;
+    bool inY = p.y >= hb.min.y && p.y <= hb.max.y + 0.6f;
+    res = "тело: таз=" + p.ToString("0.00") + " хозяин=" + hb.min.ToString("0.00") + ".." + hb.max.ToString("0.00")
+        + " клип=" + (Cozy.Grid.PlayerPosture.Clip ?? "-")
+        + (inXZ && inY ? " :: на хозяине" : " :: КРАСНОЕ: тело вне хозяина");
+}
+pc.Leave();
+return res;
+'''
+
+BODY_RESTORE = r'''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+if (Cozy.Grid.PlayerPosture.Current != null) Cozy.Grid.PlayerPosture.Current.Leave();
+var player = Cozy.Grid.PlayerRef.GameObject;
+if (player == null) return "КРАСНОЕ: нет игрока";
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+var parts = "{HOME}".Split('|');
+var xyz = parts[0].Split(',');
+var pos = new UnityEngine.Vector3(float.Parse(xyz[0], inv), float.Parse(xyz[1], inv), float.Parse(xyz[2], inv));
+var rot = UnityEngine.Quaternion.Euler(0f, float.Parse(parts[1], inv), 0f);
+var cc = player.GetComponent<UnityEngine.CharacterController>();
+bool on = cc != null && cc.enabled;
+if (cc != null) cc.enabled = false;
+player.transform.SetPositionAndRotation(pos, rot);
+if (cc != null) cc.enabled = on;
+UnityEngine.Physics.SyncTransforms();
+return "игрок на месте";
+'''
+
+
+def body_stage():
+    hosts, err = call(BODY_LIST)
+    if err:
+        return 'КРАСНОЕ (тело, список): ' + err, True
+    if 'не в play' in hosts:
+        return hosts, False
+    if 'хостов нет' in hosts:
+        return 'тело на хозяине: хостов поз нет', False
+    home, err = call(BODY_POS)
+    if err:
+        return 'КРАСНОЕ (тело, позиция): ' + err, True
+    lines, red = [], False
+    try:
+        for row in hosts.strip().splitlines():
+            key, kind = row.rsplit('|', 1)
+            ident, pos = key.split('@', 1)
+            code = BODY_ENTER.replace('{ID}', ident).replace('{POS}', pos).replace('{KIND}', kind)
+            ent, err = call(code)
+            if err:
+                lines.append('КРАСНОЕ (тело, вход %s): %s' % (key, err)); red = True; continue
+            if ent != 'вошёл':
+                lines.append('  %s [%s]: %s' % (key, kind, ent)); continue
+            time.sleep(0.5)
+            chk, err = call(BODY_CHECK)
+            if err:
+                lines.append('КРАСНОЕ (тело, замер %s): %s' % (key, err)); red = True; continue
+            lines.append('  %s [%s]: %s' % (key, kind, chk))
+            red = red or 'КРАСНОЕ' in chk
+    finally:
+        call(BODY_RESTORE.replace('{HOME}', home))
+    return 'тело на хозяине:\n' + '\n'.join(lines), red
+
+
 def call(code):
     out = subprocess.run(['python3', MCP, 'execute_code',
                           json.dumps({"action": "execute", "code": code})],
@@ -298,6 +426,8 @@ def main():
         print('КРАСНОЕ: ' + err)
         sys.exit(1)
     print(res)
+    body, body_red = body_stage()
+    print('\n' + body)
     setup, err = call(EXAMINE_SETUP)
     if err:
         print('КРАСНОЕ (осмотр, подготовка): ' + err)
@@ -308,9 +438,9 @@ def main():
     # следом всё равно рапортовала КРАСНОЕ — на лесных уровнях это ложная
     # регрессия в каждом прогоне check_all (13.09).
     if 'кровати в уровне нет' in setup:
-        print(':: позы %s; осмотр не прогнан — на этом уровне нет кровати'
-              % ('КРАСНОЕ' if 'КРАСНОЕ' in res else 'ок'))
-        sys.exit(1 if 'КРАСНОЕ' in res else 0)
+        print(':: позы %s; тело %s; осмотр не прогнан — на этом уровне нет кровати'
+              % ('КРАСНОЕ' if 'КРАСНОЕ' in res else 'ок', 'КРАСНОЕ' if body_red else 'ок'))
+        sys.exit(1 if ('КРАСНОЕ' in res or body_red) else 0)
     time.sleep(1.0)
     check, err = call(EXAMINE_CHECK)
     if err:
@@ -323,9 +453,10 @@ def main():
     if 'не в play' in res or 'не в play' in setup or 'не в play' in check:
         print(':: не прогнан — редактор не в play')
         return
-    red = 'КРАСНОЕ' in res or 'КРАСНОЕ' in check
-    print(':: позы %s; осмотр %s' % (
+    red = 'КРАСНОЕ' in res or 'КРАСНОЕ' in check or body_red
+    print(':: позы %s; тело %s; осмотр %s' % (
         'КРАСНОЕ' if 'КРАСНОЕ' in res else 'ок',
+        'КРАСНОЕ' if body_red else 'ок',
         'КРАСНОЕ' if 'КРАСНОЕ' in check else 'ок'))
     if red:
         sys.exit(1)
