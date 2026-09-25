@@ -40,6 +40,7 @@ EXPECT = {
     'homeTowelRail': {'StubB': 'room', 'StubT': 'room', 'BracketL1': 'room', 'StubBFlange': 'wall', 'StubTFlange': 'wall', 'BracketL1Flange': 'wall', 'BracketR6Flange': 'wall'},
     'homeLaundryBasket': {'Lid': 'wall', 'HingeL': 'wall', 'HingeR': 'wall', 'LidKnob': 'room'},
     'homeTvStand': {'NicheBack': 'wall', 'DrawerL': 'room', 'DrawerR': 'room'},
+    'homeBedsideTable': {'Drawer': 'room'},
     'homeTv': {'Bracket': 'wall', 'Screen': 'room'},
     'homeProjector': {'Lens': 'room', 'LensRing': 'room', 'IrWindow': 'room'},
     'homeVacuum': {'WheelL': 'wall', 'WheelR': 'wall', 'Head': 'room', 'NoseBlock': 'room'},

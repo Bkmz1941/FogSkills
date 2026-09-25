@@ -43,6 +43,7 @@ var BFqp = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlag
 var qGc = typeof(Cozy.Grid.GridCursor); var qHud = typeof(Tavern.UI.HudUI); var qCam = typeof(Cozy.Character.CameraFollow);
 System.Action<string, bool, string> Need = (rule, ok, what) => { if (!ok) bad.Append("ЗАЩИТА МЕРТВА, правило " + rule + " не выполняется: " + what + "; "); };
 Need("1", typeof(Cozy.Grid.Interactor).GetMethod("SkipHit", BFqs) != null, "нет Interactor.SkipHit");
+Need("1", qGc.GetMethod("PieceOnRay", BFq) != null, "нет GridCursor.PieceOnRay");
 Need("5", qGc.GetMethod("MountTaken", BFq) != null, "нет GridCursor.MountTaken");
 Need("6", qCam.GetMethod("ClearDistance", BFqs) != null, "нет CameraFollow.ClearDistance");
 Need("6", typeof(Cozy.Grid.Interactor).GetProperty("ExamineHost") != null, "нет Interactor.ExamineHost");
@@ -76,6 +77,7 @@ Need("39", typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", BFqs) != null, "не�
 var cam = UnityEngine.Camera.main;
 var t = typeof(Cozy.Grid.Interactor);
 var skip = t.GetMethod("SkipHit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var pieceOnRay = qGc.GetMethod("PieceOnRay", BFq);
 var hits = new UnityEngine.RaycastHit[24];
 int closed = 0, checkedObjects = 0;
 foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
@@ -90,6 +92,11 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
         if (rend != null && cam != null && skip != null)
         {
             var ray = new UnityEngine.Ray(cam.transform.position, (rend.bounds.center - cam.transform.position).normalized);
+            // Стройка разбирает луч СВОИМ путём (GridCursor.PieceOnRay → NearestVisiblePiece):
+            // 25.09 сквозь закрытую дверцу холодильника выделялись яйца на полке (P569).
+            if (pieceOnRay != null && Cozy.Grid.GridCursor.I != null
+                && ReferenceEquals(pieceOnRay.Invoke(Cozy.Grid.GridCursor.I, new object[] { ray, null }), io))
+                bad.Append("стройка выбирает сквозь закрытую секцию: " + io.Def.id + "; ");
             int n = Cozy.Grid.RayPick.Sorted(ray, 25f, hits);
             for (int i = 0; i < n; i++)
             {
@@ -522,18 +529,37 @@ int wallTops = 0;
         if (wb0.role != Cozy.Grid.GridRole.Wall || wb0.railing || wb0.fence) continue;
         var rw0 = wb0.Rend; if (rw0 == null) continue;
         var bw0 = rw0.bounds; wallTops++;
+        float cs18 = UnityEngine.Mathf.Max(1f, Cozy.View.ViewState.CellSize);
+        if (UnityEngine.Mathf.Min(bw0.size.x, bw0.size.z) > cs18 * 0.5f) continue;
+        // 18b (24.09, P562): стена, у которой плита есть с ОБЕИХ сторон, целиком
+        // под перекрытием — её верх обязан быть НИЖЕ плиты, иначе на полу и на
+        // крыше читается план стен светлыми полосами.
+        float edge0 = UnityEngine.Mathf.Round(bw0.max.y / cs18) * cs18;
+        UnityEngine.Vector3 across0 = (bw0.size.z < bw0.size.x ? UnityEngine.Vector3.forward : UnityEngine.Vector3.right) * (cs18 * 0.5f);
+        UnityEngine.Vector3 pa0 = bw0.center + across0, pb0 = bw0.center - across0;
+        bool buried0 = Cozy.Grid.BuildQuery.HasFloorAt(pa0.x, pa0.z, edge0 + 0.1f, cs18)
+            && Cozy.Grid.BuildQuery.HasFloorAt(pb0.x, pb0.z, edge0 + 0.1f, cs18);
         foreach (var sb0 in blocksAll)
         {
             if (sb0 == wb0 || sb0.role != Cozy.Grid.GridRole.Floor) continue;
             var rs0 = sb0.Rend; if (rs0 == null) continue;
             var bs0 = rs0.bounds;
             float up = bs0.max.y - bw0.max.y;
-            if (up <= 0.0005f || up > 0.05f) continue;
+            if (UnityEngine.Mathf.Abs(up) > 0.05f) continue;
             if (bs0.min.x > bw0.max.x - 0.01f || bs0.max.x < bw0.min.x + 0.01f) continue;
             if (bs0.min.z > bw0.max.z - 0.01f || bs0.max.z < bw0.min.z + 0.01f) continue;
-            bad.Append("плита накрывает верх стены: стена " + bw0.center.ToString("F1")
-                + " верх " + bw0.max.y.ToString("F3") + " ниже плиты " + bs0.max.y.ToString("F3") + "; ");
-            break;
+            if (buried0 && up < 0.0005f)
+            {
+                bad.Append("стена торчит сквозь плиту: стена " + bw0.center.ToString("F1")
+                    + " верх " + bw0.max.y.ToString("F3") + " выше плиты " + bs0.max.y.ToString("F3") + "; ");
+                break;
+            }
+            if (!buried0 && up > 0.0005f)
+            {
+                bad.Append("плита накрывает верх стены: стена " + bw0.center.ToString("F1")
+                    + " верх " + bw0.max.y.ToString("F3") + " ниже плиты " + bs0.max.y.ToString("F3") + "; ");
+                break;
+            }
         }
     }
 }
@@ -1457,7 +1483,96 @@ var ps = wc.transform.localScale;
 if (ps.x > postT - 0.001f || ps.z > postT - 0.001f) bad.Append("столбик угла выступает из стены: " + ps.x.ToString("F3") + "×" + ps.z.ToString("F3") + " при толщине " + postT.ToString("F3") + " @ " + wc.transform.position.ToString("F1") + "; ");
 }
 }
-return " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " :: " + bad.ToString();
+// 45. ПРИ ЗАКРЫТОМ ЭТАЖНОМ ГЕЙТЕ ОБЪЕКТ НЕ РИСУЕТ НИЧЕГО СВОЕГО (P548; инвариант 237):
+//     у объекта с FloorPieceView.Visible == false ни один свой рендерер (OwnedBy,
+//     включая выключенные при постройке узлы, воду, струю, воронку) не активен с
+//     enabled. Шторка ванны (Swap-узел CurtainOpen) торчала с 2 этажа на 1-й.
+int gateHidden = 0, gateLeaks = 0;
+{
+var leakNames = new System.Text.StringBuilder(); int leakObjs = 0;
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+if (io == null) continue;
+var fv = io.GetComponent<Cozy.Grid.FloorPieceView>();
+if (fv == null || fv.Visible) continue;
+gateHidden++;
+bool leaked = false;
+foreach (var r in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
+{
+if (!Cozy.Grid.InteractiveObject.OwnedBy(r, io)) continue;
+if (!r.enabled || !r.gameObject.activeInHierarchy || r.forceRenderingOff) continue;
+gateLeaks++; leaked = true;
+if (leakNames.Length < 300) leakNames.Append(io.Def.id + "/" + r.name + " ");
+}
+if (leaked) leakObjs++;
+}
+if (gateLeaks > 0) bad.Append("рисуется при закрытом этажном гейте: " + gateLeaks + " рендереров у " + leakObjs + " объектов (" + leakNames.ToString().Trim() + "); ");
+}
+// 46. У КУСКА ПЛИНТУСА СТЕНЫ ИЛИ КУБА ЖИВОЙ ВЛАДЕЛЕЦ (P553; инвариант 240): снос
+//     любого блока поднимает _wallsDirty, и плинтус снесённого куба уходит в
+//     пересборке. Куски под проёмами и на лестницах (span) владельца могут не иметь.
+int plinthPieces = 0, plinthOrphans = 0;
+{
+string orphanAt = "";
+foreach (var pp in Cozy.Grid.PlinthPiece.All)
+{
+if (pp == null) continue;
+plinthPieces++;
+if (pp.span || pp.owner != null) continue;
+plinthOrphans++;
+var prr = pp.GetComponent<UnityEngine.Renderer>();
+if (orphanAt == "" && prr != null) orphanAt = prr.bounds.center.ToString("F1");
+}
+if (plinthOrphans > 0) bad.Append("плинтус без носителя: " + plinthOrphans + " кусков (первый @ " + orphanAt + "); ");
+int colorless = 0; var colorlessIds = new System.Text.StringBuilder();
+foreach (var pio in Cozy.Grid.InteractiveObject.All)
+{
+    if (pio == null || pio.Def == null || string.IsNullOrEmpty(pio.Def.primaryMat) || pio.HasPrimaryColor) continue;
+    colorless++;
+    if (colorless <= 6) colorlessIds.Append(pio.Def.id + " ");
+}
+if (colorless > 0) bad.Append("правило 46: объект с primaryMat без слота цвета (кнопки «Основной цвет» нет): " + colorless + " (" + colorlessIds.ToString().Trim() + "); ");
+}
+// 47. НАСТЕННЫЙ НЕ ТОНЕТ В ОБШИВКЕ (P579; инвариант 250): спина объекта с mount Wall
+//     не глубже 5 см от реального выноса досок стены за ним (CladOutFor с пустой
+//     краской = замер по мешам PlankSide). Ловит отделку по умолчанию, которую
+//     FacePaint не видит, и перекраску стены после развески.
+int wallSeated = 0, wallSunk = 0; var sunkIds = new System.Text.StringBuilder();
+{
+var wallCols = new UnityEngine.Collider[64];
+foreach (var wio in Cozy.Grid.InteractiveObject.All)
+{
+    if (wio == null || wio.Def == null || wio.Def.mount != Cozy.Grid.ObjectMount.Wall) continue;
+    var wt = wio.transform; var wback = wt.forward; var wc = wt.position;
+    float backExt = float.MinValue;
+    foreach (var wr in wio.GetComponentsInChildren<UnityEngine.Renderer>())
+    {
+        if (!wr.enabled) continue; var wb = wr.bounds;
+        for (int k = 0; k < 8; k++) { var v = new UnityEngine.Vector3((k & 1) == 0 ? wb.min.x : wb.max.x, (k & 2) == 0 ? wb.min.y : wb.max.y, (k & 4) == 0 ? wb.min.z : wb.max.z); backExt = UnityEngine.Mathf.Max(backExt, UnityEngine.Vector3.Dot(v - wc, wback)); }
+    }
+    if (backExt == float.MinValue) continue;
+    int wn = UnityEngine.Physics.OverlapBoxNonAlloc(wc + wback * (backExt + 0.2f), new UnityEngine.Vector3(0.12f, 0.2f, 0.12f) + new UnityEngine.Vector3(UnityEngine.Mathf.Abs(wback.z), 0f, UnityEngine.Mathf.Abs(wback.x)) * 0.1f, wallCols, UnityEngine.Quaternion.identity, ~0, UnityEngine.QueryTriggerInteraction.Ignore);
+    Cozy.Grid.GridBlock wgb = null; float bodyDist = float.MaxValue;
+    for (int k = 0; k < wn; k++)
+    {
+        var col = wallCols[k]; if (col.transform.IsChildOf(wt)) continue;
+        var g = col.GetComponentInParent<Cozy.Grid.GridBlock>();
+        if (g == null || !Cozy.Grid.BuildQuery.WallLike(col) || Cozy.Grid.BuildQuery.CubeBlock(g)) continue;
+        var cb = col.bounds; float near = float.MaxValue;
+        for (int q = 0; q < 8; q++) { var v = new UnityEngine.Vector3((q & 1) == 0 ? cb.min.x : cb.max.x, (q & 2) == 0 ? cb.min.y : cb.max.y, (q & 4) == 0 ? cb.min.z : cb.max.z); near = UnityEngine.Mathf.Min(near, UnityEngine.Vector3.Dot(v - wc, wback)); }
+        float d = near - backExt;
+        if (d < -0.05f || d >= bodyDist) continue;
+        bodyDist = d; wgb = g;
+    }
+    if (wgb == null) continue;
+    wallSeated++;
+    float planks = Cozy.Grid.PlinthView.CladOutFor(wgb, -wback, "");
+    float sunk = planks - bodyDist;
+    if (sunk > 0.05f) { wallSunk++; if (wallSunk <= 6) sunkIds.Append(wio.Def.id + "@" + wc.ToString("F1") + " на " + (sunk * 100f).ToString("0") + " см; "); }
+}
+}
+if (wallSunk > 0) bad.Append("правило 47: настенный тонет в обшивке: " + wallSunk + " (" + sunkIds + "); ");
+return " настенных у обшивки=" + wallSeated + " кусков плинтуса=" + plinthPieces + " скрытых гейтом=" + gateHidden + " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " :: " + bad.ToString();
 '''
 
 
@@ -1496,6 +1611,7 @@ RULE_OF = {
     'растений на ветру': '24', 'статусы': '27', 'крон': '28', 'низких слотов': '30',
     'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
     'веток': '35', 'источников': '36', 'точек прицела': '37',
+    'настенных у обшивки': '47',
     'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43', 'столбиков угла': '44',
 }
 

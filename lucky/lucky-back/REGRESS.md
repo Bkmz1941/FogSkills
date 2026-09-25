@@ -28,6 +28,63 @@
 
 ---
 
+## 0. Регресс-стенды dev и prod — ВСЕГДА гонять на них (с 2026-09-24)
+
+Решение Ильи 24.09: на деве и проде заведены изолированные стенды, регресс внутренних и внешних запросов
+гоняется **только на них**, живые проекты и провайдер `crash-games` не трогаем. На проде так можно без
+отдельной команды: деньги, комиссия и игроки стенда ни с кем не пересекаются.
+
+| Что | На каждой среде |
+|---|---|
+| проект | `Regress` (slug `regress`), USD, en, свой публичный ключ `pk_…` |
+| админ проекта | `regress-admin-<env>@agg.one` |
+| провайдер | `Regress Provider` (slug `regress-provider`), своя пара ключей, свой кошелёк комиссии; `api_endpoint` пустой — запуск и демо отвечают `unavailable: true` |
+| кабинет провайдера | `regress-provider-<env>@agg.one` |
+| игра | `Regress Game` (`external_id` `regress-game`, crash), одобрена и включена, добавлена в проект |
+| игрок | `regress-player-<env>-<время>@agg.one` (актуальный — в `<env>.env`), USD cash; прогон сам доливает 1000, если меньше 200 |
+| демо | у проекта стенда `demo_mode: true` (ставит bootstrap), прогон проверяет `features.demo_play_enabled` и гостевое `/demo` |
+| комиссия | игра стенда 10%: прогон сам ставит её через кабинет провайдера перед проверкой (все живые игры с 24.09 — 0%) |
+
+**Ключи и пароли** — в `~/.config/lucky-regress/dev.env` и `prod.env` (права 600, вне git): `LUCKY_API`,
+`PROJECT_ID`, `PUBLIC_KEY`, `PROVIDER_ID`, `PROVIDER_PUBLIC_KEY`, `PROVIDER_PRIVATE_KEY`, `GAME_ID`, `PROVIDER_PID`,
+`GAME_PID`, `ADMIN_*`, `PLAYER_*`, `CABINET_*`. В этот файл скила значения не пишем: скилы синкаются в
+git-репо `work-skills`. Скрипты читают файл сами и ничего секретного не печатают.
+
+**Заведены 24.09 на обеих средах** (dev: проект `c92bbb8d-…`, провайдер `54817a3f-…`; prod: проект `2794c183-…`,
+провайдер `0735d2f0-…`). Первые прогоны: dev 19/19, prod 19/19 (денежный регресс 29/29, комиссия 1.00 / 0.60 / нет / нет).
+
+**Служебный рут** — `regress-root@agg.one` на деве и проде, заведён ради bootstrap. Пароль нигде не хранится:
+перед повторным bootstrap ему ставится новый случайный прямо в той же команде (в контейнере API
+`hashPassword` из `/app/dist/modules/auth/passwords.js` + `UPDATE root_admins SET password_hash … WHERE email =
+'regress-root@agg.one'` через `pg`, как 24.09 на деве; на проде контейнер `luckyserver-api-1` на `lucky-prod-legacy`).
+`create-root-admin.js` второй раз не сработает — пользователь уже есть.
+
+**Пересоздать или починить стенд:** `regress-bootstrap.mjs` повторяемый — находит проект, провайдера, админов и игру
+по slug/почте, активирует проект (публичный ключ работает только у `active`, новый проект — `draft`), выпускает
+новый публичный ключ и пару ключей провайдера, меняет пароли админов, регистрирует нового игрока
+`regress-player-<env>-<время>@agg.one` и переписывает `<env>.env`. Вручную Илья может запустить
+`! bash ~/.claude/skills/lucky-back/probes/regress-bootstrap.sh <env>` со своим рутом.
+
+**Прогон (сколько угодно раз):**
+
+    node ~/.claude/skills/lucky-back/probes/regress-run.mjs dev
+    node ~/.claude/skills/lucky-back/probes/regress-run.mjs prod
+
+Что проверяет: health; вход игрока, админа проекта и кабинета провайдера; балансы; обычный запуск и
+гостевое демо (с ключом и без); игровая сессия; `user/info` с `locale`; весь денежный регресс
+`game-provider-regress.mjs`; комиссию на проигрыше по кабинету провайдера (проигрыш 10.00 → 1.00, частичный
+10.00/4.00 → 0.60, выигрыш и отмена → нет записи). Код выхода 1 при любом FAIL.
+
+**Граничные случаи** — `node ~/.claude/skills/lucky-back/probes/regress-edge.mjs dev|prod`: повторы после
+потерянного ответа (bet/win/cancel/rollback ×3, повтор через паузу, другой порядок ключей, тот же `txId` с
+другими полями, 10 параллельных), дубли по смыслу (второй bet/SettleBet по одному `betId`, отмена после выигрыша,
+отмена больше ставки, отмена и выигрыш без ставки), порядок (откат раньше выигрыша, откат закрытой ставки,
+параллельные откат и выигрыш), сессии (только dev: сессия стенда «стареет» `UPDATE game_sessions …` через psql),
+кривые суммы и граница баланса, переигрывание подписи. Строки `[rule?]` проверяют ещё не принятое правило
+(поведение Aviatrix). Первый прогон 24.09 на деве — 22/36; после фикса `d2190c9` — dev 31/36, prod 27/32 (на проде нет
+блока про сессии). Разбор в `SKILL.md`, «Журнал 2026-09-24». Есть и стенд `local` (`regress-bootstrap.mjs local`, API на
+`127.0.0.1:18080`, служебный рут `regress-root-local@agg.one`) — гонять пробы до коммита.
+
 ## 1. Деньги — `game-provider-regress.mjs`
 
 22 проверки. Вход — файл из трёх строк: `public_key` провайдера,
@@ -75,7 +132,9 @@ Casino»), только у него подключён провайдер и д�
 4. **Пополнить** через проект-админа `brobro-admin@luckyserver.pro` (пароль —
    `lucky-infra/storefront/CONTEXT.md`), логин `POST /v1/project/auth/login`:
    `POST /v1/project/finance/users/<clientId>/transactions`
-   `{"direction":"credit","amount":"1000","currency":"USD","balance_code":"cash",…}` → 201.
+   `{"direction":"credit","amount":"1000","currency":"USD","balance_code":"cash","comment":"…"}` → 201.
+   Поле комментария называется **`comment`**, не `note`: с `note` приходит 400 `property note should not exist`,
+   игрок остаётся с нулём, и первая же ставка валит прогон на `insufficient_funds` (наступал 23.09).
    Impersonate рутом не подходит — 403.
 5. **Сессия.** Проще не `launch` (он требует, чтобы провайдер ответил ссылкой), а
    отладочный роут. С 11.09 он носит авторизацию самого запуска:
@@ -154,6 +213,55 @@ from clients c limit 1;
 values ('<PROJECT>', 'regress@local.test');` — без `email` падает `CHK_clients_identity`.
 
 ---
+
+## Кабинет провайдера на деве (с 2026-09-23)
+
+У провайдера `crash-games` на деве заведён аккаунт кабинета `provider@luckyserver.pro`
+(вставлен SQL-ом 23.09, хеш из `dist/modules/auth/passwords.js`; пароль сменить из рутовой
+вкладки Accounts или тем же SQL). Через него: `POST /v1/provider/auth/login`, `GET /v1/provider/overview`,
+`/wallets`, `/wallet-transactions`. Прогон денежного регресса 23.09 прошёл 29/29 и начислил комиссию в
+кошелёк провайдера (10% на Test_RNG) — это и есть живая проверка накопления.
+
+## Прод (прогон 2026-09-23, 29/29) — на живых проектах БОЛЬШЕ НЕ ГОНЯТЬ, только на стенде из раздела 0
+
+**С 23.09 прод — живая площадка с реальными игроками. Денежный регресс на проде запрещён без отдельной
+команды Ильи** (см. `SKILL.md`, «Прод — живая площадка»). Ниже — как это делалось в последний раз, для истории
+и на случай явного указания.
+
+Хост прод-API и БД — `ssh lucky-prod-legacy` (178.105.17.213), контейнер `luckyserver-postgres-1`;
+`lucky-prod` (144.31.40.52) это только статика витрины, базы там нет. Ключи провайдера — на `crash-prod`,
+проект `\App\Models\Project::find(2)` («Lucky server»). Публичный ключ `brobro-casino` берётся тем же SQL,
+что на деве, крашевые игры под `provider_pid=1` (Beer Fest — `1/16`). Проект-админа нет, посев баланса —
+подписанный `win`, и с 23.09 у него есть побочный эффект: **комиссия провайдера списывается в его кошелёк**
+(10% от посева). Сеять по минимуму, регрессу хватает 500 минорных единиц (5.00 USD): минус 0.50 в кошельке
+`crash-games`, ставки регресса возвращают часть обратно. Не сеять тысячи.
+
+## Ручной выкат, когда раннер GitLab не работает (23.09, 24.09)
+
+**API** (один образ на прод и дев, если `dev` == `master` по коду):
+```bash
+cd ~/Documents/Work/Lucky/lucky-api && git checkout master && git pull --ff-only && make build && git checkout dev
+# теги: api-<sha>, api-latest (прод), api-latest-dev (дев); push в Docker Hub отсюда не работает (denied)
+docker save luckyserveragg/luckyserver:api-latest     | gzip -1 | ssh lucky-prod-legacy 'gunzip | docker load'
+ssh lucky-prod-legacy 'cd ~/luckyserver && docker compose up -d'          # migrate → api, проверить (healthy)
+docker save luckyserveragg/luckyserver:api-latest-dev | gzip -1 | ssh lucky-dev 'gunzip | docker load'
+ssh lucky-dev 'cd ~/luckyserver-dev && docker compose up -d'
+```
+Проверка: `docker ps -a | grep -E "(api|migrate)-1"`, `docker logs <migrate>` («Applied N migration(s)»),
+`docker inspect -f '{{.Created}}' <api>`. Образ distroless — код проверять `docker exec … node -e`.
+
+**Админка** — то же, что `.deploy` в `.gitlab-ci.yml`:
+```bash
+npm run build:prod   # для дева: build:dev
+mkdir -p dist-deploy && cp -r dist dist-deploy/dist && cp server.js dist-deploy/server.js
+tar -C dist-deploy -cf - . | ssh lucky-prod-legacy "set -e; A=lucky-admin; rm -rf \$A/app.new \$A/app.old; mkdir -p \$A/app.new; tar -C \$A/app.new -xf -; [ -d \$A/app ] && mv \$A/app \$A/app.old; mv \$A/app.new \$A/app; rm -rf \$A/app.old; XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user restart lucky-admin"
+# дев: хост lucky-dev, A=lucky-admin-dev, юнит lucky-admin-dev. На прод-хосте тоже есть СТАРЫЙ lucky-admin-dev — не трогать.
+```
+Проверка: новый `index-*.js` в `https://admin.luckyserver.pro/`; страницы — ленивые чанки (`PageProjectDetail-*.js`),
+искать строку в них, а не во входном файле.
+
+**Как понять, что новый код уже работает, без доступа к GitLab:** по поведению (например, `win` 0 без ставки →
+`bet_not_found`; bootstrap стенда `demo_play_enabled`), либо время создания контейнера против времени пуша.
 
 ## Грабли
 

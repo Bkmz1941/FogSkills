@@ -10,6 +10,7 @@ REG = SK / 'tavern-regress'
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
 SKILLS_REPO = '/media/ilya/T714/claude-skills'
 MCP_PORT = 8090
+EDITOR_LOG = pathlib.Path.home() / '.config/unity3d/Editor.log'
 
 
 def sh(cmd, cwd=None):
@@ -37,6 +38,20 @@ def mcp_state():
     return f'✅ Unity MCP: connected — play={play.lower()}, compiling={comp.lower()}'
 
 
+def gpu_state():
+    renderer = ''
+    try:
+        for l in EDITOR_LOG.read_text(encoding='utf-8', errors='replace').splitlines():
+            if l.startswith('Renderer:'):
+                renderer = l[len('Renderer:'):].strip()
+    except OSError:
+        return '⚠️ GPU: Editor.log не прочитан'
+    if 'NVIDIA' in renderer.upper():
+        return f'✅ GPU: {renderer}'
+    return (f'❌ GPU: редактор рендерит на «{renderer or "?"}» — драйвер NVIDIA не загружен, кадр и замеры не считаются '
+            '(P568: sudo apt install linux-modules-nvidia-580-open-generic-hwe-24.04 + перезагрузка)')
+
+
 def last_headers(path, n, pattern=r'^## '):
     heads = [l for l in path.read_text(encoding='utf-8').splitlines() if re.match(pattern, l)]
     return heads[-n:]
@@ -45,6 +60,7 @@ def last_headers(path, n, pattern=r'^## '):
 def main():
     print('=== Таверна: старт сессии ===')
     print(mcp_state())
+    print(gpu_state())
     print('blender:', 'запущен' if sh('pgrep -x blender').strip() else 'не запущен')
     print()
     print('--- игра', PROJECT)

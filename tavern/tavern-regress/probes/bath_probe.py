@@ -1,4 +1,4 @@
-"""Ванна в play: состояние шторки/крана/пробки/воды (report), переключить кран (tap), пробку (plug), шторку (curtain). Работает на ванне ТЕКУЩЕГО уровня, ничего не спавнит; после tap/plug вернуть как было."""
+"""Ванна в play: состояние шторки/крана/пробки/воды и этажного гейта — gateHoles (свои рендереры мимо _targets, кроме жидкости) и gateLeak (рисуется при закрытом гейте) (report), переключить кран (tap), пробку (plug), шторку (curtain). Работает на ванне ТЕКУЩЕГО уровня, ничего не спавнит; после tap/plug вернуть как было."""
 import json, subprocess, sys, pathlib
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
@@ -23,6 +23,17 @@ var st = find("WaterStream"); sb.Append(" stream=" + (st != null && st.gameObjec
 var vx = find("DrainVortex"); sb.Append(" vortex=" + (vx != null && vx.gameObject.activeSelf));
 var water = find("Water"); if (water != null) { var r = water.GetComponent<UnityEngine.Renderer>(); sb.Append(" waterRend=" + (r != null && r.enabled) + " waterB=" + (r != null ? r.bounds.min.y.ToString("0.000") + ".." + r.bounds.max.y.ToString("0.000") : "")); }
 sb.Append(" objPos=" + io.transform.position.ToString("F2"));
+var fv = io.GetComponent<Cozy.Grid.FloorPieceView>();
+var tg = fv != null ? (UnityEngine.Renderer[])typeof(Cozy.Grid.FloorPieceView).GetField("_targets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(fv) : null;
+var tset = new System.Collections.Generic.HashSet<UnityEngine.Renderer>(); if (tg != null) foreach (var t in tg) if (t != null) tset.Add(t);
+int holes = 0, leaks = 0; var holeNames = new System.Text.StringBuilder();
+foreach (var r in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
+{
+    if (!Cozy.Grid.InteractiveObject.OwnedBy(r, io)) continue;
+    if (!Cozy.Grid.LiquidVolume.IsLiquid(r) && !tset.Contains(r)) { holes++; holeNames.Append(r.name + " "); }
+    if (fv != null && !fv.Visible && r.enabled && r.gameObject.activeInHierarchy && !r.forceRenderingOff) leaks++;
+}
+sb.Append(" gateVisible=" + (fv != null && fv.Visible) + " gateHoles=" + holes + (holes > 0 ? "[" + holeNames.ToString().Trim() + "]" : "") + " gateLeak=" + leaks);
 return sb.ToString();
 '''
 ACTIONS = {

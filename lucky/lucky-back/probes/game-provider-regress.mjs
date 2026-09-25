@@ -92,7 +92,10 @@ expected -= 100n;
 
 // 13. откат выигрыша списывает выигрыш
 const txWinE = id("tx");
-check("13a. выигрыш 150", await call("win", { session, txId: txWinE, amount: "150", betId: id("bet"), roundId: id("round") }), (r) => r.status === 201 && bal(r) === expected + 150n);
+const betE = id("bet");
+check("13. ставка 100 под выигрыш", await call("bet", { session, txId: id("tx"), amount: "100", betId: betE, roundId: id("round") }), (r) => r.status === 201 && bal(r) === expected - 100n);
+expected -= 100n;
+check("13a. выигрыш 150", await call("win", { session, txId: txWinE, amount: "150", betId: betE, roundId: id("round") }), (r) => r.status === 201 && bal(r) === expected + 150n);
 expected += 150n;
 check("13b. откат выигрыша: минус 150", await call("rollback", { session, txId: txWinE }), (r) => r.status === 201 && r.body?.reversed === true && bal(r) === expected - 150n);
 expected -= 150n;

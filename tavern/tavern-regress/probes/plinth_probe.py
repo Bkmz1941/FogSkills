@@ -34,6 +34,24 @@ python3 plinth_probe.py        замер в play, без побочных эф�
    корпус напольной мебели высотой ≥ 0,10 м, накрывающий щель. Иначе «дыра в
    цоколе»: так маркер респавна за стеной (высота 0,05) вырезал метр цоколя —
    плоское на полу линию рвать не должно (`PlinthView.FlatOnFloor`).
+10. Без устаревших дыр (P559, инвариант 241): щель > 5 см между соседними кусками ОДНОЙ
+   линии плинтуса (любой высоты) обязана объясняться сейчас: дверью, корпусом напольной
+   мебели (≥ 0,10 м) в щели, вырезом обшивки на этой грани, отсутствием опоры
+   (`PlinthView.SupportedAt`), поперечной стеной в щели (Т-стык) или тем, что у
+   несущей стены под щелью флага плинтуса на этой грани нет. Иначе «дыра без причины»: так горшок, стоявший в углу при
+   постановке плинтуса, уехал, а вырез под него остался — перенос мебели пересборку не
+   поднимал.
+11. Опора по отрезкам (P560, инвариант 242): у грани с флагом без единого куска не должно
+   быть точки, где опора есть (`PlinthView.SupportedAt` в точке), а мебели, выреза обшивки
+   и поперечной стены нет. Раньше опора мерилась по центру блока: стена у верха лестницы
+   на 2 этаже оставалась без плинтуса целиком, хотя половина её стояла на проступях.
+12. Без огрызков (P560): кусок стены короче 12 см, центр которого лежит в теле стены
+   (`BuildQuery.BlockAt` роли Wall), — вырожденный: свободный отрезок у Т-стыка оказался
+   короче митры внутреннего угла (вырез под мебель кончился в 9 см от стены), и меш
+   строился с отрицательной длиной. Он же торчал «внутри ванны».
+9. Без сирот (P553, инвариант 240): у куска стены или куба (`span == false`) владелец
+   жив (`PlinthPiece.owner != null`). Снос бетонного блока не поднимал `_wallsDirty`
+   (только стена), и его плинтус оставался лежать буквой Г на полу.
 """
 import json, subprocess, sys
 
@@ -137,7 +155,7 @@ foreach (var kv in byPiece)
 {
     var pc = kv.Key;
     var gb = pc.owner as Cozy.Grid.GridBlock;
-    if (gb == null || pc.span) continue;
+    if (gb == null) continue;
     var sc = gb.transform.localScale;
     int faceA = sc.x < sc.z ? 0 : 2;
     var st = pc.face == faceA ? gb.plinthStyleA : gb.plinthStyleB;
@@ -244,6 +262,128 @@ foreach (var kv in lineOf)
         if (holeWhere == "") holeWhere = "(" + mid.x.ToString("F1") + ", " + mid.z.ToString("F1") + ") " + (g1 - g0).ToString("F2") + " м";
     }
 }
+int stale = 0; string staleWhere = "";
+{
+var lines2 = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Cozy.Grid.PlinthPiece>>();
+foreach (var pc in all)
+{
+    if (pc == null || pc.Rend == null || pc.owner == null || pc.span) continue;
+    var rb = pc.Rend.bounds;
+    bool ax = rb.size.x > rb.size.z;
+    string key = (ax ? "z" + rb.center.z.ToString("F1") : "x" + rb.center.x.ToString("F1")) + "|" + UnityEngine.Mathf.FloorToInt((rb.min.y + 0.12f) / 3f) + "|" + pc.face + "|" + (ax ? "x" : "z");
+    if (!lines2.ContainsKey(key)) lines2[key] = new System.Collections.Generic.List<Cozy.Grid.PlinthPiece>();
+    lines2[key].Add(pc);
+}
+var doorList2 = UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(UnityEngine.FindObjectsSortMode.None);
+foreach (var kv in lines2)
+{
+    bool ax = kv.Key.EndsWith("x");
+    kv.Value.Sort((a, b) => (ax ? a.Rend.bounds.min.x : a.Rend.bounds.min.z).CompareTo(ax ? b.Rend.bounds.min.x : b.Rend.bounds.min.z));
+    for (int i = 1; i < kv.Value.Count; i++)
+    {
+        var pb0 = kv.Value[i - 1].Rend.bounds; var pb1 = kv.Value[i].Rend.bounds;
+        float g0 = ax ? pb0.max.x : pb0.max.z, g1 = ax ? pb1.min.x : pb1.min.z;
+        if (g1 - g0 < 0.05f) continue;
+        var mid = ax ? new UnityEngine.Vector3((g0 + g1) * 0.5f, pb0.center.y, pb0.center.z) : new UnityEngine.Vector3(pb0.center.x, pb0.center.y, (g0 + g1) * 0.5f);
+        bool explained = false;
+        foreach (var dp in doorList2)
+        {
+            if (dp == null) continue;
+            var d = dp.transform.position - mid;
+            if (UnityEngine.Mathf.Abs(d.y) < 1.6f && (ax ? UnityEngine.Mathf.Abs(d.x) : UnityEngine.Mathf.Abs(d.z)) < (g1 - g0) * 0.5f + 0.3f && (ax ? UnityEngine.Mathf.Abs(d.z) : UnityEngine.Mathf.Abs(d.x)) < 0.8f) { explained = true; break; }
+        }
+        var outward = Cozy.Grid.PlinthView.Outward(kv.Value[i].face);
+        if (!explained && !Cozy.Grid.PlinthView.SupportedAt(mid - outward * 0.05f, outward, 3f)) explained = true;
+        if (!explained && Cozy.Grid.BuildQuery.BlockAt(mid + UnityEngine.Vector3.up, new UnityEngine.Vector3(0.05f, 0.5f, 0.05f), Cozy.Grid.GridRole.Wall) != null) explained = true;
+        if (!explained)
+        {
+            var carrier = Cozy.Grid.BuildQuery.BlockAt(mid - outward * 0.25f + UnityEngine.Vector3.up, new UnityEngine.Vector3(0.15f, 0.5f, 0.15f), Cozy.Grid.GridRole.Wall);
+            if (carrier == null || !Cozy.Grid.PlinthView.Has(carrier, kv.Value[i].face, 3f)) explained = true;
+        }
+        if (!explained)
+        {
+            var gapBox = new UnityEngine.Bounds(mid, ax ? new UnityEngine.Vector3(g1 - g0, 0.5f, 0.8f) : new UnityEngine.Vector3(0.8f, 0.5f, g1 - g0));
+            foreach (var io in Cozy.Grid.InteractiveObject.All)
+            {
+                if (io == null || io.Def == null || io.Def.mount != Cozy.Grid.ObjectMount.Floor || io.Def.id.StartsWith("veg_")) continue;
+                var ib = io.WorldBounds;
+                if (ib.size.y < 0.1f || !ib.Intersects(gapBox)) continue;
+                explained = true; break;
+            }
+        }
+        if (!explained)
+        {
+            float plane = ax ? pb0.center.z : pb0.center.x;
+            foreach (var cut in Cozy.Grid.PlankRelief.Cuts)
+            {
+                if (cut.thinX == ax || UnityEngine.Mathf.Abs(cut.plane - plane) > 0.3f) continue;
+                if (cut.y0 > pb0.max.y || cut.y1 < pb0.min.y) continue;
+                if (UnityEngine.Mathf.Max(cut.a0, g0) < UnityEngine.Mathf.Min(cut.a1, g1)) { explained = true; break; }
+            }
+        }
+        if (explained) continue;
+        stale++;
+        if (staleWhere == "") staleWhere = "(" + mid.x.ToString("F1") + ", " + mid.z.ToString("F1") + ") " + (g1 - g0).ToString("F2") + " м";
+    }
+}
+}
+int bareFaces = 0; string bareWhere = ""; int stubs = 0; string stubWhere = "";
+{
+foreach (var gb in Cozy.Grid.GridBlock.All)
+{
+    if (gb == null || gb.role != Cozy.Grid.GridRole.Wall || gb.railing || gb.fence || gb.ceiling || gb.Rend == null || gb.Col == null || gb.Col.isTrigger) continue;
+    if (Cozy.Grid.PlinthView.IsCube(gb, 3f)) continue;
+    var wb = gb.Rend.bounds; bool thinX = wb.size.x < wb.size.z;
+    for (int side = 0; side < 2; side++)
+    {
+        int face = Cozy.Grid.PlinthView.FaceForSide(gb, side == 0);
+        if (!Cozy.Grid.PlinthView.Has(gb, face, 3f)) continue;
+        bool anyPiece = false; foreach (var pc in all) if (pc != null && !pc.span && pc.owner == gb && pc.face == face) { anyPiece = true; break; }
+        if (anyPiece) continue;
+        var outward = Cozy.Grid.PlinthView.Outward(face);
+        bool sidePos = (thinX ? outward.x : outward.z) > 0f;
+        float plane = (thinX ? wb.center.x : wb.center.z) + (sidePos ? 1f : -1f) * (thinX ? wb.size.x : wb.size.z) * 0.5f;
+        float a0 = thinX ? wb.min.z : wb.min.x, a1 = thinX ? wb.max.z : wb.max.x;
+        bool bare = false;
+        for (float sa = a0 + 0.125f; sa < a1 && !bare; sa += 0.25f)
+        {
+            var basePt = thinX ? new UnityEngine.Vector3(plane, wb.min.y, sa) : new UnityEngine.Vector3(sa, wb.min.y, plane);
+            if (!Cozy.Grid.PlinthView.SupportedAt(basePt, outward, 3f)) continue;
+            var samplePt = basePt + outward * 0.06f + UnityEngine.Vector3.up * 0.9f;
+            if (Cozy.Grid.BuildQuery.BlockAt(samplePt, new UnityEngine.Vector3(0.04f, 0.5f, 0.04f), Cozy.Grid.GridRole.Wall) != null) continue;
+            bool blocked = false;
+            foreach (var c in Cozy.Grid.PlankRelief.Cuts)
+            {
+                if (c.thinX != thinX || c.sidePos != sidePos || UnityEngine.Mathf.Abs(c.plane - plane) > 0.2f) continue;
+                if (c.y0 > wb.min.y + 0.14f || c.y1 < wb.min.y + 0.01f) continue;
+                if (sa >= c.a0 - 0.01f && sa <= c.a1 + 0.01f) { blocked = true; break; }
+            }
+            if (!blocked)
+                foreach (var io in Cozy.Grid.InteractiveObject.All)
+                {
+                    if (io == null || io.Def == null || io.Def.mount != Cozy.Grid.ObjectMount.Floor || io.Def.id.StartsWith("veg_")) continue;
+                    var ib = io.WorldBounds; if (ib.size.y < 0.1f) continue;
+                    if (ib.max.y < wb.min.y + 0.02f || ib.min.y > wb.min.y + 0.13f) continue;
+                    float near = thinX ? (sidePos ? ib.min.x : ib.max.x) : (sidePos ? ib.min.z : ib.max.z);
+                    if (UnityEngine.Mathf.Abs(near - plane) > 0.25f) continue;
+                    float e0 = thinX ? ib.min.z : ib.min.x, e1 = thinX ? ib.max.z : ib.max.x;
+                    if (sa >= e0 - 0.03f && sa <= e1 + 0.03f) { blocked = true; break; }
+                }
+            if (!blocked) bare = true;
+        }
+        if (bare) { bareFaces++; if (bareWhere == "") bareWhere = gb.transform.position.ToString("F1") + " грань " + face; }
+    }
+}
+foreach (var pc in all)
+{
+    if (pc == null || pc.span || pc.owner == null || pc.Rend == null) continue;
+    var pb = pc.Rend.bounds;
+    float along = UnityEngine.Mathf.Max(pb.size.x, pb.size.z);
+    if (along > 0.12f) continue;
+    if (Cozy.Grid.BuildQuery.BlockAt(pb.center + UnityEngine.Vector3.up * 0.9f, new UnityEngine.Vector3(0.03f, 0.5f, 0.03f), Cozy.Grid.GridRole.Wall) == null) continue;
+    stubs++; if (stubWhere == "") stubWhere = pb.center.ToString("F1") + " " + along.ToString("F2") + " м";
+}
+}
 var floors = new System.Text.StringBuilder();
 foreach (var kv in perFloor) floors.Append("этаж " + kv.Key + ": " + kv.Value + "; ");
 float minF = float.PositiveInfinity, maxF = float.NegativeInfinity;
@@ -255,6 +395,18 @@ if (gaps > 0) bad.Append("щель за плинтусом " + gaps + " (худ�
 if (steps > 0) bad.Append("ступенька у проёмов " + steps + " (до " + (worstStep * 1000f).ToString("F0") + " мм); ");
 if (cornersStraight > 0) bad.Append("угол цоколя без митры " + cornersStraight + " из " + corners + " (" + cornerWhere + "); ");
 if (holes > 0) bad.Append("дыра в цоколе " + holes + " (" + holeWhere + "); ");
+int orphans = 0; string orphanWhere = "";
+foreach (var op in all)
+{
+    if (op == null || op.span || op.owner != null) continue;
+    orphans++;
+    var orr = op.GetComponent<UnityEngine.Renderer>();
+    if (orphanWhere == "" && orr != null) orphanWhere = orr.bounds.center.ToString("F1");
+}
+if (orphans > 0) bad.Append("сирота без носителя " + orphans + " (" + orphanWhere + "); ");
+if (stale > 0) bad.Append("дыра без причины " + stale + " (" + staleWhere + "); ");
+if (bareFaces > 0) bad.Append("грань с флагом без куска при опоре " + bareFaces + " (" + bareWhere + "); ");
+if (stubs > 0) bad.Append("огрызок внутри стены " + stubs + " (" + stubWhere + "); ");
 string s = "кусков " + all.Count + " (под проёмами " + spans + ", из них в мебели " + spanInFurn + "; на лестницах " + noOwner + "), " + floors.ToString() + "дверей " + doors
     + ", вынос " + minF.ToString("F3") + ".." + maxF.ToString("F3") + " м, углов цоколя " + corners;
 return (bad.Length == 0 ? "плинтус: ок — " : "плинтус: КРАСНОЕ: " + bad + "| ") + s;

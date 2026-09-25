@@ -1,6 +1,6 @@
 """Планарное зеркало в play (инвариант 211, P487): у каждого объекта с mirrorNode — компонент MirrorReflection,
 шейдер Cozy/MirrorGlass на стекле, камера-двойник, и её поза = отражение главной камеры относительно плоскости
-стекла (по ту сторону, зазор ≤ 3 см). Ничего не меняет. Вердикт: MIRROR ok | MIRROR FAIL: …
+стекла (по ту сторону, зазор ≤ 3 см); камера-двойник включена ⇔ стекло в кадре ГЛАВНОЙ камеры (инвариант 248, P573). Ничего не меняет. Вердикт: MIRROR ok | MIRROR FAIL: …
 python3 mirror_probe.py            вердикт по всем зеркалам уровня
 python3 mirror_probe.py --dump     плюс дамп RenderTexture первого зеркала в scratchpad (mirror_rt.png)"""
 import json, os, subprocess, sys, pathlib
@@ -24,7 +24,8 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
     if (r == null) { bad.Append(io.Def.id + ": нет узла стекла; "); continue; }
     if (r.sharedMaterial == null || r.sharedMaterial.shader.name != "Cozy/MirrorGlass") bad.Append(io.Def.id + ": шейдер " + (r.sharedMaterial != null ? r.sharedMaterial.shader.name : "null") + "; ");
     var camT = io.transform.Find("MirrorCamera"); var cam = camT != null ? camT.GetComponent<UnityEngine.Camera>() : null;
-    if (!r.isVisible) { seen.Append(io.Def.id + ": стекло вне кадра, камера " + (cam != null && cam.enabled ? "вкл" : "выкл") + "; "); continue; }
+    bool inView = r.isVisible && UnityEngine.GeometryUtility.TestPlanesAABB(UnityEngine.GeometryUtility.CalculateFrustumPlanes(main), r.bounds);
+    if (!inView) { if (cam != null && cam.enabled) bad.Append(io.Def.id + ": стекло вне кадра главной камеры, а камера-двойник включена (P573); "); else seen.Append(io.Def.id + ": стекло вне кадра, камера выкл; "); continue; }
     if (cam == null || !cam.enabled) { bad.Append(io.Def.id + ": стекло в кадре, а камеры-двойника нет или выключена; "); continue; }
     if (cam.targetTexture == null) bad.Append(io.Def.id + ": нет RenderTexture; ");
     var b = r.bounds; var s = b.size; var axis = s.x <= s.y && s.x <= s.z ? UnityEngine.Vector3.right : (s.y <= s.z ? UnityEngine.Vector3.up : UnityEngine.Vector3.forward);

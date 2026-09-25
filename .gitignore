@@ -6,3 +6,8 @@ _archive-2026-06-20/
 tavern-game/Temp/
 **/__pycache__/
 *.pyc
+
+# Исходники дизайна (десятки МБ) лежат рядом со скилом, но не в истории;
+# в git — нарезка экранов в JPEG
+**/design/*.svg
+tavern/tavern-regress/probes/.move_frames/

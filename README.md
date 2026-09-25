@@ -20,6 +20,7 @@ claude-skills/
     unity-shadergraph-node/ unity-audio-mixers/ unity-audio-optimize/
     unity-physics-3d/ unity-packages/ unity-navmesh/
   crash-heroes/    crash-games/      инфраструктура краш-игр
+                   game-engine-rng/  новый движок под новую игру (Node 24 + TypeScript)
   lucky/           Lucky Server (white-label casino SaaS)
     lucky-infra/       серверы, деплой и CI
     lucky-back/        бэкенд: код API, модули, схема, деньги
@@ -75,6 +76,7 @@ for s in unity-ugui unity-tmp unity-urp-post unity-urp-rendergraph unity-shaderg
   ln -sfn $R/unity/$s ~/.claude/skills/$s
 done
 ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
+ln -sfn $R/crash-heroes/game-engine-rng ~/.claude/skills/game-engine-rng
 ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
 ln -sfn $R/lucky/lucky-back           ~/.claude/skills/lucky-back
 ln -sfn $R/olimp/olimp-api            ~/.claude/skills/olimp-api

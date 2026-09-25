@@ -146,6 +146,7 @@ def main():
         probe('level_roundtrip.py')
         probe('posture_probe.py')
         probe('tilt_probe.py')
+        probe('paint_strip_probe.py')
         probe('gc_probe.py', 'check')
     else:
         print('живые пробы: пропущены — нужен play')

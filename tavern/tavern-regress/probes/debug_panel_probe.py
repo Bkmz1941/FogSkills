@@ -26,7 +26,7 @@ OUT = pathlib.Path.home() / '.cache/tavern-probes'
 # Запасной список — на случай, если игра не ответила. Живой список проба берёт
 # из самой игры (`HudUI.DebugTabs`): зашитый уже отставал на три вкладки
 # (zones, sudden, ranged — ночь 17→18.09), и их правки шли мимо отпечатка.
-FALLBACK_TABS = ['general', 'view', 'zones', 'seethrough', 'weather', 'player', 'character', 'objects', 'effects', 'sudden', 'ranged', 'monsters', 'census', 'system', 'ui']
+FALLBACK_TABS = ['general', 'view', 'zones', 'light', 'map', 'seethrough', 'weather', 'player', 'character', 'hud', 'objects', 'inventory', 'recipes', 'effects', 'sudden', 'ranged', 'events', 'monsters', 'census', 'system', 'ui']
 
 TABS_CODE = r'''
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();

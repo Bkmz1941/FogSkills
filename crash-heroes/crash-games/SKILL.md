@@ -1,6 +1,6 @@
 ---
 name: crash-games
-description: «Crash Heroes» — краш-игры: серверы 78.141.216.99 (прод) и 167.233.24.119 (дев), *.crash-heroes.com, Laravel Octane + движки на pm2, MySQL. Четыре репо в ~/Documents/Work/CrashGames — crash-heroes-backend-api-core (Laravel API), crash-heroes-backend-game-engine (Node-движки + calc/slot на Python), admin-panel (React-админка), catalog-app (Framework7/Vue лобби = демо-сайт и мобилка); карта каждого внутри. Активируй ВСЕГДА при работе с любым из них и с seamless-интеграцией Lucky↔краши. ОБЯЗАТЕЛЬНО по «проверь игры» (= прогнать smoke.sh на обоих серверах). Также «что с апи крашей», «раунды встали», «ничего не сломали?», «демо-сайт», «каталог игр».
+description: «Crash Heroes» — краш-игры: серверы 78.141.216.99 (прод) и 167.233.24.119 (дев), *.crash-heroes.com, Laravel Octane + движки на pm2, MySQL. Четыре репо в ~/Documents/Work/CrashGames — crash-heroes-backend-api-core (Laravel API), crash-heroes-backend-game-engine (Node-движки + calc/slot на Python), admin-panel (React-админка), catalog-app (Framework7/Vue лобби = демо-сайт и мобилка); карта каждого внутри. Пятый репо — новый движок game-engine-rng — описан в отдельном скиле game-engine-rng. Активируй ВСЕГДА при работе с любым из них и с seamless-интеграцией Lucky↔краши. ОБЯЗАТЕЛЬНО по «проверь игры» (= прогнать smoke.sh на обоих серверах). Также «что с апи крашей», «раунды встали», «ничего не сломали?», «демо-сайт», «каталог игр».
 ---
 
 # Crash Heroes — инфраструктура и бэкенд
@@ -22,8 +22,19 @@ description: «Crash Heroes» — краш-игры: серверы 78.141.216.9
 `crash-prod`/`crash-dev` и сводка доступов — репо `git@github.com:Bkmz1941/work-skills.git`
 (локально `~/Documents/Work/work-skills/`, `access/ACCESS.md`; на новой машине —
 `./install.sh`). Этот скилл там — копия: после правок запускать `sync.sh`.
-**2026-09-14: клона `work-skills` на этой машине нет** — `sync.sh` не запустить,
-синхронизировать копию при следующей возможности.
+**Клона `work-skills` на этой машине нет** (проверено 14.09 и 18.09) — `sync.sh`
+не запустить, синхронизировать копию при следующей возможности.
+
+Движки крашей наружу — через **`server.`**: на dev файл
+`/etc/nginx/conf.d/dev.server.crashgames.app.conf` (`server_name
+dev.server.crashgames.app dev.server.crash-heroes.com`), по `location /<GAME_ID>` →
+`127.0.0.1:40<GAME_ID>` с `Upgrade`/`Connection "upgrade"`, `proxy_read_timeout
+86400` (с 18.09 там же `location /<games.uuid>` с `rewrite`, срезающим префикс, →
+`127.0.0.1:3100` — движок «Хоккеиста»: WS на `/<uuid>`, HTTP на `/<uuid>/<путь>`); `location /` отвечает текстом имени; сертификат общий с API
+(`dev.api.crash-heroes.com`, SAN включает `dev.server.crash-heroes.com`); прочитан
+18.09. На проде аналогично `server.crash-heroes.com` → `30<GAME_ID>` (файл не
+перечитывали). **Слоты** наружу не выведены — клиент ходит в API, API в
+`slot_service`.
 
 Домены (конфиги в `/etc/nginx/conf.d/<домен>.conf`, по файлу на домен):
 `api.` (Laravel Octane), `admin.` (статика админки), `games.`, `app.`, `demo.`,
@@ -47,6 +58,9 @@ pm2 живёт под nvm: `source ~/.nvm/nvm.sh` перед любой кома
 
 ## Правила работы
 
+**Комментариев в коде не пишем** (Илья 18.09, повторил и для api-core: «комментарии не
+пишем») — ни docblock, ни `//`; объяснения — в скиле, CHANGELOG, спеке.
+
 **Коммиты — всегда на английском и только заголовок.** Без тела сообщения,
 без объяснений, без списков изменений. Одна строка. Это касается всех
 репозиториев проекта: бэкенда, движков и админки.
@@ -54,6 +68,17 @@ pm2 живёт под nvm: `source ~/.nvm/nvm.sh` перед любой кома
 **Без следов ассистента в коммитах.** Не добавлять трейлер `Co-Authored-By`,
 не писать «generated with Claude Code» и любые другие упоминания ИИ — ни в
 сообщении коммита, ни в описании MR, ни в ченжлоге.
+
+**Тесты `crash-heroes-backend-api-core` на локальной базе НЕ запускать.**
+Feature-тесты на `RefreshDatabase`, отдельной тестовой базы нет (sqlite в
+`phpunit.xml` закомментирован, `.env.testing` нет) → `php artisan test` делает
+`migrate:fresh` на базе из `.env` и стирает все локальные данные. 18.09 так
+снесли локальную `crashgames` (docker `minigames_db`) — восстанавливали
+`migrate:fresh` + сидерами. Перед тестами — спросить Илью; свою правку
+проверять в tinker внутри `DB::beginTransaction()` … `DB::rollBack()`. Всё, что
+стирает или откатывает базу (`migrate:fresh`/`refresh`/`rollback`, `db:wipe`,
+`db:seed` на живой базе — `DefaultGameTypesSeeder` сбрасывает настройки типов),
+— только по прямой команде Ильи.
 
 ## Каталоги и репозитории
 
@@ -96,13 +121,27 @@ pm2 живёт под nvm: `source ~/.nvm/nvm.sh` перед любой кома
 | Бэкенд API (Laravel) | `crash-heroes-backend-api-core` | `crash-heroes/backend/crash-heroes-backend-api-core` | **`develop`** → `main` | да, rsync + migrate + octane:reload |
 | Движки игр | `crash-heroes-backend-game-engine` | `crash-heroes/backend/…-game-engine` | `develop` → `main` | да, перезапуск только изменившегося |
 | **Админка (фронт)** | **`admin-panel`** | **`crash-heroes/frontend/admin-panel`** | **`dev`** → `main` | да, статика rsync |
-| Каталог / демо / мобилка | `catalog-app` | `crash-heroes/frontend/catalog-app` | `dev` → `main` (заморожен с 06.2026) | **нет**, `www/` копируется руками |
+| Каталог / демо / мобилка | `catalog-app` | `crash-heroes/frontend/catalog-app` | `dev` → `main` (`dev` мёртв с 01.2026, Titov коммитит прямо в `main`) | **нет**, `www/` копируется руками |
+| **Новый движок под новую игру** | `game-engine-rng` — **свой скил `game-engine-rng`** | `crash-heroes/backend/game-engine-rng` | пока только `main` | **нет** |
 
 > Ветки называются по-разному: у бэкенда `develop`, у админки и каталога `dev`.
 > Пуш в `main` любого из трёх репо с CI = **автоматический релиз на прод**, без
-> ручного гейта. На 2026-09-14 у всех трёх `main == develop/dev` (нечего катить),
-> локальные чекауты стоят на `main`; локальный `develop` бэкенда отстаёт от
-> `origin/develop` на 8 коммитов — просто не подтянут.
+> ручного гейта.
+>
+> **Состояние на 2026-09-18** (после `git fetch`, рабочие деревья чистые):
+> - бэкенд — чекаут `develop` `d47d514`, `origin/main` `25d9a68`: **в `develop`
+>   на 1 коммит больше** (`bet_error`, на прод не катился). Позже 18.09 +`dbeb932`
+>   (RNG-игры), `17c7f17`, `e069c39`, **`55b3018`** (RNG-сессия на `/game/url` + таблицы
+>   `game_rng_*`, запушен по команде Ильи, **на dev выкачен CI**) и 21.09 +`b523841`
+>   (снята сверка `game_uuid` в health rng-движка, **на dev выкачен CI**) — `develop`
+>   впереди `main` на 6, на прод не катилось;
+> - движки — чекаут `develop` `b5b1a6b`, `origin/main` `142f570`: **то же, +1**;
+> - админка — чекаут `main` `5e3720e`, `origin/dev` `cec6d3d` целиком влит. Позже 18.09
+>   чекаут `dev`, +`c51f81b` (раздел RNG-игр) — `dev` впереди `main` на 1;
+> - каталог — чекаут `main` `98f5ea0`, **разошёлся с `origin/main`**: 1 локальный
+>   незапушенный (`console.log`) и 2 чужих впереди (`b2fe7e3`, `cdccb4c`
+>   «fix(): fix cards», Titov, 02.09). Перед любой работой — `pull --rebase`.
+>   «Заморожен с 06.2026» больше неверно.
 
 Подробная карта каждого репозитория — следующий раздел.
 
@@ -220,8 +259,9 @@ Jobs: только `PartnerOperationRetryJob` (очередь `integration`). К
 **Тесты и локалка.** `tests/`: `Feature/MerchantAccessLayerTest` (4),
 `Feature/PartnerRollbackTest` (6, `Http::fake`), два Example. Все feature —
 `RefreshDatabase`, sqlite в `phpunit.xml` закомментирован → **тесты делают
-`migrate:fresh` на MySQL из `.env`** (`DB_DATABASE=laravel`); без базы всё
-красное. Docker только для локалки, два несовместимых варианта
+`migrate:fresh` на MySQL из `.env`** (`DB_DATABASE=crashgames`, docker
+`minigames_db`) и **стирают локальные данные** — см. «Правила работы»; без
+базы всё красное. Docker только для локалки, два несовместимых варианта
 (`docker-compose.yaml` — php-fpm + nginx + Dragonfly; `docker-compose.dev.yml`
 — frankenphp + redis), оба не про Octane. Сидеры: админ `crashgames`, «Банк»,
 типы, 15 игр, валюты (GEM_DEMO, GEM, XTR, RUB, KZT — **USD нет**, см. журнал
@@ -445,7 +485,9 @@ no-op до первого `useAccessToken`; два табличных движк
 **`<iframe>` внутри f7-popup** по `game.link` из API. **WebSocket каталог не
 открывает** — его открывает сборка игры внутри iframe. Сгенерирован
 framework7-cli (`framework7.json`, template `tabs`). 132 коммита с 08.2024
-(Ilya Titov, Valery Shcherbinin), последний — 2026-06-09; **заморожен**. CI нет.
+(Ilya Titov, Valery Shcherbinin). На ревизии 14.09 считался замороженным с
+2026-06-09, но `fetch` 18.09 принёс в `origin/main` два коммита Титова от
+02.09 («fix(): fix cards») — **репо живой, перед работой подтягивать**. CI нет.
 
 **Два таргета** (`src/targets/origin/` и `src/targets/demo/`, каждый — корень
 Vite со своим `index.html`, `core/app.ts`, `core/routes.ts`, `.env`,
@@ -505,6 +547,17 @@ iOS `MARKETING_VERSION 1.0.2` build 3, только портрет; Android
 `index.html` обоих таргетов ссылается на `/src/targets/origin/manifest.json`
 (dev-путь); `alert(e)` в отладке; UI по-русски без i18n; незакоммиченный
 `console.log(url)` в `demo/.../PopupGameController.ts:67`.
+
+## Новый движок — `game-engine-rng` (старт 2026-09-18)
+
+Движок под новую игру — **отдельный репо и отдельный скил `game-engine-rng`**
+(`~/Documents/Work/CrashGames/game-engine-rng`, remote
+`crash-heroes/backend/game-engine-rng`). Стек, архитектура, команды, открытые
+вопросы, точки стыковки с этой системой и список «чего не повторять из старого
+движка» — всё там. Здесь остаётся только то, что касается серверов и остальных
+четырёх репо; когда новому движку понадобится строка в `games`, серверный
+эндпоинт Laravel, порт/nginx или место в `smoke.sh` — правки этой стороны
+записывать сюда.
 
 ## Как работают игры
 
@@ -735,7 +788,40 @@ units**, `MoneyHelper::toMinorUnits`), `session` (= `launch_token` партнё�
 `HMAC-SHA256(secret, "METHOD\n/path\n{}\n<ksort-json тела>")` — метод и путь
 входят в подпись, перехваченное тело нельзя переиграть на другой эндпоинт.
 **Входящие** `/api/external/*` по-прежнему проверяются по одному телу
-(`AuthProjectSignMiddleware`, `ProjectSignHelper::sign`). `~/sign-external.sh` на
+(`AuthProjectSignMiddleware`, `ProjectSignHelper::sign`). Причина — так подписывает сама
+Лаки: её вызов провайдера (`game-launch.service.ts:104`) — `hmacSignature(secret,
+canonicalPayload(body))`, только тело; а её **входящие** (`game-provider-signature.guard.ts`
+→ `signedPayload`) — `METHOD\n/path\n{query}\n{body}`. **Грабля 18.09:** скрипт
+подписи из Apidog-коллекции **Lucky** (метод+путь) не подходит к нашему
+`/api/external/game/url` → `Invalid authentication signature`; для нашего API в
+Postman подписывать `canonical(body)`. **Сделано 18.09 (по «2» Ильи), в рабочем
+дереве `develop`, не закоммичено:** `AuthProjectSignMiddleware` принимает **обе**
+схемы — сначала «только тело» (как раньше, Лаки не ломается), затем
+`validateRequestSign`: `ProjectSignHelper::signRequest(method, getPathInfo(), body,
+secret, query())` (у `signRequest` новый необязательный `$query`, исходящие вызовы
+не изменились). Спека `docs/openapi-external.yaml` описывает обе. Проверено на
+локальном API: скрипт из Apidog проходит, «только тело» — 200, неверная подпись и
+подпись от другого пути — 400, query подписывается. Дальше при желании — перевести
+вызов Лаки на метод+путь (принимающая сторона уже готова). Закоммичено и запушено
+`e069c39` «Accept the method and path signature scheme on incoming external
+requests» (18.09, CI → dev); docblock в `validateRequestSign` убран следующей правкой.
+- **`/api/external/game/url` для RNG-игр отдаёт сессию** (18.09, в рабочем дереве,
+  ждёт команды на коммит): `GameLaunchService::findGame` для типа `crash-rng`
+  не требует `link` и `settings.mode`; `IntegrationController::gameUrl` при пустом
+  `link` отвечает `{"session": "sess_…"}` вместо `{"url": …}`; ретрай с тем же
+  `session` отдаёт ту же сессию; краш-игры — как раньше. Спека описывает `session`.
+  Локально проверено: `test_rng` (**id 18 локально, 19 на dev**) → 200 `session`.
+  `GET /api/external/games` RNG-игру без ссылки по-прежнему не показывает.
+  **`game_id` принимает `id` или `uuid`** (Илья: «для rng — uuid, можно или id или
+  uuid»): `findGame` — цифры → `id`, `Str::isUuid` → `games.uuid` (регистр не важен),
+  иначе `sys_name` (совместимость). Спека обновлена. Локально: uuid, UPPER-uuid, id,
+  `sys_name` → 200; чужой uuid → 404; краш-игра по uuid → `url`.
+  **У RNG-сессий нет приставки `sess_`** (Илья: «для rng убираем, старое не ломаем»):
+  `GameLaunchService::launch` для `crash-rng` пишет в `crash_session` голый uuid,
+  у крашей — `sess_…` как раньше. Следствие: **`GameSessionResolver` RNG-сессию не
+  узнает** (он ветвится по `isSessionToken`), `/api/app/*` с ней не работает — и не
+  должен; эндпоинт, по которому движок получает игрока по RNG-сессии, должен искать
+  `game_sessions.crash_session` напрямую, без опоры на приставку. `~/sign-external.sh` на
 dev считает только тело — годится **только для входящих**, для проверки ключей в
 сторону Лаки он больше не подходит.
 
@@ -830,8 +916,9 @@ CLI держит сессию сам, проверка: `apidog whoami`. Есл�
 (`apidog endpoint delete <id> --project 1347186`), иначе партнёр будет видеть
 в доке несуществующий эндпоинт.
 
-Общие правила работы с Apidog — в скиле `agg-api-handling` (AI-ветки,
-`cli-schema validate`, `agentHints`).
+Общие правила работы с Apidog — в скиле `apidog` (порядок записи, модули,
+окружения, прескрипты подписи, WebSocket, чего CLI не умеет). Упоминавшегося
+раньше `agg-api-handling` на этой машине нет.
 
 Спека живёт в репозитории бэкенда: `docs/openapi-external.yaml`, отдаётся по
 `https://dev.api.crash-heroes.com/api/docs/external.yaml` (и та же ссылка без
@@ -1419,6 +1506,173 @@ SQL нет, nginx без 5xx/408, сертификаты до 29.11.2026, fail2b
 - Прод: `~/resync.sh` с паролями открытым текстом; `minigames-admin-front.old`
   от 17.08 можно удалить.
 
+## Журнал: 2026-09-18 — сверка репо, старт нового движка
+
+Сессия без правок кода. `git fetch` по всем четырём репо, сверка md5 с
+серверами, правка скила.
+
+- **`bet_error` закоммичен и запушен ещё 14.09** (бэк `d47d514`, движок
+  `b5b1a6b`, оба в `develop`) — скил ошибочно держал его «в рабочем дереве».
+  На dev раскатан (md5 совпали), **на проде нет**; порядок релиза — в TODO.
+- **`catalog-app` не заморожен:** в `origin/main` два коммита Титова от 02.09,
+  которых 14.09 не было видно (не делали `fetch`). Локальный `main` разошёлся:
+  1 свой незапушенный / 2 чужих.
+
+  > Вывод: ревизию репозитория начинать с `git fetch`. Вывод «заморожен» был
+  > сделан по локальной копии `origin/*` трёхмесячной давности.
+- Клона `work-skills` на машине по-прежнему нет — копия скила не синхронизирована.
+- Чтение `/etc/nginx/conf.d/` на dev по ssh **заблокировал классификатор**
+  auto-режима («Production Reads»), хотя md5-сверка файлов на обоих серверах
+  прошла. Если nginx-конфиги понадобятся — Илья запускает команду сам через
+  `! ssh …` или добавляет правило в permissions.
+- **Илья завёл новый проект — движок под новую игру**, репо
+  `game-engine-rng`. В тот же день написано стартовое ядро (Node 24 +
+  TypeScript без сборки, `ws`, Docker, слои `domain/services/web/resources`).
+  По просьбе Ильи описание вынесено **в отдельный скил `game-engine-rng`**;
+  точки стыковки и «чего не повторять» переехали туда же.
+- **`games.uuid` в api-core — в работе, НЕ закоммичено** (рабочее дерево
+  `develop`, 18.09). Новый движок `game-engine-rng` указывает свою игру по
+  `games.uuid`, а не по `id` (решение Ильи). Что лежит:
+  - миграция `2026_09_18_100001_add_uuid_to_games_table`: колонка `uuid` nullable
+    после `id` → заполнение существующих строк `Str::orderedUuid()` → `NOT NULL`
+    + уникальный индекс `games_uuid_unique`; `down` снимает индекс и колонку;
+  - `Game`: `use HasUuids` + `uniqueIds(): ['uuid']` (первичный ключ остаётся
+    числовым `id`), `@property string $uuid`, `whereUuid`;
+  - `DefaultGameTypesSeeder`: третий тип `Crash RNG` / `crash-rng`;
+  - новый `DefaultGamesRngSeeder` (подключён в `DatabaseSeeder`): игра «Test RNG»,
+    `sys_name` `test_rng`, `link` пустой, `settings` пустые. Uuid сидер **не
+    фиксирует** — на каждой базе свой;
+  - заодно снова изменён tracked `storage/logs/laravel.log` (грабли №5 карты).
+  Движок заведён на uuid `a2c68a94-4ea3-4086-9364-b1bb7dde9548`.
+  **Учесть до выката:** админка выбирает форму настроек по `typeId === '1'`,
+  иначе `SlotsForm` — у типа `crash-rng` (id 3) будет форма слотов; а
+  `settings` у игры пустые, тогда как `Game::checkSettingsValid()` требует
+  `settings.mode`.
+- **Закоммичено и запушено в dev (18.09, по команде Ильи):** api-core `dbeb932`
+  «Add RNG games with a uuid, an engine URL and an admin health check» в
+  `develop` (uuid + `engine_url` у `games`, тип `crash-rng`, сидер `test_rng`,
+  `RngEngineHealthService`, маршруты `GET /v2/admin/rng/games`, `PATCH …/{uuid}`,
+  `GET …/{uuid}/health`, только superadmin); admin-panel `c51f81b` «Add the RNG
+  games section with the engine URL and its health status» в `dev` (раздел
+  «RNG-игры» `/rng/games`, виден при выбранном типе `crash-rng`). Работу писали
+  параллельные сессии; перед коммитом — `php -l` + `route:list` в контейнере,
+  у админки `tsc -b` + `eslint` + `prettier` + `build:dev`; поймана и убрана одна
+  ошибка (неиспользуемый импорт `FormDescription`). **Не закоммичены намеренно:**
+  `storage/logs/laravel.log` и `.env.local` админки (`localhost:8000`).
+  **CI раскатил на dev в 13:37**: миграции `2026_09_18_*` — batch 20, маршрут
+  отвечает 401 без токена, статика админки обновлена. `main` не трогали.
+- **Грабля: `DefaultGameTypesSeeder` НЕ запускать на dev/проде.** Он для
+  каждого типа делает `firstOrCreate` **и `resetSettings()`** — у `crash-games`
+  это перезапишет `algorithm` (expectation −0.04, просадки 20/40, кф 1.2/8) и
+  `demo_mode`. CI сидеры не гоняет, поэтому на dev **типа `crash-rng` и игры
+  `test_rng` нет**. Заводить точечно: тип — `GameType::firstOrCreate(['sys_name'
+  => 'crash-rng'], ['name' => 'Crash RNG', 'settings' => []])` в tinker, затем
+  `php artisan db:seed --class=DefaultGamesRngSeeder --force` (он
+  `updateOrCreate` по `sys_name`). **На dev сделано 18.09 (Илья, по инструкции):**
+  тип `crash-rng` и игра `test_rng` есть, uuid игры на dev —
+  `a2c69d5c-074d-4574-9262-58fce37fba72`.
+- **На dev-сервере есть Docker** (26.1.5 Debian, Compose 2.26.1) — строки выше
+  «серверы без Docker» для dev неверны; `admin` не в группе `docker`. Движок
+  `game-engine-rng` там **развёрнут 18.09**: образ `arcanegaming/crash-engine-rng:0.1.0`
+  из Docker Hub, контейнер `crash-engine-rng-1` на `127.0.0.1:3100`, `admin` теперь
+  в группе `docker`. Runbook деплоя — скил `game-engine-rng`, раздел «Деплой».
+- **Архитектура «Хоккеиста» — WS как у крашей, путь = `games.uuid`** (итог 18.09):
+  клиент → `wss://dev.server.crash-heroes.com/<uuid>` → движок `127.0.0.1:3100`;
+  в `dev.server.crashgames.app.conf` добавлен `location /a2c69d5c-…` (бэкап
+  `~/deploy-backups/dev.server.crashgames.app.conf.20260918-140808`). Промежуточные
+  варианты в тот же день откачены: поддомен `dev.rng` (nginx удалён), «через API,
+  как слоты».
+
+### API под новую игру (`crash-rng`), 18.09 — закоммичено (`dbeb932`, `17c7f17`, `55b3018`), на dev
+
+Всё только для типа `crash-rng`, старые игры не тронуты.
+- Тип `crash-rng` в `DefaultGameTypesSeeder` (`GameType::CRASH_RNG`), настройки
+  пустые → в админке у типа нет страниц. Сидер `DefaultGamesRngSeeder` — одна
+  «Test RNG» (`test_rng`, `link ""`, `settings []`), в партнёрский `getGames`
+  не попадает (`checkSettingsValid` = false).
+- `games.uuid` (после `id`, unique, `HasUuids` с `uniqueIds() = ['uuid']` —
+  `id` остаётся ключом) — его получает движок. `games.engine_url` (nullable).
+- Админка, только суперадмин: `GET /api/v2/admin/rng/games` — список rng-игр;
+  `GET /api/v2/admin/rng/games/{uuid}/health` → `{uuid, alive, reason,
+  http_status, latency_ms, uptime, checked_at}`, `reason`: `not_configured` /
+  `unreachable` / `http_error` / `bad_response` (`game_uuid_mismatch` был убран
+  21.09 вместе со сверкой uuid — `b523841`; в админке остался мёртвый ярлык
+  `RngGameHealthCell.tsx`). Живой = `200` + `{status:'ok', uptime:<int>}`.
+  Не rng или нет такого uuid → 404 «Game not found.». Контракт `/health` — в
+  скиле `game-engine-rng`, пункт 9 точек стыковки.
+  `PATCH /api/v2/admin/rng/games/{uuid}` — частичный `{name, sys_name,
+  engine_url}` (`sys_name` `[a-z0-9_]`, unique; `engine_url` http(s) или null;
+  422 — `{data:null, error}` с русскими именами полей). Выборка rng-игр —
+  scope `Game::crashRng()`. Раздел в админке делает сессия `admin-panel`.
+- `RngEngineHealthService` ходит в движок из процесса API: на серверах
+  `engine_url` — `http://127.0.0.1:<порт>`; локально API в docker, и
+  `127.0.0.1` там — сам контейнер.
+- **Решение Ильи 18.09: rng-игры пишут в таблицы крашей** (`game_crash_rounds`,
+  `game_crash_bets`, транзакции) — `GameType::getRelations()` для `crash-rng`
+  отдаёт то же, что для `crash-games`. Проекты и валюты в rng-меню — общие.
+  Отбор «только rng» включается `typeId` = id `crash-rng`
+  (`GameType::isCrashRng()`), для других типов код прежний: `v2/admin/rounds`
+  и `admin/games/{g}/rounds` (раньше только `typeId 1`), `v2/admin/players`
+  (inner join на ставки rng-игр), `v2/admin/players/{id}` (раньше всегда тип 1),
+  `…/{id}/bets`, `admin/wallets/transactions` (по `meta.bet_id` и кошельку
+  игры) и `…/external` (по `game_session_id` → `game_sessions.game_id`).
+  **Грабля на будущее:** старое меню (тип 1) эти таблицы по типу не фильтрует
+  в игроках, карточке, ставках игрока и транзакциях — как только появятся
+  rng-ставки, они попадут и туда. Раунды и агрегат фильтруют по
+  `games.type_id`, там чисто. Чинить — отдельной правкой старых путей.
+
+## Журнал: 2026-09-18 (вечер) — раунды «Хоккеиста» и выкатка на dev
+
+Сессия `crashgames-98`, по командам Ильи. Подробно про движок — скил `game-engine-rng`,
+раздел «Раунд и шаги».
+
+- **api-core `55b3018`** «Hand out RNG game sessions on game url and add the RNG round
+  tables» (`develop`, запушен, CI выкатил на dev ~17:44 UTC): для `crash-rng` без ссылки
+  `/external/game/url` отдаёт `{session: <uuid>}` (без `sess_`), `game_id` = id | uuid |
+  sys_name; миграция `2026_09_18_100003_create_game_rng_rounds_table` — `game_rng_rounds`
+  (раунд игрока: ставка → выкуп/проигрыш) и `game_rng_steps` (броски: кости, `roll_id`,
+  событие dicestream). Применена на dev (проход 21).
+- **Движок 0.1.1 на dev**: раунды, кости из dicestream (`ws://127.0.0.1:18080`), событие
+  `result` через 3–4 с, сеть хоста, `DB_*` — юзер api-core. `smoke.sh` dev после выкатки —
+  зелёный (13 игр, pm2 16/16).
+- **Расхождение, не решено:** выше записано «решение Ильи 18.09: rng-игры пишут в таблицы
+  крашей» (`game_crash_rounds`/`game_crash_bets`, под это сделана админка `17c7f17`), а
+  движок пишет в **отдельные** `game_rng_rounds`/`game_rng_steps` (сессия `crashgames-98` о
+  решении не знала). Итог: раунды «Хоккеиста» в админке RNG **не видны**. Нужно выбрать:
+  админку читать из `game_rng_*` или движок писать в таблицы крашей (там раунд общий и
+  один коэффициент — модель «раунд → шаги» ложится плохо). Транзакции оператора
+  (`player_external_transactions`) видны в «Внешних» как раньше.
+- Apidog: проект 1381870, модуль «Game engine RNG» — окружения Local/Develop, «Create game
+  session» (прескрипт подписи), сокет «Game socket v1» с протоколом раунда (скил `apidog`).
+
+## Журнал: 2026-09-24 — `win` с 0 на проигрыш (Lucky берёт комиссию с проигрыша)
+
+Lucky перешёл на комиссию провайдера **только с проигрыша**, считает её в момент `win`. Правило контракта (как у
+Aviatrix): **каждая ставка закрывается ровно одним `win`, проигрыш — `win` с `amount` `"0"`**. До этого краши на
+проигрыш не слали ничего.
+
+- **api-core** `f3aaacf` + `eb2184c` (в `develop` и `main`, выкачены CI на dev и прод 24.09):
+  `SeamlessWalletGateway::settleLosses($round)` вызывается в `finish_round` (в `try/catch`, логирует в канал
+  `round`). Находит в `player_external_transactions` партнёрские `bet` этого раунда (`round_uuid` = `round.id`) со
+  статусом `completed`, по которым нет `win`/`cancel`; если локальная ставка (`game_crash_bets`, id = `bet_id`)
+  есть и `win == 0` — пишет строку `win` с `amount 0` через `PartnerWalletService::loss()` (новый `record()` без
+  отправки) и кладёт в очередь `PartnerOperationRetryJob`. `amount` в теле **строкой `'0'`** — числом Lucky
+  отвечал 400 (`eb2184c`). Удалённые (`remove_bets`) и выкупленные «всё сразу» (`store_takes`) ставки пропускает.
+- Проверка в tinker на локальной базе (в транзакции с откатом, `Queue::fake`): проигранная ставка получила
+  `win` 0, выигранная и ставка с `win` в ретраях — нет, повторный проход не дублирует.
+- **Известные дыры, не чинили:** `remove_bets` (отменить все) и `store_takes` (забрать все) **вообще не ходят к
+  партнёру** — деньги у игрока остаются списаны / выигрыш не зачисляется. Плюс `all_bets` в движке задевает
+  ставки всех игроков раунда.
+- **RNG-движок** `game-engine-rng` 0.1.12 (dev, 24.09): `win` с 0 при проигрышном броске и при автозакрытии
+  брошенной игры без выигранных бросков (`GameService.settleLoss`). См. скил `game-engine-rng`.
+- `/api/external/game/url` крашей **требует `session`** → демо-запуск Lucky (`is_demo: true`, без `session`)
+  получит 422. Лишние поля (`is_demo`, `player_id`, `currency`, `lang`) в обычном запуске пропускаются. Демо у
+  крашей — отдельная задача: при `is_demo` не требовать `session`, отдавать ссылку на игру в демо (`GEM_DEMO`).
+- **smoke 24.09:** прод и дев зелёные. Утром на проде падал пункт вебсокетов: сервер резолвил
+  `server.crash-heroes.com` в `200.58.119.215` (`getent hosts`), к вечеру само прошло — кэш резолвера.
+- На деве вручную (по «разрешаю») переотправлены отклонённые `win` 0 по ставкам 692/693 (строки журнала 315/316):
+  выставлен `request.amount = "0"`, статус `awaited`, `PartnerOperationRetryJob::dispatch`.
+
 ## TODO
 
 ### Планы по seamless (следующая сессия)
@@ -1457,9 +1711,10 @@ SQL нет, nginx без 5xx/408, сертификаты до 29.11.2026, fail2b
       выбрать один и убрать второй, иначе снова разъедется.
 - [x] **Прод.** Seamless выкачен 21.08, контракт v2 — 11.09 (см. журналы).
 - [ ] **Прод-джоба CI движка** написана (`.gitlab-ci.yml`, ветка `main`,
-      автомат по пушу), но **ни разу не запускалась** — движок с 18.08 не
-      менялся. Первый прогон — под присмотром: раскатка на прод перезапустит
-      13 игр по одной.
+      автомат по пушу), но **ни разу не запускалась** — `origin/main` движка
+      стоит на `142f570` с 18.08. Первым её запустит релиз `b5b1a6b`
+      (`bet_error`, с 14.09 ждёт в `develop`). Первый прогон — под присмотром:
+      раскатка на прод перезапустит 13 игр по одной.
 - [x] **`25d9a68` запушен и раскатан** (14.09, dev+прод): запуск из Lucky
       работает, `smoke.sh` зелёный. Осталось: `apidog import` спеки в проект
       1347186; позже, когда Lucky точно не шлёт `sessionToken`, убрать запасное
@@ -1505,14 +1760,24 @@ SQL нет, nginx без 5xx/408, сертификаты до 29.11.2026, fail2b
 - [ ] **`catalog-app`**: `console.log(url)` в демо-таргете закоммичен 14.09 по
       просьбе Ильи (`98f5ea0`, не запушен) — при следующем касании убрать;
       решить, нужен ли отдельный `.env` для demo-таргета, вынести keystore из гита.
+      18.09: локальный `main` разошёлся с `origin/main` (1 свой / 2 чужих от
+      02.09) — сначала `pull --rebase`.
 - [ ] **`admin-panel`**: удалить влитые ветки `feature/fix-layout`,
       `feature/update-tables`, `fix/various-fixes`; решить судьбу
       `sandbox/dev-admin2-redesign` и `feature/icon-click-pointer-changes`.
 
 
 - [~] **У движка нет канала для отказа — ставка подтверждается до похода на бэк.**
-      **Сделано 14.09**, лежит **в рабочем дереве** `develop` обоих репо —
-      не закоммичено и не запушено:
+      **Сделано 14.09, закоммичено и запушено в `develop` обоих репо**
+      (бэк `d47d514` «Return the partner bet verdict to the engine on
+      store_bet», движок `b5b1a6b` «Tell the player over the socket when the
+      partner did not confirm a bet»). **На dev раскатано CI** — 18.09 md5
+      `main.mjs` и `SeamlessWalletGateway.php` на crash-dev совпали с
+      `develop`. **На проде нет**: там md5 другие, `main` обоих репо позади на
+      этот один коммит. Релиз = мерж `develop` → `main` в обоих репо; бэк
+      катить **первым** (старый движок ответ `store_bet` просто игнорирует,
+      поэтому промежуточное состояние рабочее), движок вторым — это и будет
+      первый запуск его прод-джобы. Что сделано:
       `SeamlessWalletGateway::bet` теперь возвращает статус
       `accepted` / `declined` / `not_confirmed` вместо `bool`; `store_bet`
       отдаёт его движку в ответе (`data.bet.status`); `RoundService.handleBet`

@@ -52,6 +52,11 @@ Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
   `BodyTemperature.Chill`, `CharacterStats.Touch`. Тот же приём, что у
   Cooking (`FeatureFactories`).
 
+С 2026-09-24 **Cozy.Story** (`Assets/Modules/Story`, ссылки Grid/Character/
+View/Loc/Cooking) — задания: `QuestBook` (данные), `QuestRun` (состояние забега),
+`QuestDirector` (тик). `Tavern.UI` ссылается ради HUD-блока и вкладки дебага.
+Ступени и флаги сюжета — сюда же (скил `tavern-story`).
+
 С 2026-09-13 **Cozy.Combat** (`Assets/Modules/Combat`, ссылки Grid/Character/
 View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад дебага),
 `Encounter` (раннер сцен), `CrowEncounter` (граф сцен), `EncounterData`
@@ -81,7 +86,7 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 | Постановка объекта | `GridCursor.Objects` (пайплайн позы), `GridCursor.ObjectSnap` (магниты и прижимы), `GridCursor.Support` (опора, слоты, пересечения), `GridCursor.PlaceQueries` (лучи к миру), `GridCursor.PlaceGhost` (призрак), `PlaceMath` (чистая арифметика) |
 | Передача продуктов | `GridCursor.Transfer` (TransferOffer: Pour/Serve/Put), `GridCursor.Layout` (раскладки и призраки), `GridCursor.ObjectMove` (перенос в руках), `HudUI.ActionLabel` (подпись) |
 | Вода | `LiquidVolume`, `WaterSource`, `GridCursor.Liquid` |
-| Зеркало | `MirrorReflection` (камера-двойник, матрица отражения, косая проекция), `MirrorGlass.shader` |
+| Зеркало | `MirrorReflection` (камера-двойник, матрица отражения, косая проекция; двойник включён только пока стекло в кадре главной — `GlassInView`, P573), `MirrorGlass.shader` |
 | Сейв/лоад | `LevelIO`, `GridCursor.Levels` |
 | UI | `Game/UI/HudUI.*` (15 партиалов; интерактив — Interact «поток выбора/ховера», InteractCard «содержимое карточки», InteractBadges «бейджи»), `UiFactory.*`, `UiTheme`, экраны `*ScreenUI` |
 | Тесты | `Assets/Tests/EditMode` (сборка `Tavern.Tests.EditMode`) |
@@ -220,6 +225,12 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
   закрывает дорогу собственному содержимому.
 - Продукт доступен только в осмотре ТОГО САМОГО прибора, где лежит, —
   проверка по ПРЯМОМУ хозяину (`NestedBeatsHost`), а не по цепочке.
+- ⭐ Разборов луча ДВА: игровой `Interactor.Raycast` и строительный
+  `GridCursor.NearestVisiblePiece` (через `PieceOnRay`, тоже «вложенный
+  побеждает хозяина»). Любое «это не цель» — закрытая секция
+  (`Targeting.Hidden`), погашенный рендерер, чужой этаж, `noPick` — стоит в
+  ОБОИХ; гейт, добавленный в один, в стройке молча не работает (P569: яйца
+  сквозь закрытую дверцу холодильника, 25.09).
 
 ## Тесты
 

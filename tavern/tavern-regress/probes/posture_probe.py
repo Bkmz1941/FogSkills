@@ -40,6 +40,17 @@
 + 0.6; иначе «КРАСНОЕ: тело вне хозяина» — так ловится клип, собранный не от
 того начала или не тем лицом (диван: тело левитировало перед сиденьем).
 Игрок возвращается на место последним вызовом.
+
+Стадия «место вставания» (инвариант 238, P549): после «Встать» капсула игрока
+не пересекает ни одного твёрдого коллайдера (стены, мебели), а у хозяина со
+СВОИМ клипом (`sitClip`, диван у стены) игрок стоит ПЕРЕД фронтом, а не за
+спинкой, как со стула; иначе «КРАСНОЕ: игрок стоит внутри коллайдера …» /
+«встал не перед фронтом».
+
+Там же, в стадии «тело на хозяине»: в позе руки ПУСТЫ — ни одного включённого
+MeshRenderer под игроком (предмет из хотбара и модель фонаря риг прячет, пока
+`PlayerPosture.Current != null`, инвариант 239); иначе «КРАСНОЕ: в позе виден
+предмет в руке».
 """
 import json, subprocess, sys, time
 
@@ -97,6 +108,18 @@ System.Func<string> gstate = () =>
         + " корень=" + player.transform.position.ToString("0.00")
         + " курс=" + player.transform.eulerAngles.y.ToString("0.0")
         + " контроллер=" + (cc != null && cc.enabled) + " рендереров=" + vis();
+};
+System.Func<string> insideSolid = () =>
+{
+    if (cc == null) return "";
+    float half = UnityEngine.Mathf.Max(0f, cc.height * 0.5f - cc.radius);
+    var c = player.transform.position + cc.center + UnityEngine.Vector3.up * 0.03f;
+    foreach (var col in UnityEngine.Physics.OverlapCapsule(c - UnityEngine.Vector3.up * half, c + UnityEngine.Vector3.up * half, cc.radius, ~0, UnityEngine.QueryTriggerInteraction.Ignore))
+    {
+        if (col.transform.IsChildOf(player.transform)) continue;
+        return col.name + (col.transform.parent != null ? "/" + col.transform.parent.name : "");
+    }
+    return "";
 };
 System.Func<Cozy.Grid.InteractiveObject, UnityEngine.Vector3> awayFromTable = ch =>
 {
@@ -195,6 +218,15 @@ try
             sb.Append("  вышел(" + left + "): " + gstate() + "\n");
             string afterBadges = badges(h);
             sb.Append("  вышел: кнопки=" + btns(f) + " бейджи=" + afterBadges + "\n");
+            if (k == "sit")
+            {
+                string solid = insideSolid();
+                bool ownClip = !string.IsNullOrEmpty(h.Def.sitClip);
+                bool inFront = UnityEngine.Vector3.Dot(player.transform.position - h.transform.position, -h.transform.forward) > 0f;
+                sb.Append("  место: " + (solid == "" ? "свободно" : "внутри " + solid) + (ownClip ? (inFront ? ", перед фронтом" : ", НЕ перед фронтом") : "") + "\n");
+                if (solid != "") bad.Add("после выхода из " + key(h) + " игрок стоит внутри коллайдера " + solid);
+                if (ownClip && !inFront) bad.Add("после выхода из " + key(h) + " игрок встал не перед фронтом хозяина со своим клипом");
+            }
             if (Cozy.Grid.HideFeature.PlayerHidden || Cozy.Grid.SitFeature.PlayerSeated || Cozy.Grid.SleepFeature.PlayerLying)
                 bad.Add("после выхода из " + key(h) + " игрок всё ещё в позе");
             if (cc != null && !cc.enabled) bad.Add("после выхода из " + key(h) + " контроллер выключен");
@@ -348,6 +380,10 @@ else
         + " клип=" + (Cozy.Grid.PlayerPosture.Clip ?? "-")
         + (inXZ && inY ? " :: на хозяине" : " :: КРАСНОЕ: тело вне хозяина");
 }
+int props = 0;
+foreach (var r in player.GetComponentsInChildren<UnityEngine.MeshRenderer>())
+    if (r.enabled && r.gameObject.activeInHierarchy && r.transform != player.transform) props++;
+res += props == 0 ? "; руки пусты" : " :: КРАСНОЕ: в позе виден предмет в руке (" + props + ")";
 pc.Leave();
 return res;
 '''
