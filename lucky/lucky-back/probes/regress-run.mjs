@@ -66,6 +66,8 @@ check("storefront bootstrap says demo play is on", bootstrap.body?.features?.dem
 const demo = await call("POST", `${gameRoute}/demo`, { publicKey: cfg.PUBLIC_KEY });
 check("guest demo without a player token", demo.status === 201 && demo.body?.unavailable === true, String(demo.status));
 check("guest demo refuses without a public key", (await call("POST", `${gameRoute}/demo`)).status === 401);
+const home = await call("GET", "/v1/cms/page?locale=en&time_zone=UTC&path=/", { publicKey: cfg.PUBLIC_KEY });
+check("regress game is not shown on the storefront", home.status === 200 && !JSON.stringify(home.body).includes("Regress Game"), String(home.status));
 
 const sessionRes = await call("POST", `${gameRoute}/sessions`, { token: player, publicKey: cfg.PUBLIC_KEY });
 const session = sessionRes.body?.session;

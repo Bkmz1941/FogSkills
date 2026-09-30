@@ -9,6 +9,10 @@
 предметы, сброшенные тумблеры, забытые уровни жидкости. Запускать в play.
 Нашло 2026-09-01: из 42 объектов доезжало 36-37 (Destroy отложен, привязка
 находила приговорённого хозяина).
+
+Выключатели (2026-09-28, P631, инвариант 286): у каждого сверяются ПОЗИЦИИ
+ламп, на которые он указывает. Имена целей `деф#N` до и после круга совпадали
+и при баге — путались лампы за этими именами.
 """
 import json, subprocess, collections, sys
 
@@ -24,8 +28,17 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
      .Append('|').Append(io.transform.position.ToString("0.0"))
      .Append('|').Append(io.Liquid != null ? io.Liquid.Kind + ":" + io.Liquid.Litres.ToString("0.##") : "-")
      .Append('|').Append(io.HasCount ? io.Count.ToString() : "-")
-     .Append('|').Append(io.ProductState ?? "-")
-     .Append(';');
+     .Append('|').Append(io.ProductState ?? "-");
+    var ws = Cozy.Grid.FeatureHost.Get<Cozy.Grid.WallSwitchFeature>(io);
+    if (ws != null)
+    {
+        var lamps = new System.Collections.Generic.List<string>();
+        foreach (var lamp in Cozy.Grid.InteractiveObject.All)
+            if (lamp != null && lamp.Def != null && ws.Controls(lamp.SystemName)) lamps.Add(lamp.transform.position.ToString("0.0"));
+        lamps.Sort(string.CompareOrdinal);
+        s.Append("|лампы:").Append(ws.On ? "вкл " : "выкл ").Append(string.Join(",", lamps.ToArray()));
+    }
+    s.Append(';');
 }
 return s.ToString();
 '''

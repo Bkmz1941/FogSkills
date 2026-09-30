@@ -329,7 +329,18 @@ cd ~/crashgames/minigames-admin-back && php artisan tinker --execute \
   читается); лог `Dice Stream connected`; админка `RngEngineHealthService` → `alive: true`
   (72 мс); `smoke.sh` dev — зелёный. **Полный раунд на dev не прогоняли:** сессия нужна
   настоящая — запуск из Lucky dev (иначе `/user/info` у Lucky не узнает `launch_token`).
-- **прод 78.141.216.99 — не разворачивали**, Docker там не проверяли.
+- **прод 78.141.216.99 — 0.1.12 с 28.09 ~09:16 UTC.** Docker поставлен 28.09 (`docker.io` 26.1.5 +
+  `docker-compose` из Debian 13, `admin` в группе `docker`); **логина в Docker Hub на проде нет** — образ
+  перенесён `ssh dev 'docker save <img>' | ssh prod 'docker load'` (так и обновлять, либо залогиниться).
+  Игра в прод-базе заведена точечно: тип `crash-rng` (id 3), игра id 19 «Crash Hockey» `crash_hockey`,
+  **uuid тот же, что на dev** (`a2c69d5c-…`), `link https://games.crash-heroes.com/crashhockey` (тестовый UI с
+  dev, `dev.server` заменён на `server`), `engine_url http://127.0.0.1:3100`, `settings []` → **в партнёрский
+  `GET /api/external/games` не попадает** (`checkSettingsValid` требует `settings.mode`). `.env` —
+  `DB_*` из `.env` api-core (`minigames_user`), `DICE_STREAM_URL=wss://dicestream.crash-heroes.com/ws/events`
+  (dicestream — Кости, на 167.233.24.119, не трогаем). nginx: `location /<uuid>` в
+  `server.crash-heroes.com.conf` перед `/17`, бэкап `~/deploy-backups/server.crash-heroes.com.conf.20260928-091632`.
+  Проверено: `healthy`, `Dice Stream connected`, `/health` изнутри и снаружи, `RngEngineHealthService` alive
+  18 мс, WS снаружи `Session not found` + 4401, `smoke.sh` прод зелёный по играм.
 
 ### Грабли деплоя
 

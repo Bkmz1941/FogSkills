@@ -447,6 +447,16 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
         if (rb.max.y > rendTop) rendTop = rb.max.y;
     }
     if (float.IsNegativeInfinity(colTop) || float.IsNegativeInfinity(rendTop)) continue;
+    // Вырез под встроенную мойку: центр тумбы — дыра в столешнице, её закрывает
+    // посаженный на тумбу предмет (28.09, night_build_c: home_sink_cabinet +1.03).
+    bool filled = false;
+    foreach (var guest in Cozy.Grid.InteractiveObject.All)
+    {
+        if (guest == null || guest == io || !Cozy.Grid.InteractiveObject.Same(guest.HostObject, io)) continue;
+        var gb2 = guest.WorldBounds;
+        if (mid.x >= gb2.min.x && mid.x <= gb2.max.x && mid.z >= gb2.min.z && mid.z <= gb2.max.z && gb2.max.y >= colTop - 0.10f) { filled = true; break; }
+    }
+    if (filled) continue;
     surfaces++;
     if (colTop > rendTop + 0.10f)
         bad.Append("коллайдер выше видимой поверхности: " + io.Def.id + " (+"
@@ -1572,7 +1582,49 @@ foreach (var wio in Cozy.Grid.InteractiveObject.All)
 }
 }
 if (wallSunk > 0) bad.Append("правило 47: настенный тонет в обшивке: " + wallSunk + " (" + sunkIds + "); ");
-return " настенных у обшивки=" + wallSeated + " кусков плинтуса=" + plinthPieces + " скрытых гейтом=" + gateHidden + " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " :: " + bad.ToString();
+// 48. НАД СТУПЕНЯМИ МАРША НЕТ ПЛИТЫ НА ВЫСОТЕ ГОЛОВЫ (28.09, night_build_c): марш, чей верх
+//     уходит под перекрытие без дыры, игрок проходит, упираясь головой. Точки — на 25..85 %
+//     длины марша (у самого верха плита по краю дыры законна), запас 1,9 м от ступени до низа плиты.
+int stairsChecked = 0, stairsHead = 0; var headWhere = new System.Text.StringBuilder();
+foreach (var sp in Cozy.Grid.StairPiece.All)
+{
+    if (sp == null || sp.IsGhost || sp.riseCells <= 0) continue;
+    stairsChecked++;
+    var stf = sp.transform; float srun = UnityEngine.Mathf.Max(1, sp.lengthCells) * 3f; float srise = sp.riseCells * 3f;
+    for (float fa = 0.25f; fa <= 0.851f; fa += 0.2f)
+    {
+        var tp = stf.TransformPoint(new UnityEngine.Vector3(0f, srise * fa, -srun * 0.5f + srun * fa));
+        var slab = Cozy.Grid.BuildQuery.BlockAt(new UnityEngine.Vector3(tp.x, tp.y + 1.0f, tp.z), new UnityEngine.Vector3(0.1f, 0.9f, 0.1f), Cozy.Grid.GridRole.Floor);
+        if (slab == null) continue;
+        stairsHead++;
+        if (headWhere.Length < 200) headWhere.Append("(" + tp.x.ToString("F1") + ", " + tp.y.ToString("F1") + ", " + tp.z.ToString("F1") + ") ");
+        break;
+    }
+}
+if (stairsHead > 0) bad.Append("правило 48: над ступенями марша плита на высоте головы: " + stairsHead + " (" + headWhere.ToString().Trim() + "); ");
+int clocksChecked = 0, clocksWrong = 0; var clockIds = new System.Text.StringBuilder();
+foreach (var cio in Cozy.Grid.InteractiveObject.All)
+{
+    if (cio == null || cio.Def == null || !cio.Def.clockFace) continue;
+    UnityEngine.Transform handMin = null, handHour = null;
+    foreach (var ht in cio.GetComponentsInChildren<UnityEngine.Transform>(true)) { if (ht.name == "HandMinute") handMin = ht; else if (ht.name == "HandHour") handHour = ht; }
+    var minRend = handMin != null ? handMin.GetComponentInChildren<UnityEngine.Renderer>() : null;
+    var hourRend = handHour != null ? handHour.GetComponentInChildren<UnityEngine.Renderer>() : null;
+    if (minRend == null || hourRend == null) continue;
+    clocksChecked++;
+    float clockHour = UnityEngine.Mathf.Repeat(Cozy.Grid.Weather.Hour, 24f);
+    var tipMin = cio.transform.InverseTransformDirection(minRend.bounds.center - handMin.position);
+    var tipHour = cio.transform.InverseTransformDirection(hourRend.bounds.center - handHour.position);
+    float shownMin = UnityEngine.Mathf.Atan2(tipMin.x, tipMin.y) * UnityEngine.Mathf.Rad2Deg;
+    float shownHour = UnityEngine.Mathf.Atan2(tipHour.x, tipHour.y) * UnityEngine.Mathf.Rad2Deg;
+    float expectedMin = clockHour * 60f % 60f * 6f;
+    float expectedHour = clockHour % 12f / 12f * 360f;
+    float offMin = UnityEngine.Mathf.Abs(UnityEngine.Mathf.DeltaAngle(shownMin, expectedMin));
+    float offHour = UnityEngine.Mathf.Abs(UnityEngine.Mathf.DeltaAngle(shownHour, expectedHour));
+    if (offMin > 2f || offHour > 2f) { clocksWrong++; if (clocksWrong <= 6) clockIds.Append(cio.Def.id + " мин показ=" + shownMin.ToString("0") + "° ожид=" + expectedMin.ToString("0") + "°, час показ=" + shownHour.ToString("0") + "° ожид=" + expectedHour.ToString("0") + "°; "); }
+}
+if (clocksWrong > 0) bad.Append("правило 48: стрелки часов не по часовой/не по времени: " + clocksWrong + " из " + clocksChecked + " (" + clockIds + "); ");
+return " настенных у обшивки=" + wallSeated + " кусков плинтуса=" + plinthPieces + " скрытых гейтом=" + gateHidden + " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " часов=" + clocksChecked + " :: " + bad.ToString();
 '''
 
 

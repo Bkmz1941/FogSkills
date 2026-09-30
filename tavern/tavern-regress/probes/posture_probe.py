@@ -225,6 +225,14 @@ try
                 bool inFront = UnityEngine.Vector3.Dot(player.transform.position - h.transform.position, -h.transform.forward) > 0f;
                 sb.Append("  место: " + (solid == "" ? "свободно" : "внутри " + solid) + (ownClip ? (inFront ? ", перед фронтом" : ", НЕ перед фронтом") : "") + "\n");
                 if (solid != "") bad.Add("после выхода из " + key(h) + " игрок стоит внутри коллайдера " + solid);
+                var pathFrom = h.transform.position + UnityEngine.Vector3.up * 1f;
+                var pathTo = player.transform.position - UnityEngine.Vector3.up * (cc != null ? (cc.height * 0.5f - cc.center.y) : 0f) + UnityEngine.Vector3.up * 1f;
+                foreach (var ph in UnityEngine.Physics.RaycastAll(pathFrom, (pathTo - pathFrom).normalized, (pathTo - pathFrom).magnitude, ~0, UnityEngine.QueryTriggerInteraction.Ignore))
+                {
+                    if (ph.collider.transform.IsChildOf(h.transform) || ph.collider.transform.IsChildOf(player.transform)) continue;
+                    bad.Add("после выхода из " + key(h) + " игрок встал за преградой " + ph.collider.name + (ph.collider.transform.parent != null ? "/" + ph.collider.transform.parent.name : "") + " (сквозь стену)");
+                    break;
+                }
                 if (ownClip && !inFront) bad.Add("после выхода из " + key(h) + " игрок встал не перед фронтом хозяина со своим клипом");
             }
             if (Cozy.Grid.HideFeature.PlayerHidden || Cozy.Grid.SitFeature.PlayerSeated || Cozy.Grid.SleepFeature.PlayerLying)

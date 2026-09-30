@@ -367,7 +367,9 @@ def fps(args):
             levels.append(a)
         i += 1
     levels = levels or live_levels()
-    if '--no-build' not in args and not build(dev):
+    if '--no-build' not in args:
+        print('СБОРКА ЗАПРЕЩЕНА: Илья 27.09 — «пока в редакторе всегда работаем», сборку он не просил. '
+              'Собирать игру только по его прямой команде; замер кадра — по готовой сборке с --no-build или в редакторе.')
         return 1
     exe = PROJECT / 'Builds' / ('Linux' if dev else 'LinuxProd') / 'Tavern.x86_64'
     kind = 'дев' if dev else 'прод'

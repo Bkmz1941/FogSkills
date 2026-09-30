@@ -20,6 +20,8 @@ python3 plinth_probe.py        замер в play, без побочных эф�
    отбора то же, что у `PlinthView.FreeSpans`, проверяется результат.
 5. Ровно у проёмов: у одной двери куски по обе стороны и подпороговый лежат на
    одной глубине (разброс до 5 мм), иначе на стыке ступенька.
+   Кусок за поперечной стеной у косяка (другая комната: плитка ванной против досок коридора)
+   в сравнение не идёт — ступеньки там глазом нет (27.09, night_build_b).
 6. Вплотную к обшивке (P536): у куска на обшитой грани спинка меша не дальше 3 мм
    от грани носителя — тело плинтуса дотянуто до стены, доски под ним спрятаны
    внутри. Иначе между спинкой и рельефом щель, которую видно сверху.
@@ -38,6 +40,8 @@ python3 plinth_probe.py        замер в play, без побочных эф�
    линии плинтуса (любой высоты) обязана объясняться сейчас: дверью, корпусом напольной
    мебели (≥ 0,10 м) в щели, вырезом обшивки на этой грани, отсутствием опоры
    (`PlinthView.SupportedAt`), поперечной стеной в щели (Т-стык) или тем, что у
+   несущей стены под щелью флага плинтуса на этой грани нет. Дверь объясняет щель и поперёк линии —
+   проём в поперечной стене (центр в пределах своей клетки, до 1,65 м) упирается в линию косяком (27.09, night_build_b).
    несущей стены под щелью флага плинтуса на этой грани нет. Иначе «дыра без причины»: так горшок, стоявший в углу при
    постановке плинтуса, уехал, а вырез под него остался — перенос мебели пересборку не
    поднимал.
@@ -80,7 +84,7 @@ var furn = new System.Collections.Generic.List<UnityEngine.Bounds>();
 foreach (var io in Cozy.Grid.InteractiveObject.All)
 {
     if (io == null || io.Def == null || io.Def.movable) continue;
-    if (io.Def.mount != Cozy.Grid.ObjectMount.Floor) continue;
+    if (io.Def.mount != Cozy.Grid.ObjectMount.Floor || io.Def.id.StartsWith("veg_")) continue;
     furn.Add(io.WorldBounds);
 }
 foreach (var pc in all)
@@ -201,6 +205,8 @@ foreach (var dp in UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(Uni
     doors++;
     for (int f = 0; f < 4; f++)
     {
+        var fo = dirOf(f);
+        if (!dp.SpansX ? UnityEngine.Mathf.Abs(fo.x) < 0.5f : UnityEngine.Mathf.Abs(fo.z) < 0.5f) continue;
         float lo = float.PositiveInfinity, hi = float.NegativeInfinity; int n = 0;
         foreach (var kv in byPiece)
         {
@@ -209,6 +215,16 @@ foreach (var dp in UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(Uni
             var d = pc.transform.position - dp.transform.position;
             if (UnityEngine.Mathf.Abs(d.y) > 0.5f) continue;
             if (new UnityEngine.Vector2(d.x, d.z).magnitude > 2.0f) continue;
+            bool dThinX = !dp.SpansX;
+            float dAlong = dThinX ? d.z : d.x;
+            if (UnityEngine.Mathf.Abs(dAlong) > 1.5f)
+            {
+                var o = dirOf(f);
+                bool sidePos = (dThinX ? o.x : o.z) > 0f;
+                float jamb = (dThinX ? dp.transform.position.z : dp.transform.position.x) + UnityEngine.Mathf.Sign(dAlong) * 1.5f;
+                float dPlane = dThinX ? dp.transform.position.x : dp.transform.position.z;
+                if (Cozy.Grid.BuildQuery.PerpBarrierAt(dThinX, dPlane, dp.transform.position.y + 1.5f, sidePos, jamb, 3f)) continue;
+            }
             n++;
             if (kv.Value < lo) lo = kv.Value;
             if (kv.Value > hi) hi = kv.Value;
@@ -290,7 +306,7 @@ foreach (var kv in lines2)
         {
             if (dp == null) continue;
             var d = dp.transform.position - mid;
-            if (UnityEngine.Mathf.Abs(d.y) < 1.6f && (ax ? UnityEngine.Mathf.Abs(d.x) : UnityEngine.Mathf.Abs(d.z)) < (g1 - g0) * 0.5f + 0.3f && (ax ? UnityEngine.Mathf.Abs(d.z) : UnityEngine.Mathf.Abs(d.x)) < 0.8f) { explained = true; break; }
+            if (UnityEngine.Mathf.Abs(d.y) < 1.6f && (ax ? UnityEngine.Mathf.Abs(d.x) : UnityEngine.Mathf.Abs(d.z)) < (g1 - g0) * 0.5f + 0.3f && (ax ? UnityEngine.Mathf.Abs(d.z) : UnityEngine.Mathf.Abs(d.x)) < 1.65f) { explained = true; break; }
         }
         var outward = Cozy.Grid.PlinthView.Outward(kv.Value[i].face);
         if (!explained && !Cozy.Grid.PlinthView.SupportedAt(mid - outward * 0.05f, outward, 3f)) explained = true;

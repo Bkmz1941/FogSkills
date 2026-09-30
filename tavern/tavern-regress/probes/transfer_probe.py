@@ -17,7 +17,7 @@ python3 transfer_probe.py --run    полный сценарий ДЕЙСТВИ�
 курсор шёл в цель (мышь подменить нельзя, README), дальше `ComputeObjectPose` → `ReleaseMoving`
 → `ReattachToContainer` → `EndHandMove`. Предмет возвращается на своё место в `finally`.
 """
-import json, subprocess, sys, time
+import json, os, subprocess, sys, time
 
 MCP = '/home/ilya/.claude/skills/tavern-game/mcp_call.py'
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
@@ -73,6 +73,7 @@ Cozy.Grid.InteractiveObject best = null; float bestD = float.MaxValue;
 foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
 {
     if (io.Def == null || io.Def.builtIn || io.Container != null) continue;
+    if ("%ONLY%".Length > 0 && io.Def.id != "%ONLY%") continue;
     if (io.Def.mount != Cozy.Grid.ObjectMount.Surface) continue;
     if (!(io.Def.movable || !string.IsNullOrEmpty(io.Def.pickupItemId))) continue;
     if (Cozy.Grid.ContainerSlot.HoldsClosed(io)) continue;
@@ -80,6 +81,9 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
     float feetY = Cozy.Character.PlayerTarget.Feet.y;
     if (io.transform.position.y < feetY - 0.5f || io.transform.position.y > feetY + 2.5f) continue;
     var sizeRends = io.GetComponentsInChildren<UnityEngine.Renderer>(false);
+    bool anyShown = false;
+    foreach (var sr in sizeRends) if (sr.enabled) { anyShown = true; break; }
+    if (!anyShown) continue;
     if (sizeRends.Length > 0)
     {
         var sizeBox = Cozy.Grid.FurnitureModel.Combined(sizeRends);
@@ -92,6 +96,10 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
 }
 if (best == null) return "нет кандидата";
 var p = best.transform.position; var r = best.transform.rotation.eulerAngles;
+var shown = new System.Text.StringBuilder("|");
+foreach (var rd in best.GetComponentsInChildren<UnityEngine.Renderer>(true))
+    if (rd.enabled && rd.gameObject.activeInHierarchy) shown.Append(rd.GetInstanceID()).Append('|');
+System.AppDomain.CurrentDomain.SetData("transfer_probe_shown", shown.ToString());
 gc.BeginHandMove(best);
 var pp = player.transform.position;
 return "взят|" + best.GetInstanceID() + "|" + best.Def.id + "|" + p.x.ToString("R") + "|" + p.y.ToString("R") + "|" + p.z.ToString("R") + "|" + r.y.ToString("R") + "|" + best.name + "|" + pp.x.ToString("R") + "|" + pp.y.ToString("R") + "|" + pp.z.ToString("R");
@@ -128,6 +136,11 @@ return "снесён предмет пробы: " + gone;
 REPICK = PRELUDE + r'''
 if (gc.HandPlacing) return "в руке уже что-то есть — не мешаю";
 var pickAgain = byId(%ID%);
+var shownAgain = new System.Text.StringBuilder("|");
+if (pickAgain != null)
+    foreach (var rd in pickAgain.GetComponentsInChildren<UnityEngine.Renderer>(true))
+        if (rd.enabled && rd.gameObject.activeInHierarchy) shownAgain.Append(rd.GetInstanceID()).Append('|');
+System.AppDomain.CurrentDomain.SetData("transfer_probe_shown", shownAgain.ToString());
 if (pickAgain == null) return "нет кандидата";
 gc.BeginHandMove(pickAgain);
 return "взят|" + pickAgain.GetInstanceID() + "|" + pickAgain.Def.id + "|0|0|0|0|" + pickAgain.name;
@@ -140,10 +153,12 @@ var anchor = mv.GetType().GetProperty("Anchor").GetValue(mv, null) as UnityEngin
 var io = anchor == null ? null : anchor.GetComponentInParent<Cozy.Grid.InteractiveObject>();
 if (io == null) return "КРАСНОЕ: у носимого нет InteractiveObject";
 int total = 0, off = 0, visible = 0, ghostAlpha = 0;
+var wasShown = System.AppDomain.CurrentDomain.GetData("transfer_probe_shown") as string ?? "";
 foreach (var rd in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
 {
     if (rd.GetComponentInParent<Cozy.Grid.InteractiveObject>() != io) continue;
     if (rd.name.StartsWith("Outline")) continue;
+    if (wasShown.Length > 1 && !wasShown.Contains("|" + rd.GetInstanceID() + "|")) continue;
     total++;
     if (!rd.enabled || !rd.gameObject.activeInHierarchy) { off++; continue; }
     if (rd.isVisible) visible++;
@@ -263,9 +278,11 @@ if (gc.Carried(io.transform)) return "КРАСНОЕ: предмет всё ещ
 var rends = io.GetComponentsInChildren<UnityEngine.Renderer>(false);
 var own = new System.Collections.Generic.List<UnityEngine.Renderer>();
 int off = 0, seen = 0;
+var wasShown = System.AppDomain.CurrentDomain.GetData("transfer_probe_shown") as string ?? "";
 foreach (var rd in rends)
 {
     if (rd.GetComponentInParent<Cozy.Grid.InteractiveObject>() != io || rd.name.StartsWith("Outline")) continue;
+    if (wasShown.Length > 1 && !wasShown.Contains("|" + rd.GetInstanceID() + "|")) continue;
     own.Add(rd);
     if (!rd.enabled) off++; else if (rd.isVisible) seen++;
 }
@@ -378,7 +395,7 @@ def main():
     if '--run' not in sys.argv:
         print('полный прогон: transfer_probe.py --run (только в своём play)')
         return
-    picked = str(call(PICK))
+    picked = str(call(fill(PICK, ONLY=os.environ.get('TRANSFER_ONLY', ''))))
     spawned = None
     if picked == 'нет кандидата':
         made = str(call(SPAWN))
@@ -388,7 +405,7 @@ def main():
         spawned = made.split('|')[1]
         print('шаг 0: на уровне нет носимых — положен свой', made.split('|')[2])
         time.sleep(1.0)
-        picked = str(call(PICK))
+        picked = str(call(fill(PICK, ONLY=os.environ.get('TRANSFER_ONLY', ''))))
     if not picked.startswith('взят|'):
         print('шаг 1:', picked)
         if spawned:

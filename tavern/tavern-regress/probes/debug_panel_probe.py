@@ -182,14 +182,21 @@ def path_of(label):
 
 
 def snap(label):
+    # По вкладке за вызов: вместе они шли дольше лимита моста (29.09: 45 с,
+    # одна «Телефон» — 8,6 с), и мост отвечал пустым отказом.
     OUT.mkdir(parents=True, exist_ok=True)
     target = path_of(label)
-    code = CODE.replace('TABS', 'new[] { %s }' % ', '.join('"%s"' % t for t in TABS)) \
-               .replace('PATH', json.dumps(str(target)))
-    res = run(code)
-    if not res.startswith('ok'):
-        print('проба не прошла:', res)
-        return 1
+    parts = []
+    for tab in TABS:
+        piece = OUT / ('debug_panel_%s.%s.part' % (label, tab))
+        code = CODE.replace('TABS', 'new[] { "%s" }' % tab).replace('PATH', json.dumps(str(piece)))
+        res = run(code)
+        if not res.startswith('ok'):
+            print('проба не прошла на вкладке %s: %s' % (tab, res))
+            return 1
+        parts.append(piece.read_text(encoding='utf-8'))
+        piece.unlink()
+    target.write_text(''.join(parts), encoding='utf-8')
     text = target.read_text(encoding='utf-8')
     heads = [l for l in text.splitlines() if l.startswith('=== ')]
     print('снимок %s: %d строк, md5 %s' % (target, text.count('\n'), hashlib.md5(text.encode()).hexdigest()[:12]))

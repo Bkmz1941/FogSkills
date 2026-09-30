@@ -68,6 +68,8 @@ await call("POST", "/v1/project/games", { token: admin, body: { game_ids: [game.
 const linkedProvider = list(await call("GET", "/v1/project/game-providers", { token: admin })).find(row => row.id === provider.id);
 const linkedGame = list(await call("GET", "/v1/project/games", { token: admin })).find(row => row.id === game.id);
 if (!linkedProvider || !linkedGame) throw new Error("the provider or the game is not linked to the project");
+const hidden = await call("PATCH", `/v1/project/games/${game.id}`, { token: admin, body: { is_active: false } });
+if (hidden.is_active !== false) throw new Error("the regress game is still shown on the storefront");
 
 const playerEmail = `regress-player-${env}-${Date.now()}@agg.one`;
 const playerPassword = secret();

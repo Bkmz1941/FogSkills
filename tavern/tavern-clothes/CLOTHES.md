@@ -177,6 +177,85 @@
   **Пересобрал тело — пересобери и бельё.**
 - Фолбэк без FBX — три жёстких бокса `BuildBriefs` на кости таза (первое
   применение принципа «жёсткие вещи — на сокеты костей»).
+- ⭐ **Бельё девушки** (28.09) — `Clothes/UnderwearF.fbx` +
+  `UnderwearF-materials.json`: спортивный топ и трусы, 7 деталей, 9 500 тр.
+  (`SportTop`/`SportBriefs` ткань `sport_fabric` 232427, резинки
+  `SportTopBand`/`SportBriefsBand` `sport_band` 1B1C1E, полоски
+  `SportTopStripes`/`SportBriefsStripes` и кант `SportTopPiping` `sport_stripe`
+  FFFFFF). Источник — `human_girl_build.py -- export` (`BLENDER.md`,
+  «Спортивный комплект девушки»). Какое бельё надеть, решает поле модели:
+  `ModelDef.wear` («M»/«F») → `"Clothes/Underwear" + wear`.
+
+### Волосы — узел `Hair` рядом с бельём (2026-09-29)
+
+`Clothes/HairM.fbx` + `HairM-materials.json` (причёска и фейд, вес 1 на `B-head`,
+источник — `hair_scene.py -- export`, `tavern-game/CHARACTER.md`, «Волосы»).
+Ставит `ApplyBodyLook(visual, wear)` через `AttachSkinnedGarment` узлом `Hair`
+из `"Clothes/Hair" + wear`, как бельё; `UnderUnderwear` пропускает `Hair`, иначе
+кожа перекрасила бы волосы, а их кости путались бы с костями тела. У девушки —
+`HairF.fbx` (длинные, веса голова → шея → грудь). Это не предмет гардероба:
+слота и иконки нет. Волосы рисуются ПОВЕРХ одежды в пределах 6 см
+(`PlayerModelCatalog.HairOnTop`, P646), а в покое девушкины лежат поверх `HoodieF`
+с зазором — геометрия строится с учётом капюшона (`GIRL_OVER`).
+
+### Вещи под тело: суффикс `M` / `F` (2026-09-28)
+
+Вещи сшиты по конкретному телу, и ресурс кончается буквой тела (`JeansM`,
+`TShirtM`…). `WardrobeVisuals` берёт ресурс через
+`PlayerModelCatalog.Worn(resource)`: последняя `M` меняется на `wear` текущей
+модели героя (`ChosenId`). У девушки ищется `JeansF` и т. д.; такого ресурса
+нет — вещь на фигуре не рисуется, мужские джинсы на женское тело не лезут, а
+её спортивное бельё остаётся на виду. Предмет при этом надет: слот занят,
+задание «Одеться» засчитано. Женская версия вещи = файл `<Имя>F.fbx` рядом с
+мужским, кода не нужно.
+
+⭐ **Пол вещи (2026-09-28, Илья: «муж не может одеть женское, и наоборот»).**
+`ItemDef.wear` — «M» / «F» / пусто (на любого). `Items.Make(..., wear: "M")`
+сам дописывает к имени « (муж.)» / « (жен.)». Надеть можно только вещь пола
+героя: `ItemDef.FitsHero` (мост `ItemDef.HeroWear` ← `PlayerModelCatalog.Wear`,
+ставит `Equipment.Awake`); отказ в `Equipment.Equip` (все пути), кнопка
+«Надеть» в инвентаре и в мире серая, слот при драге не подсвечивается,
+двойной клик не надевает. Все нынешние вещи — `M`; сумка без пола. Имена
+объектов мира и палитры «Одежда» подписаны вручную « (муж.)». Женская
+вещь = отдельный предмет со своим id и `wear: "F"` (+ ресурс `<Имя>F`).
+Сменился герой (`PlayerModelCatalog.Apply`) — `Equipment.DropMisfits` кидает
+вещи чужого пола к ногам вместе с карманами (мост `Equipment.DropForPlayer` ←
+`InventoryScreenUI.DropAtFeet`, тот же путь, что «Выбросить»). Вещь без
+мирового двойника (водолазка) остаётся в слоте.
+
+⭐ **Первые женские вещи (2026-09-28, Илья: «переноси в игру», выбор —
+отдельные предметы).** `Items.JeansF` (`jeans_f`, «Джинсы (жен.)», слот Legs,
+карманы 5×1) и `Items.TShirtF` (`tshirt_f`, «Белая футболка (жен.)», Body,
+годится на лоскутки в `CraftBook`); иконки пока мужские картинки `jeans` /
+`tshirt` — женских в `Fog/Clothes` нет. На героине — `Clothes/JeansF.fbx`
+(ткань, пояс, строчки; 12 900 тр.) и `Clothes/TShirtF.fbx` (ткань, подшивы,
+ворот; 9 700 тр.) + `-materials.json`, импорт Generic / NoAvatar / Read-Write
+как у `UnderwearF`. В мире — `FurnitureCatalog.JeansFFolded` (`jeans_f_folded`,
+«Джинсы (жен.)», модель `jeansGirlFolded`) и `TShirtFFolded` (`tshirt_f_folded`,
+«Сложенная футболка (жен.)», `tshirtGirlFolded`), в палитре «Одежда» и в
+стопках обоих шкафов. Источники — `BLENDER.md`, «Джинсы и белая футболка
+девушки». С 29.09 — `Items.SneakersF` (`sneakers_f`, «Кроссовки (жен.)», слот
+Feet, `soleLift` 0,021), на героине `Clothes/SneakersF.fbx`, в мире
+`FurnitureCatalog.SneakersPairF` (`sneakers_pair_f`, модель `sneakersPairF`),
+кнопка «Кроссовки (жен., пара)», место «рядом» в шкафах (`BLENDER.md`,
+«Кроссовки девушки»). С 29.09 — `Items.HoodieF` (`hoodie_f`, «Толстовка
+(жен.)», слот Body вместо футболки), `Clothes/HoodieF.fbx`, сложенная —
+`HoodieFFolded` (`hoodie_f_folded`, модель `hoodieGirlFolded`); `BLENDER.md`,
+«Толстовка девушки». С 30.09 — мужская `Items.Hoodie` (`hoodie`, «Синяя
+толстовка (муж.)», слот Body, карман 4×1, глиф `shirt`, `colorName` «синий»),
+`Clothes/HoodieM.fbx`, сложенная `HoodieFolded` (`hoodie_folded`, модель
+`hoodieFolded`), кнопка «Синяя толстовка (муж., сложенная)», стопки шкафов;
+сумка поверх неё — `SportBagHoodieM` (`ResourceFor`: Body `hoodie` или
+`hoodie_f` → `SportBagHoodieM`, `Worn` сам даёт девушке `…F`); `BLENDER.md`,
+«Толстовка мужчины». Спортивная сумка на девушке — три посадки `SportBagF`,
+`SportBagShirtF`, `SportBagHoodieF` (`BLENDER.md`, «Спортивная сумка на девушке»).
+
+⭐ **Бельё под одеждой гасится ПО ЧАСТЯМ** (28.09): `WardrobeVisuals.
+HideUnderwearUnderClothes` — часть `SportTop*` прячется под вещью слота Body,
+остальные части белья — под вещью слота Legs; узел `Underwear` выключается
+целиком, только когда скрыты все части (у мальчика под штанами — как раньше,
+на это смотрит `worn_jeans_probe.cs`). Раньше весь узел гас под штанами, и
+девушка в джинсах без футболки оставалась без топа.
 
 ## Куртка на крючке (2026-09-10)
 

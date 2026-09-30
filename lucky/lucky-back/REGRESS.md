@@ -40,10 +40,19 @@
 | админ проекта | `regress-admin-<env>@agg.one` |
 | провайдер | `Regress Provider` (slug `regress-provider`), своя пара ключей, свой кошелёк комиссии; `api_endpoint` пустой — запуск и демо отвечают `unavailable: true` |
 | кабинет провайдера | `regress-provider-<env>@agg.one` |
-| игра | `Regress Game` (`external_id` `regress-game`, crash), одобрена и включена, добавлена в проект |
+| игра | `Regress Game` (`external_id` `regress-game`, crash), одобрена и включена, добавлена в проект, **на витрине НЕ показывается** — см. правило ниже |
 | игрок | `regress-player-<env>-<время>@agg.one` (актуальный — в `<env>.env`), USD cash; прогон сам доливает 1000, если меньше 200 |
 | демо | у проекта стенда `demo_mode: true` (ставит bootstrap), прогон проверяет `features.demo_play_enabled` и гостевое `/demo` |
 | комиссия | игра стенда 10%: прогон сам ставит её через кабинет провайдера перед проверкой (все живые игры с 24.09 — 0%) |
+
+**Regress Game никогда не выставляем на витрину** (Илья 28.09: «никогда не выставляем её»). В проекте Regress
+она лежит с `project_games.is_active = false`: так она пропадает из главной и каталогов, а запуск, демо и
+сессии работают (`GameLaunchService.resolveGame` смотрит только на `public_id` привязки и на `is_active` самой
+игры). Выключает её админ проекта: `PATCH /v1/project/games/<game id> {"is_active": false}`. Bootstrap делает это
+сам после привязки и падает, если флаг не встал. `regress-run.mjs` проверяет, что на главной стенда её нет.
+**Не путать** с `is_active` самой игры (`PATCH /v1/root/games/:id`): его выключать нельзя, иначе запуск отвечает
+404. 28.09 выключена через API на обеих средах (dev `54e5b433-…`, prod `00f17856-…`), регресс после этого
+dev 22/22, prod 22/22.
 
 **Ключи и пароли** — в `~/.config/lucky-regress/dev.env` и `prod.env` (права 600, вне git): `LUCKY_API`,
 `PROJECT_ID`, `PUBLIC_KEY`, `PROVIDER_ID`, `PROVIDER_PUBLIC_KEY`, `PROVIDER_PRIVATE_KEY`, `GAME_ID`, `PROVIDER_PID`,

@@ -6,7 +6,8 @@
 Часть «юбка лестницы» (инвариант 241, P554): луч кисти по правилам PaintRaycast (игрок, noPick,
 passThrough, объекты, выключенные рендереры, ЛЕСТНИЦЫ — пропуск) с любой грани каждой лестницы
 (бока, у площадки и торец) не отдаёт первым коллайдер лестницы — иначе клик по юбке уходил в ничью
-по дистанции с RaycastStairSide и бок не красился (20.09–23.09). Вердикт: STAIRSIDE ok | STAIRSIDE FAIL: …
+по дистанции с RaycastStairSide и бок не красился (20.09–23.09). Бок, закрытый СТЕНОЙ (лестница вплотную к наружной
+стене, луч пробы идёт снаружи дома), считается «загорожено», а не провалом (26.09, night_build). Вердикт: STAIRSIDE ok | STAIRSIDE FAIL: …
 python3 paint_strip_probe.py"""
 import json, subprocess, sys, pathlib
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
@@ -48,6 +49,7 @@ foreach (var sp in Cozy.Grid.StairPiece.All)
         var sideSp = sa[2] as Cozy.Grid.StairPiece;
         faces++;
         string where = "лестница " + tf.position.ToString("0.0") + " грань " + k;
+        if ((!hasSide || sideSp != sp) && hasHit && hit.collider.GetComponentInParent<Cozy.Grid.GridBlock>() != null && hit.collider.GetComponentInParent<Cozy.Grid.GridBlock>().role == Cozy.Grid.GridRole.Wall) { occluded++; continue; }
         if (!hasSide || sideSp != sp) { bad.Append(" " + where + ": RaycastStairSide не видит грань;"); continue; }
         if (hasHit && hit.collider.GetComponentInParent<Cozy.Grid.StairPiece>() != null) { bad.Append(" " + where + ": общий луч кисти отдал коллайдер лестницы " + hit.collider.name + " — бок проиграет ничью;"); continue; }
         if (hasHit && hit.distance < side.distance) occluded++;
