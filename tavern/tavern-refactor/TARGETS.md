@@ -373,3 +373,42 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
   (`HudUI.WhoShown` и `ObjectAttributes.ZoneEventWho`), форматы часов (5 мест), интервал часов через полночь (3 места).
 - Слой: `ZoneEvent.cs` в Grid держит подписи и описания шаблонов; исполнители звонка и СМС — в `HudUI.Gameplay`.
 - `TemperatureSim.LateUpdate` 0,13 мс на 112 проводящих — прореживать до 10 Гц только вместе с замером готовки.
+
+## T-FOUND-0110 — найдено ночью 01.10 (ilya-ca), не взято
+
+- **Каркас дебаг-окон ×3 — план выноса.** `HudUI.Debug.cs`, `MainMenuUI.Debug.cs`, `StatsScreenUI.cs` держат по копии:
+  поля сдвига/прозрачности/размера, `BuildDebugFrame` (8 ручек), `LayoutDebugWindow`, `DragDebugPanel`, `BeginResize/ResizeDebugPanel`,
+  `DebugCanvasScale`, заголовок секции (`Section` = `SkinBlockHeader`), ползунок/тумблер/форматтеры (`Pixels`, `Percent`…).
+  Клон-детектор: 52+33+25+22+20+19+16+16 строк между меню и статистикой. Вынос: класс `DebugWindow` (`IDebugWindow` уже есть:
+  `DebugPanelHandle.Owner`), состояние окна — объект с полями, у владельцев статические свойства-переходники с ПРЕЖНИМИ именами
+  (`HudUI.DebugShiftX` …) — ключи `DebugTune` и ссылки проб не меняются. Разница копий: у HUD верх окна от `ScreenClampUI.SafeTop`
+  и `QuestPanelInset`, низ от `SafeBottom`, `DebugTune.Touch` в ресайзе; у меню/статистики верх = `Pad`. Параметры — два делегата.
+  НЕ взято ночью: окно меню живёт в сцене меню, в play его не проверить (уровень не меняем); нужна проба геометрии трёх окон
+  (`anchoredPosition`/`sizeDelta` головы, скролла, рамки) до/после — днём, с Ильёй в меню.
+- **«OnTop»-проход ×2** (`FlashlightRig.Phone.cs` PhoneOnTop, `PlayerModelCatalog.cs` HairOnTop): `PassData`, `Pass.RecordRenderGraph`
+  и функция рисования одинаковы, разница — имя и `renderPassEvent`. Третьей копии нет — ждёт правила трёх. Там же мусор на кадр:
+  `_rends.ToArray()` и `RemoveAll(лямбда)` каждый кадр в `Enqueue` — переиспользовать массив.
+- **Материалы «Universal Render Pipeline/Unlit» +196 за загрузку level1** — источник не найден (не `InteractHighlight`: кэш
+  статический; не `GridMesh.Unlit`/`Transparent` по именам призраков). После `Resources.UnloadUnusedAssets()` в `RestoreLevel`
+  (шаг 8) они больше не копятся, но кто их создаёт на каждом объекте — выяснить: `FindObjectsOfTypeAll<Material>` по имени до/после
+  спавна ОДНОГО объекта каждого вида.
+- **`RestoreLevel` level1 в редакторе — 15,6 с на 9656 объектов** (замер 01.10 через `HudUI.LoadLevelByName`). `UnloadUnusedAssets`
+  асинхронный, в это время не входит; разбивка по фазам — `LogLoadTiming` (T-START).
+- **Кадр level1 в редакторе 01.10 (`gc_probe.py profile 300`, 9,5 мс):** `WorldTick.LateUpdate` 0,51 (FogView/WindView `SyncAll` по
+  ~1650 клеточным объёмам — `transform.hasChanged` на каждом; `CrowPerch`/`CrowFlight` TickAll), `WorldTick.Update` 0,38 **и 4,3 КБ
+  мусора за кадр** (единственный аллокатор среди игровых скриптов; `InteractiveObject.Tick` → по подметодам не разобран:
+  сниппет `alloc_bisect.cs` в журнале ночи), `PieceViewTicker` 0,35 (`FloorPieceView.Tick` у всех «бодрствующих» каждый кадр:
+  `PieceVisible` + `SyncRoofed`; кандидат — тик только при смене отпечатка `ViewState` (режим, комната, этаж, здание) и
+  `WallCut`/`ForceShow`-грязи), `FarRadius` 0,33, `TemperatureSim` 0,30, `CrownWindow` 0,23, `Soiling.Update` 0,11 (13),
+  `WallMountedCut` 0,06 (57), `PlankSkin` 0,06 (193). Редакторский мусор: `GetComponentNullErrorMessage` 7 вызовов/кадр —
+  в сборке нет; кто спрашивает отсутствующий компонент каждый кадр — не найден.
+- **`FurnitureCatalog.ById` создаёт ScriptableObject на вызов** — у layout-кода теперь кэш (`MeasureDef`), но остальные
+  читатели (`ByPickupItem`, палитра, пробы) — проверить тем же счётчиком `FindObjectsOfTypeAll<ObjectDef>` до/после действия.
+- **Мусор `WorldTick.Update` — редакторский.** Бисект через мост (`alloc_bisect.cs`, `Profiler.GetMonoUsedSizeLong` вокруг 200 вызовов):
+  `InteractiveObject.TickAll` 5,7 КБ/вызов, из них `PublishTemperature` по всем 9656 объектам — 17,8 КБ за проход;
+  `Burnable`/`FogAnim`/`UpdateHeatTint`/`RefreshWater`/`SyncItemSlots`/`UpdateSwitches` — 0. Источник — `TempBox(node)` →
+  `node.GetComponent<Collider>()` у узлов без коллайдера: в редакторе это строка `GetComponentNullErrorMessage` (те самые 7 вызовов/кадр),
+  в сборке — ноль. Кэш коллайдера по узлу при настройке источника тепла убрал бы и редакторский мусор, и 7 лишних GetComponent за кадр —
+  вместе с владельцем температуры (TARGETS T-FPS, `TemperatureSim`).
+- **Кадр level1 после ночи — 9,63 мс против 9,49 базы (шум ±0,2).** Покадровый код не трогался, кроме `LampBlocker` → `RayPick.Sorted`
+  (сортировка 16 хитов) и кэша дефов укладки (меньше работы при наведении).

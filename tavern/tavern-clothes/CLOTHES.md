@@ -250,6 +250,12 @@ Feet, `soleLift` 0,021), на героине `Clothes/SneakersF.fbx`, в мир�
 «Толстовка мужчины». Спортивная сумка на девушке — три посадки `SportBagF`,
 `SportBagShirtF`, `SportBagHoodieF` (`BLENDER.md`, «Спортивная сумка на девушке»).
 
+С 01.10 — **портфель** (`briefcase`, «Портфель», 2×2, внутри 5×2) надевается в
+слот Bag: посадки `Clothes/BriefcaseM` (по футболке/голому), `BriefcaseHoodieM`,
+`BriefcaseJacketM` (только парень), девушке `BriefcaseF`/`BriefcaseHoodieF`
+через `Worn()`; выбор — `WardrobeVisuals.ResourceFor`. Объект мира прежний
+(`FurnitureCatalog.Briefcase`, модель `briefcaseM`). `BLENDER.md`, «Портфель на герое».
+
 ⭐ **Бельё под одеждой гасится ПО ЧАСТЯМ** (28.09): `WardrobeVisuals.
 HideUnderwearUnderClothes` — часть `SportTop*` прячется под вещью слота Body,
 остальные части белья — под вещью слота Legs; узел `Underwear` выключается

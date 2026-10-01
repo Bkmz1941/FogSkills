@@ -1,6 +1,6 @@
 ---
 name: olimp-api
-description: Бэкенд «Olimp-api» — CMS и API мобилки OlimpBet (Laravel 8 + Octane), репо ~/Documents/Work/Olimp/Olimp-api, api.dev.ragnaros.net и api3.ragnaros.net: главный экран, сегменты, сторис, пуши, Kafka/NATS, деплой. По «что с олимп апи», «задеплой олимп».
+description: Бэкенд «Olimp-api» — CMS и API мобилки OlimpBet (Laravel 8 + Octane), репо ~/Documents/Work/Olimp/Olimp-api, api.dev.ragnaros.net и api3.ragnaros.net: главный экран, сегменты, сторис, пуши, Kafka/NATS, деплой. По «что с олимп апи», «задеплой олимп», «kafka-com», «сервер аналитики кафки».
 ---
 
 # Olimp-api — CMS и API мобильных приложений OlimpBet
@@ -104,8 +104,9 @@ git push -o ci.variable="ONLY=kafka-reader,push-service"
 |---|---|---|
 | **95.179.244.240** (`vultr`, Debian 11 bullseye) | **дев** — api.dev.ragnaros.net | `ssh -i ~/.ssh/id_ed25519 admin@95.179.244.240`. Проверено 2026-09-07: заходит, `docker` доступен без sudo |
 | **209.250.237.82** (`ragnaros`, Debian 11 bullseye) | **прод** — api3.ragnaros.net, api.ragnaros.net | `ssh -i ~/.ssh/id_ed25519 admin@209.250.237.82`. Проверено 2026-09-08: заходит, `docker` без sudo. `dcps` там **нет** |
+| **200.169.179.46** (`kafka-com`, хост `agg-analytics`, Ubuntu 26.04, **Timeweb Cloud**, Москва) | отдельный ридер `BET_COM`/`CASH_COM` для аналитики, только чтение | `ssh kafka-com` (алиас после блока work-skills). Заведён 2026-10-01, см. раздел «`kafka-com`» |
 
-Алиаса в `~/.ssh/config` пока нет — ходить по IP с явным ключом.
+Для дева и прода алиасов в `~/.ssh/config` пока нет — ходить по IP с явным ключом. У `kafka-com` алиас есть.
 
 ### Дев-сервер: что где
 
@@ -428,10 +429,177 @@ busy-loop, а рвущиеся соединения к брокерам (сес�
   Внутри образа пользователь `app` = **uid 999**, файлы должны принадлежать ему.
   Клиентский сертификат `CN=push-new` годен до 20.02.2027.
 
+## `kafka-com` — сервер-читатель Kafka для аналитики (200.169.179.46)
+
+Заведён 2026-10-01 по просьбе Кости Вальтера: посчитать по Kafka, где в COM
+больше ставят — в букмекерке или в казино. Сервер купил Илья в общем проекте
+**Timeweb Cloud** (аккаунт it@agg.one), имя в панели `kafka-com` (hostname на
+машине пока `agg-analytics`). Под него можно взять поддомен `aggone.dev`.
+Это ещё и первый ридер **не на Vultr**.
+
+**Железо:** 2 vCPU, 1.9 ГБ RAM, swap нет, диск 38 ГБ, таймзона UTC, внутренний IP
+`192.168.0.4` на eth1.
+
+**Доступ.** `ssh kafka-com` = `admin@200.169.179.46` по ключу `~/.ssh/id_ed25519`.
+`admin` состоит в группах `admin`, `sudo`, `docker`; sudo без пароля
+(`/etc/sudoers.d/90-admin-nopasswd`). Вход **только по ключу**: `PermitRootLogin no`,
+`PasswordAuthentication no`, `KbdInteractiveAuthentication no` прописаны и в
+`sshd_config`, и в `50-cloud-init.conf`, плюс drop-in `10-hardening.conf`.
+Пароли admin (для sudo и консоли) и root (пароль провайдера, работает только из
+консоли Timeweb) лежат в `~/password.txt`.
+
+**Docker.** Пакеты Ubuntu: `docker.io` 29.1 и `docker-compose-v2` 2.40.
+
+**Стек PHP-ридера** — `/srv/kafka-reader`, проект compose `kafka-reader`. **С 2026-10-01 ~12:00 UTC остановлен** (`docker compose down`) и заменён сборщиком в БД (см. ниже). Каталог, `.env` и образ `kafka-reader:1.2.1` оставлены на случай отката:
+
+| что | значение |
+|---|---|
+| файлы | `compose.yml`, `.env` (600), `secrets/kafka/` (999:admin, 750/640). Сертификаты те же, что у Ильи в `~/.olimp/certs/kafka` (`CN=push-new`), md5 сверены |
+| образ | `kafka-reader:1.2.1`, собран локально из `master` (`git archive HEAD` + `docker build`) и перенесён через `docker save \| gzip \| ssh … docker load`, потому что логина в registry.agg.one нет |
+| группы | `olimp.com.reader2.bet-com` / `olimp.com.reader2.cash-com` (`KAFKA_READER_GROUP_PREFIX=olimp.com.reader2`), брокеры на `:443`, старт с `latest` |
+| redis | свой `redis:7-alpine` без персистентности, maxmemory 128 МБ. Нужен только для дедупа `card_id`/`cash_id` |
+| пуши | **не шлёт**: `QUEUE_CONNECTION=null`, поэтому `reader.win_dispatched` в логе означает «отброшено в null». Ключей `queues:*` в Redis нет |
+| прочее | `TELESCOPE_ENABLED=false` (иначе на выходе процесса Telescope ломится в несуществующую БД и сыплет трейсом), `LOG_CHANNEL=stderr`, `KAFKA_READER_LOG_MESSAGES=true` |
+
+Обновить образ: заново собрать локально, перенести, поменять тег в
+`compose.yml` и выполнить `docker compose up -d`.
+
+Логи: `ssh kafka-com 'cd /srv/kafka-reader && docker compose exec kafka-reader tail -f storage/logs/kafka/reader/bet-com-$(date +%F).log'`.
+
+Первые минуты 2026-10-01: 693 сообщения `BET_COM` и 50 `CASH_COM` за ~4 минуты,
+ни одного таймаута и ни одного залипания. Ридер занимает ~107 МБ RAM и <1% CPU.
+
+**Устройство `BET_COM` (агрегаты по 13 065 сообщениям, 2026-10-01).** Через топик идёт **каждая ставка
+дважды**: `bet_status=0` при приёме и `bet_status=1` при расчёте (у расчёта есть `pay_sum`,
+`pay_sum_kzt` и `calc_date`, у приёма они `null`). Ключ ставки — `card_id`. Суммы в валюте игрока
+(`currency`: KZT ~96%, дальше RUB, UZS, KGS, USD) плюс `*_kzt`. Остальные поля: `bet_platform`
+(1–4), `type_bet` (1 одинар, 2 экспресс), `event_cnt`, `bonus_id`/`bonus_name`, `cashout_is`,
+`canceled`, `login_tester`, `bet_date` (unix), а в `card_data` лежит список событий
+(`sport`, `champ`, `match`, `coef`, `result`…).
+**Спорт или игры — по `card_number`.** Вид `user-<ПРОВАЙДЕР>-<ИГРА>…` означает игру, всё остальное (`SB-…-IOS-…`,
+`…-Live`) — спортивная ставка. Провайдеры игр: SPRIBE (Aviator, Goal, HiLo, Keno, Mines), BETGAMES,
+BINGO37, AVIATRIXTV, LEAPGAMES, а также ODDINGG (киберспорт), SPORTRADAR (виртуальный спорт) и SPORTGAMESTV.
+**Слотов и лайв-казино в топике нет**: это быстрые и ТВ-игры, а не всё казино.
+
+### Сборщик в БД на `kafka-com` (работает с 2026-10-01)
+
+**Что это.** Rust-сервис `kafka-com-collector` читает `BET_COM` и `CASH_COM` и пишет тела
+сообщений в Postgres. Сделан из каркаса `referral-program-consumer-rs`: конфиги Kafka и
+Postgres, логгер. Код — **ветка `kafka-com-collector`** в клоне
+`~/Documents/Work/Olimp/referral-program-consumer-rs`, с 2026-10-01 запушена в origin
+(чужое репо соседней команды; `master` не трогать, каждый пуш — только по команде Ильи).
+Своего репо в GitLab пока нет.
+
+| что | где |
+|---|---|
+| точка входа | `src/main.rs` → `run()` в `src/lib.rs`: миграции, разделы, два сборщика, обслуживание раз в 6 ч; любая ошибка → exit 1 |
+| цикл топика | `src/collector.rs`: пачка до 500 сообщений или 1 с → запись → `store_offsets` |
+| структуры | `src/messages.rs`, неизвестные поля → `extra` (flatten) |
+| запись | `src/db.rs`: `QueryBuilder`, `ON CONFLICT DO NOTHING`, ставка и события в одной транзакции |
+| разделы | `src/partitions.rs`: `<table>_YYYY_MM`, окно [сейчас − 2 мес … следующий месяц], старшие — `DROP`, из `_default` удаляет строки старше окна |
+| схема | `migrations/0001_init.sql`, `0002_search_indexes.sql` — индексы поиска: `login_id`/`login` (+дата), `card_number`, `bet_num`, `bonus_id`, `match_id`, `event_id`, `champ_id`, `(sport_id, bet_date)`, `bonus_card_id` (`sqlx::migrate!` при старте, с 0.1.2) |
+| Kafka | `src/kafka.rs`: группа `<KAFKA_GROUP_PREFIX>.<bet-com|cash-com>`, `latest`, `enable.auto.offset.store=false` |
+
+**Гарантии.** Офсет сохраняется только после успешной записи. База лежит — пачка
+повторяется с паузой до 60 с, офсеты стоят на месте. Повторы отсекает первичный ключ.
+Сторож: нет ни одного сообщения 15 минут (`COLLECTOR_STALL_SEC`) — exit 1, docker
+перезапускает.
+
+**На сервере** — `/srv/kafka-com`, проект compose `kafka-com`:
+`postgres:17-alpine` (база/пользователь `analytics`, пароль в `.env` и `~/password.txt`,
+порт наружу не опубликован, `shared_buffers=256MB`, `default_toast_compression=lz4`,
+volume `pgdata`) и `collector` (`kafka-com-collector:0.1.2`, uid 999, сертификаты
+`./secrets/kafka` — копия из `/srv/kafka-reader/secrets/kafka`, md5 сверены).
+Группы — **те же `olimp.com.reader2.*`**, что были у PHP-ридера, поэтому сборщик
+продолжил с его офсетов. 8 минут простоя при переключении дочитаны за секунду, без дыры.
+
+**Сборка и выкладка** (локально Rust нет, только Docker):
+```bash
+cd ~/Documents/Work/Olimp/referral-program-consumer-rs
+# поднять version в Cargo.toml И в Cargo.lock (сборка идёт с --locked)
+DOCKER_BUILDKIT=1 docker build -t kafka-com-collector:<ver> .
+docker save kafka-com-collector:<ver> | gzip -1 | ssh kafka-com 'gunzip | docker load'
+ssh kafka-com 'cd /srv/kafka-com && sed -i "s|kafka-com-collector:.*|kafka-com-collector:<ver>|" compose.yml && docker compose up -d'
+```
+`make lock` пересоздаёт `Cargo.lock` в контейнере, `make test` гоняет `cargo test`.
+
+**Смотреть:**
+```bash
+ssh kafka-com 'cd /srv/kafka-com && docker compose logs -f collector'          # batch.written received/inserted/skipped
+ssh kafka-com 'cd /srv/kafka-com && docker compose exec postgres psql -U analytics -d analytics'
+```
+
+**Грабли:**
+- `docker pull` с сервера ловит **429 от Docker Hub**. Образы (postgres, debian) везти
+  со своей машины через `docker save | ssh docker load`.
+- Каталог логов, смонтированный volume'ом, создаётся от root, если его нет в образе. С 0.1.1
+  `/home/app/logs` создан в Dockerfile; на 0.1.0 сборщик падал с `Permission denied`.
+- Итоговый `FROM scratch` из исходного репо не годится: нужен `debian:bookworm-slim` + `libssl3`.
+- Пачки от брокеров приходят с ритмом ~30 с — это не залипание.
+
+Первые минуты 2026-10-01: в `extra` пусто (схема покрывает все поля), ошибок разбора 0.
+В `cash_com` по `reason`: 1 — 61, 5 — 45, 4 — 6, 2 — 3.
+
+### БД аналитики на `kafka-com` — решения (2026-10-01)
+
+Задача от Кости Вальтера и Юли Федоровой: копить данные `BET_COM` и `CASH_COM` и
+потом считать по ним («сколько ставок за сегодня и на что», пополнения и выигрыши
+по датам, фильтры по валюте). Формат отчётов заранее не определён, поэтому
+**храним всё содержимое тела сообщений**, а фильтры и выборки строим потом.
+
+- **Что храним.** Только поля тела сообщения, по колонкам один к одному.
+  Метаданные Kafka (партиция, офсет, timestamp, ключ) **не храним** — решение Ильи.
+  Сырой `jsonb` тоже отклонён.
+- **Срок и диск.** Храним **2 месяца**, диск сервера расширяется до **80 ГБ** (Костя:
+  «пока копится второй месяц, по первому соберём статистику»). Оценка — около 1 ГБ
+  в сутки. Таблицы режутся помесячно по дате из тела, крон удаляет месяцы старше двух.
+- **История.** Копим с момента запуска, `latest` не меняем. Перечитывать топик с
+  начала не будем.
+- **Кто пишет.** Отдельный сервис `kafka-com-collector` (Rust) вместо PHP-ридера, монолит не правится.
+- **СУБД.** Postgres 17 в compose на том же сервере, база `analytics`, порт наружу
+  не публикуется.
+
+**Таблица `bet_com`** — строка на сообщение, то есть на ставку обычно две строки:
+приём `bet_status=0` и расчёт `1`. Колонки: `card_id`, `bet_num`, `card_number`,
+`login`, `login_id`, `login_tester`, `bet_status`, `bet_date`/`calc_date`
+(timestamptz из мс), `calc_cnt`, `recalc_is`, `currency`, `bet_sum`, `bet_sum_kzt`,
+`pay_sum`, `pay_sum_kzt` (numeric(18,2)), `type_bet`, `event_cnt`, `bet_platform`,
+`view_bet`, `cashout_is`, `partlally_cashout`, `partlally_cashout_main_id`, `canceled`,
+`bonus_id`, `bonus_name`. Уникальность `(card_id, bet_status, calc_cnt)`: повтор
+пропускается, перерасчёт ложится новой строкой. Индексы `(bet_date)`, `(card_id)`.
+
+**Таблица `bet_com_events`** — разложенный `card_data`, строка на событие купона:
+`card_id`, `bet_status`, `card_data_id`, `sport_id`/`sport`, `champ_id`/`champ`,
+`match_id`/`match`, `match_date`, `event_id`/`event`, `event_name_id`, `event_type`,
+`coef`, `result`, `score`, `view_bet_event`, `sportbook_id`, `match_comment`,
+`match_sport99`, `champ_sport99`, `match_date_sport99`, `recalc_msg`. Уникальность
+`(card_id, bet_status, card_data_id)`, индексы `(card_id)`, `(sport)`.
+
+**Таблица `cash_com`** — строка на операцию: `cash_id`, `login`, `login_id`, `reason`,
+`cash_date`, `currency`, `cash_sum`, `cash_sum_kzt`, `kass_id`, `cash_auto`,
+`duration`, `comment`, `bonus_card_id`, `bonus_tag`. Уникальность `cash_id`, индексы
+`(cash_date)`, `(reason, cash_date)`.
+
+**Открытые вопросы:**
+- ~~`extra jsonb`~~ — добавлена; ~~«сервис на Go»~~ — оказался Rust-консьюмер `referral-program-consumer-rs`, на его основе и сделан сборщик;
+- своё репо в GitLab под сборщик;
+- реальный объём базы за сутки — замерить через день (`pg_database_size`), диск расширить до 80 ГБ в Timeweb, потом `growpart` + `resize2fs`;
+- в каком виде смотреть данные: выгрузки от Ильи или админка;
+- расшифровка кодов `reason` (известно только 1 = пополнение; 2/4/5 — ~55% сообщений),
+  `kass_id`, `bet_platform`, `type_bet` 12/100, `view_bet` — спросить у владельцев топиков.
+
+**`CASH_COM` — не только пополнения.** На 1 107 сообщениях: `reason` 1 — 501,
+5 — 391, 4 — 118, 2 — 97. Поля: `cash_id`, `login`, `login_id`, `reason`,
+`cash_date` (мс), `currency` (KZT 93%, есть `VIRT`), `cash_sum`, `cash_sum_kzt`,
+`kass_id` (20 / 22), `cash_auto`, `duration`, `comment`, `bonus_card_id`, `bonus_tag`.
+
+**Ограничение.** Сырой payload (в нём логины) к себе на машину не выгружать:
+классификатор режет это как PII. Агрегировать на сервере.
+
 ## `referral-program-consumer-rs` — Kafka-консьюмер реферальной программы на Rust
 
-Чужой репозиторий соседней команды, клонирован 2026-09-14 в
-**`~/Documents/Work/Olimp-CMS/referral-program-consumer-rs`**,
+Чужой репозиторий соседней команды, клонирован 2026-09-14, сейчас лежит в
+**`~/Documents/Work/Olimp/referral-program-consumer-rs`** (на ветке `kafka-com-collector` — наш сборщик, см. раздел `kafka-com`),
 origin `gitlab.agg.one:olimp-cms/referral-program/backend/referral-program-consumer-rs`,
 ветка `master`. К монолиту `Olimp-api` отношения не имеет, но читает ту же Kafka,
 поэтому интересен как живой пример другого клиента на тех же брокерах.

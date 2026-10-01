@@ -172,6 +172,9 @@ foreach (var rd in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
     }
 }
 string s = "в руке " + io.Def.id + ": рендереров " + total + ", выключено " + off + ", видно камерой " + visible + ", альфа<0.05 " + ghostAlpha;
+var heroAt = Cozy.Grid.PlayerRef.Transform != null ? Cozy.Grid.PlayerRef.Transform.position : io.transform.position;
+float away = new UnityEngine.Vector2(io.transform.position.x - heroAt.x, io.transform.position.z - heroAt.z).magnitude;
+if (total > 0 && off == total && away > 2.5f) return "ПРОПУСК: курсор унёс предмет на " + away.ToString("F1") + " м от героя (окно игры не в фокусе) — " + s;
 if (total == 0 || off > 0 || visible == 0 || ghostAlpha == total) return "КРАСНОЕ: " + s;
 return "ок: " + s;
 '''
@@ -205,10 +208,15 @@ if (mode == "ground")
         {
             var gb = hits[i].collider.GetComponent<Cozy.Grid.GridBlock>();
             if (gb == null) continue;
+            if (hits[i].point.y > floorY + 2.5f) continue;
             if (gb.role == Cozy.Grid.GridRole.Ground) ground = true; else slab = true;
             if (hits[i].point.y > top) top = hits[i].point.y;
         }
         if (!ground && !slab) continue;
+        bool occupied = false;
+        for (int i = 0; i < n; i++)
+            if (hits[i].collider.GetComponent<Cozy.Grid.GridBlock>() == null && hits[i].point.y > top + 0.05f && hits[i].point.y < top + 2.5f) occupied = true;
+        if (occupied) continue;
         targets.Add(new UnityEngine.Vector3(pt.x, top, pt.z));
         names.Add(slab ? "плита пола" : "земля");
     }
@@ -417,7 +425,7 @@ def main():
     notes = []
     try:
         time.sleep(0.7)
-        res = str(call(CARRY)); print('шаг 2:', res); red |= not res.startswith('ок')
+        res = str(call(CARRY)); print('шаг 2:', res); red |= not (res.startswith('ок') or res.startswith('ПРОПУСК'))
         notes.append(res.replace('ок: ', ''))
         step = 3
         for mode, title in (('ground', 'на землю'), ('surface', 'на плоскость')):

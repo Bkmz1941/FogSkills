@@ -1169,3 +1169,86 @@ _2026-08-31, ilya-42._
 Проверка — сравнить mtime `.blend` с mtime `*_scene.py` и `*_params.json`
 (2026-08-31, угловой навесной шкаф).
 
+
+## Ночь 01.10: объекты ночной стройки — 60 реестровых + одежда мужчины (ждут слова Ильи)
+
+_Илья 30.09 вечером: «сделай в блендере 10 разных одежд на мужчину, 10 объектов в комнату, 10 в кухню, 10 в спальню,
+10 в ванную, 10 вокруг остановки, 10 в лесу — все в блендере, как отдельные файлы… я утром проверю». Семь агентов
+параллельно, headless, по общему брифу; запись — DESIGN_LOG 2026-10-01._
+
+**Состояние: только Blender.** У каждого ключа есть сцена, params, `build_<key>.py` / `<key>_watch.py` /
+`<key>_preview.py`, запись в `pipeline.py` и `Library/<модель>.blend` в экспортном состоянии (контекст скрыт, `flip`
+применён). FBX и `-materials.json` НЕ писались, дефов и кнопок нет. Смотреть: `blender --python BlenderWork/<key>_watch.py`
+(живое окно с полом и фигурой 2,07 м), превью агентов — `BlenderWork/<key>_preview/*.png`. Переносить после «переноси»:
+`blender -b --python BlenderWork/build_<key>.py` → FBX + json, дальше деф/кнопка/перевод по чек-листу выше.
+
+| Тема | ключ → корень(и) |
+|---|---|
+| Комната | `armchair_wing`→`homeArmchairWing` (`Slot_Seat`), `radio_vintage`→`vintageRadio` (`Knob_Volume`, `Knob_Tune`), `globe`→`deskGlobe` (`Sphere`), `guitar_acoustic`→`guitarAcoustic`, `coat_stand`→`homeCoatStand` (`Mount_Hook1..4`), `pouf`→`homePouf`, `throw_blanket`→`throwBlanket`, `magazine_stack`→`magazineStack`, `photo_frames`→`photoFrame01..03`, `bean_bag`→`homeBeanBag` (`Slot_Seat`) |
+| Кухня | `kettle_electric`→`kettleElectric` (`Lid`), `toaster`→`toaster` (`Lever`), `bread_box`→`breadBox` (`Lid`), `dish_rack`→`dishRack`, `pedal_bin`→`pedalBin` (`Lid`, `Pedal`), `teapot`→`teapot` (`Lid`), `paper_towel_holder`→`paperTowelHolder`, `utensil_crock`→`utensilCrock`, `herb_pot`→`herbPot01..03`, `oven_mitt`→`ovenMitt` |
+| Спальня | `dresser`→`homeDresser` (`Drawer1..4`, `Slot_Drawer1..4`), `wall_mirror_oval`→`homeWallMirrorOval` (настенное), `blanket_folded`→`blanketFolded`, `bed_bench`→`homeBedBench`, `valet_stand`→`homeValetStand` (`Mount_Hook`, `Slot_Tray`), `wall_calendar`→`wallCalendar` (настенное), `suitcase`→`suitcase` (`Handle`), `fan_standing`→`homeFanStanding` (`Head`, `Blades`), `teddy_bear`→`teddyBear`, `alarm_clock_bell`→`alarmClockBell` (`Hammer`) |
+| Ванная | `shower_curtain`→`showerCurtain` (`Mount_L/R`, 3 палитры), `bath_stool`→`bathStool` (2 палитры), `floor_scale`→`floorScale`, `hair_dryer`→`hairDryer`, `toilet_brush`→`toiletBrush`, `plunger`→`plunger`, `bath_caddy`→`bathCaddy`, `soap_dish`→`soapDish`, `detergent`→`detergentPowder` (`Lid`) + `detergentGel` (2 палитры), `water_heater`→`homeWaterHeater` (настенное) |
+| Остановка | `bench_outdoor`→`benchOutdoor`, `trash_can_street`→`trashCanStreet` (`Lid`), `bus_sign`→`busSign`, `lamp_post`→`lampPost` (`Lamp`, эмиссия `glow`), `km_post`→`kmPost`, `mailbox`→`mailboxRural` (`Door`, `Flag`), `notice_board`→`noticeBoard`, `tire_old`→`tireOld`, `payphone`→`payphone` (`Handset`), `signpost`→`signpost` |
+| Лес (`Vegetation`) | `stump`→`stump01..03`, `mushroom`→`mushroom01..04`, `fern`→`fern01..03`, `anthill`→`anthill`, `boulder_mossy`→`boulderMossy01..03`, `dead_tree`→`deadTree01..02`, `campfire_ring`→`campfireRing` (`Mount_Fire`, `Slot_Fire` как у камина), `pine_cones`→`pineCone` + `pineConePile`, `stone_well`→`stoneWell` (`Bucket`), `totem_sticks`→`stickTotem01..02` |
+
+Треугольников по темам: комната 18 988, кухня 25 562, спальня 21 648, ванная 16 584, остановка 16 486, лес 31 376
+(24 корня); максимум на корень 4 436 (кресло). Размеры — по таблице коэффициентов 20.09 (`BUILD.md`), у каждого
+агента в отчёте Ш×В×Г. В записях реестра у ванной камера `game` (55°, 4,8 м) — ракурс игры; остальные темы —
+`front`/`iso`/деталь.
+
+**Что ночь добавила к правилам (P658–P661, инвариант 289):**
+- `flip(centre_depth(bake(root)))` — поворот и масштаб мешей ВБИТЬ в данные до `flip`, иначе `pipe`/`limb` и
+  наклонённые детали уезжают зеркально; наклон узла печь в детей, не в `rotation` пустышки.
+- Имена мешей уникальны на весь файл, у семейств — с номером корня (`.001` экспортёр режет и путает узлы).
+- Рельеф на теле вращения — узкими гребнями или плоскими канавками по сегменту, синус при гладких нормалях пропадает.
+- `rounded()` только после применения масштаба куба (иначе фаска анизотропная).
+- Экспортное состояние смотреть отдельным рендером (`export=True`), превью с контекстом его не показывает.
+- Отступления от палитры, отмеченные агентами: земля горшков `4A3A2C` (как `plant_pot`), корка хлеба `AD744C`;
+  светлый камень `BDD2D6` в лесу не взят (Илья 12.09: «белых камней нет»).
+
+**Помощники ночи** (в скретчпаде сессии, НЕ в репозитории — заводить в `BlenderWork/` только по слову Ильи):
+`reg_add.py <key> <файл записи>` — вставка/замена записи в `OBJECTS` под `flock` с `compile` до записи;
+`save_blend.py -- <key>` — сборка в экспортном состоянии и запись ТОЛЬКО `Library/<x>.blend` без FBX, печатает
+треугольники, Ш×В×Г и низ каждого корня. Второй удобен как штатная команда «собрать .blend без переноса».
+
+**Одежда мужчины** — см. запись ниже (дописана после отчёта агента одежды).
+
+**Одежда мужчины, ночь 01.10 (10 вещей, каждая своим файлом; домен — скил `tavern-clothes`, запись там же).**
+Код `BlenderWork/human_man_night.py` (импортирует `human_skin_cut` и `human_girl_build`, ничего в них не правит),
+числа `human_man_night_params.json` (блок на вещь), сложенные — `night_fold_kit.py` поверх `pants_fold_kit` +
+`<имя>_folded_scene.py`; `humanClothes.blend` не тронут (open → сразу `save_as` в свой файл, образец `sectant_build.py`).
+Файлы `Library/human{Longsleeve,Flannel,Tank,Sweater,Vest,Raincoat,Cargo,Shorts,Sweatpants,Boots}.blend` (105–146 МБ:
+Т-поза + стойка + ходьба, чужие фигуры удалены по именам); сложенные `Library/{longsleeve,flannel,tank,sweater,vest,
+raincoat,shorts,cargo,sweatpants}Folded.blend` (реестр `<имя>_folded`), пара ботинок `BT1` в файле ботинок.
+Запуск вещи: `blender -b Library/humanClothes.blend --python human_man_night.py -- <Имя>`. Экспорта в игру нет.
+
+## Продукты в современной упаковке, 01.10 — четыре реестровых (ждут слова Ильи «переноси»)
+
+_Илья 01.10: «давай в блендере сделаем, современные варианты». Только Blender: FBX и `-materials.json` не писались,
+дефов, кнопок и перевода нет. Устройство как у ночи 01.10 (сцена + params + три обёртки + запись `pipeline.py` +
+`Library/<модель>.blend` в экспортном состоянии: контекст скрыт, `bake` → `flip`, имена мешей уникальны)._
+
+| Ключ | Корень → узлы (меши) | Ш × В × Г, м | Треуг. |
+|---|---|---|---|
+| `milk_carton` | `milkCarton` → `Cap` (`CapShell`); корпус-«домик» `CartonBody`, гребень `CartonFin`, горловина `CartonSpout`, волна `CartonWave`, полоса, плашка; ⭐ срок годности как у сосисок: надпись `CartonExpiry` «Годен до:» (`print_text`) и метка `Expiry` + `ExpiryUp`/`ExpiryOut` (`expiry_node`) — дату пишет игра (`InteractiveObject.RefreshExpiryLabel`), в сцене пример `expiry_sample` вне корня; слот `ink` `3A3D40` | 0,112 × 0,357 × 0,113 | 1 722 |
+| `bread_loaf` | `breadLoaf` → `Loaf` (`LoafBody`, гребешки надрезов `LoafCuts`); ⭐ БЕЗ пакета (Илья: «хлеб без пакета сделай») — пакет, его параметры и слоты удалены, батон по центру на полу | 0,403 × 0,105 × 0,151 | 1 020 |
+| `stew_can` | `stewCan` → `Lid` (шарнир на заднем крае крышки: `LidDisk`, `LidRivet`, `LidTab`, кольцо `LidRing`); `CanBody`, этикетка `CanLabel` + `CanPanel` + две золотые полосы | 0,154 × 0,120 × 0,154 | 1 536 |
+| `chocolate_bar` | `chocolateBar` → `Wrapper` (кремовый флоу-пак `WrapperBody` `F6F1E7`, зубчатые швы `WrapperSeals`, ⭐ рисунок «как Алёнка» плоскостью `WrapperFace` на верхней грани 0,164 × 0,096 со слотом `face` и текстурой `TEX` → `chocolateBarFace`), `Bar` (`BarSlab`: основа и 6 × 4 дольки) | 0,280 × 0,025 × 0,118 | 1 226 |
+
+Треугольники — с модификаторами фасок (дымовой тест печатает без них: 648 / 1590 / 1536 / 932 / 808). Низ каждого
+корня — 0. Размеры — мелочь ×1,4–1,5 к реальным (пакет 1 л 7 × 7 × 24 см, батон 30 × 10 × 7, банка 325 г Ø 10 × 8,
+коробка гречки 16 × 22 × 6, плитка 100 г 15,5 × 7,5). Палитра — соседи кухни: `FBEFDE`/`F4E9D2` картон и бумага,
+`5B84DD` синий, `9B4C49` винный, `F5C542` золото (как `cup_yellow`), `2E6B37` зелёный (кетчуп), `6B4526` шоколад
+(`stain` кофе), `96622F`/`C08A4E` крупа (корка хлеба `bread`), корка батона `AD744C`.
+
+Узлы-створки в превью открываются параметрами `cap_lift` (м по нормали скоса), `lid_open` / `flap_open` (градусы);
+в экспорте всегда закрыты. Обёртку и пакет в превью прячут `show_wrapper` / `show_bag` — в экспорте они есть всегда.
+Смотреть: `blender --python BlenderWork/<key>_watch.py`; превью — `BlenderWork/<key>_preview/` (`iso/front/top/game`
+с контекстом, `export_*` — экспортное состояние, камера с зеркальной стороны, потому что `flip` развернул перёд).
+Переносить после «переноси»: `blender -b --python BlenderWork/build_<key>.py`, дальше деф/кнопка/перевод по чек-листу.
+
+⭐ Правки Ильи в тот же вечер: гречка (`buckwheat_pack`) СНЯТА целиком — «гречку убери, не делаем» (сцена, обёртки, params,
+превью, `Library/buckwheatPack.blend`, запись реестра); хлеб без пакета; на молоке срок годности как на сосисках;
+шоколадка «похожей на Алёнку» — рисунок `BlenderWork/gen_chocolate_tex.py` → `chocolate_tex/chocolateBar.png`
+(1024 × 600: портрет девочки в красном платке в белый горох, плашка «ШОКОЛАД», «молочный», «100 г», золотые полосы;
+названия бренда нет), винные ленты и золото сняты.

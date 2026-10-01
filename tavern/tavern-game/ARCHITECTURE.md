@@ -705,3 +705,12 @@ SubShader с тегом `RenderPipeline` неподдержан, и провер
 клипа; возврат игрока (`Encounter.Recovery.cs`) — поза «упал», подъём, передача
 управления. Правят их обычно по отдельности, и раньше они лежали в одном файле
 на 458 строк.
+
+## Ночь 01.10 (ilya-ca): два правила к общим примитивам
+
+- `RayPick.Sorted/Down`: полный буфер `NonAlloc` = переполнение — хиты перечитываются `RaycastAll`, в буфер идут ближайшие
+  (`NearestOfAll`). Любой луч с фиксированным буфером — только через `RayPick` (P667, инвариант «луч с буфером»).
+- `OwnedAssets.On(go).Track(asset)` обязателен для КАЖДОГО `new Mesh/Material/Texture2D` под экземпляр; внутри билдеров
+  `ProceduralModels` — `_builtMats.Add(m)` (их подхватит `Make`). После `RestoreLevel` стоит `Resources.UnloadUnusedAssets()` —
+  страховка от сирот прошлого уровня, но не замена владения (P669, P663).
+- Результат `GetComponent*` не проверяют `??`/`?.` — только `TryGetComponent` (тест `SourceRulesTests`, P662).

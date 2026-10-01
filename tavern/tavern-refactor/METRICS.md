@@ -35,6 +35,8 @@
 | 2026-09-24 | ilya-09 | 417 | 95973 | 65 | 10 | ProceduralModels.ElevatorModern 131 | 2 | база ночи 23→24.09 (ilya-09) |
 | 2026-09-26 | ilya-a0 | 425 | 97837 | 69 | 10 | GridCursor.BuildObjectSelection 139 | 3 | база ночи 25→26.09 |
 | 2026-09-26 | ilya-a0 | 425 | 97837 | 68 | 10 | GridCursor.BuildObjectSelection 139 | 3 | после ночи 25→26.09 |
+| 2026-10-01 | ilya-ca | 444 | 112214 | 79 | 14 | GridCursor.BuildObjectSelection 184 | 4 | база ночи 01.10 (ilya-ca) |
+| 2026-10-01 | ilya-ca | 442 | 112051 | 79 | 14 | GridCursor.BuildObjectSelection 184 | 4 | после ночи 01.10 (ilya-ca) |
 
 ## Кадр в сборке
 

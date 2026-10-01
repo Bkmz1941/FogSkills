@@ -196,3 +196,9 @@
 `git diff --stat Assets/Game/Resources/DebugTune.json`: сотни строк — тревога,
 сначала выяснить, потом перезапускать.
 
+
+## Скриншоты моста — вне Assets (01.10, ilya-ca)
+
+`EditorPrefs MCPForUnity_ScreenshotsFolder` = `/media/ilya/T714/Unity/Tavern-fresh/Captures/screenshots`: снимки моста больше не
+импортируются текстурами (181 PNG в `Assets/Screenshots` замедляли каждое сканирование). Старые — в
+`Captures/moved_out_of_assets_20261001/Screenshots`. Снимок для своей проверки искать там, а не в `Assets/Screenshots`.
