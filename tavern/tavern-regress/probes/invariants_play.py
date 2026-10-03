@@ -1627,7 +1627,40 @@ foreach (var cio in Cozy.Grid.InteractiveObject.All)
     if (offMin > 2f || offHour > 2f) { clocksWrong++; if (clocksWrong <= 6) clockIds.Append(cio.Def.id + " мин показ=" + shownMin.ToString("0") + "° ожид=" + expectedMin.ToString("0") + "°, час показ=" + shownHour.ToString("0") + "° ожид=" + expectedHour.ToString("0") + "°; "); }
 }
 if (clocksWrong > 0) bad.Append("правило 48: стрелки часов не по часовой/не по времени: " + clocksWrong + " из " + clocksChecked + " (" + clockIds + "); ");
-return " настенных у обшивки=" + wallSeated + " кусков плинтуса=" + plinthPieces + " скрытых гейтом=" + gateHidden + " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " часов=" + clocksChecked + " :: " + bad.ToString();
+// 49 (P727): дополнительные лампы по пикселям. В YAML 1 = PerPixel, 2 = PerVertex;
+// по вершинам у ламп нет теней, свет холодильника выходит сквозь корпус.
+int lampMode = 0;
+var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+if (urp == null) bad.Append("ЗАЩИТА МЕРТВА, правило 49 не выполняется: нет UniversalRenderPipelineAsset; ");
+if (urp != null) { lampMode = 1; if (urp.additionalLightsRenderingMode != UnityEngine.Rendering.Universal.LightRenderingMode.PerPixel) bad.Append("правило 49: лампы считаются " + urp.additionalLightsRenderingMode + ", нужно PerPixel (в PC_RPAsset m_AdditionalLightsRenderingMode: 1); "); }
+// 50 (P728): «Годен до:» и дата одним шрифтом и размером. Дата — Inter (WorldLabel),
+// надпись — меш Inter из Blender; высота меша с хвостом «д» / высота цифр даты = 1,184.
+int expiryChecked = 0, expiryWrong = 0; var expiryIds = new System.Text.StringBuilder();
+foreach (var eio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
+{
+    if (eio == null || eio.Def == null) continue;
+    UnityEngine.Transform eLab = null, eNode = null, eUp = null; TMPro.TextMeshPro eDate = null;
+    foreach (var et in eio.GetComponentsInChildren<UnityEngine.Transform>(true))
+    {
+        if (et.name == "LabelExpiry" || et.name == "CartonExpiry") eLab = et;
+        else if (et.name == "Expiry") eNode = et;
+        else if (et.name == "ExpiryUp") eUp = et;
+        else if (et.name == "ExpiryLabel") eDate = et.GetComponent<TMPro.TextMeshPro>();
+    }
+    var eMesh = eLab != null ? eLab.GetComponentInChildren<UnityEngine.MeshFilter>() : null;
+    if (eMesh == null || eMesh.sharedMesh == null || eNode == null || eUp == null || eDate == null || string.IsNullOrEmpty(eDate.text)) continue;
+    expiryChecked++;
+    var eDir = (eUp.position - eNode.position).normalized;
+    float eLo = float.MaxValue, eHi = float.MinValue;
+    foreach (var ev in eMesh.sharedMesh.vertices) { float ed = UnityEngine.Vector3.Dot(eMesh.transform.TransformPoint(ev) - eNode.position, eDir); if (ed < eLo) eLo = ed; if (ed > eHi) eHi = ed; }
+    eDate.ForceMeshUpdate(true, true);
+    float eDateH = eDate.textBounds.size.y * eDate.transform.lossyScale.y;
+    float eRatio = eDateH > 0f ? (eHi - eLo) / eDateH : 0f;
+    bool eFont = eDate.font != null && eDate.font.name.StartsWith("Inter");
+    if (!eFont || eRatio < 1.12f || eRatio > 1.25f) { expiryWrong++; if (expiryWrong <= 6) expiryIds.Append(eio.Def.id + " надпись/дата=" + eRatio.ToString("0.00") + (eFont ? "" : " шрифт даты " + (eDate.font != null ? eDate.font.name : "нет")) + "; "); }
+}
+if (expiryWrong > 0) bad.Append("правило 50: «Годен до:» и дата разного размера или шрифта (норма 1,18): " + expiryWrong + " из " + expiryChecked + " (" + expiryIds + "); ");
+return " настенных у обшивки=" + wallSeated + " кусков плинтуса=" + plinthPieces + " скрытых гейтом=" + gateHidden + " растений на ветру=" + stemsBent + " статусы=" + exposure + " крон=" + crowns + " низких слотов=" + floorSlots + " фокусов осмотра=" + focusShifts + " фонарь в кармане=" + torchHand + " костей одежды=" + garmentBones + " веток=" + perches + " источников=" + zoneLights + " точек прицела=" + aimPts + " звук по этажам=" + muffle + " телепорт на метку=" + teleport + " земля=" + soilPts + " переписи=" + cens1 + "/" + cens2 + "/" + cens3 + "/" + cens4 + " ярусов зон=" + zonesRanked + " столбиков угла=" + cornerPosts + " часов=" + clocksChecked + " режим ламп=" + lampMode + " сроков=" + expiryChecked + " :: " + bad.ToString();
 '''
 
 
@@ -1667,7 +1700,7 @@ RULE_OF = {
     'фокусов осмотра': '29', 'фонарь в кармане': '33', 'костей одежды': '34',
     'веток': '35', 'источников': '36', 'точек прицела': '37',
     'настенных у обшивки': '47',
-    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43', 'столбиков угла': '44',
+    'звук по этажам': '39', 'телепорт на метку': '40', 'переписи': '38/41/42', 'земля': '43', 'столбиков угла': '44', 'режим ламп': '49', 'сроков': '50',
 }
 
 

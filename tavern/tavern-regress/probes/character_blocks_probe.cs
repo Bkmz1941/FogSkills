@@ -12,7 +12,7 @@ try
         ui.Close();
         ui.Open();
         UnityEngine.Canvas.ForceUpdateCanvases();
-        var left = (UnityEngine.RectTransform)UnityEngine.GameObject.Find("Block_Жизни").transform;
+        var left = (UnityEngine.RectTransform)UnityEngine.GameObject.Find("Block_Основное").transform;
         var right = (UnityEngine.RectTransform)UnityEngine.GameObject.Find("Block_Состояния").transform;
         float diff = left.rect.width - right.rect.width;
         sb.Append("corner=").Append(corner).Append(" left=").Append(left.rect.width.ToString("0.0"))
