@@ -1,9 +1,9 @@
-"""Кнопка «Пить» у мойки: есть в ОБЕИХ карточках и не зависит от рычага (P182).
+"""Кнопка «Пить» у мойки (P182, инвариант 46; правило Ильи 19.09: «пить можно
+только если вода вкл», отменяет 03.09 «пьют и при закрытом рычаге»).
 
-Гасит кран и осушает чашу мойки, потом строит план рядов карточки обоими
-способами: обычная карточка (examineOnly = true) и осмотр. В обоих должна быть
-«Пить». Заодно проверяет, что при воде в чаше кнопка тоже есть. Рычаг и вода
-возвращаются как были.
+Строит план рядов карточки обоими способами — обычная карточка (examineOnly =
+true) и осмотр: кран открыт → «Пить» в обоих; кран закрыт и чаша пуста → «Пить»
+нет; кран закрыт, в чаше 2 л воды → «Пить» есть. Рычаг и вода возвращаются как были.
 """
 import json, subprocess
 
@@ -32,33 +32,31 @@ var bad = new System.Text.StringBuilder();
 try
 {
     hostField.SetValue(hud, sink);
-    sink.SetSwitch("TapLever", false);
-    vol.Set("", 0f);
-    if (!ws.Supplied) bad.Append("в дом не идёт вода, проба бессмысленна; ");
-    if (ws.Running) bad.Append("кран считается открытым при опущенном рычаге; ");
-    foreach (var only in new[] { true, false })
+    System.Func<bool, bool> hasDrink = only =>
     {
         plan.Invoke(hud, new object[] { null, only, false, sink as Cozy.Grid.IExaminable });
-        var list = (System.Collections.IEnumerable)rowPlan.GetValue(hud);
-        bool found = false;
-        foreach (var item in list)
+        foreach (var item in (System.Collections.IEnumerable)rowPlan.GetValue(hud))
         {
             var b = item.GetType().GetField("button").GetValue(item);
-            if ((b.GetType().GetField("Label").GetValue(b) as string) == "Пить") found = true;
+            if ((b.GetType().GetField("Label").GetValue(b) as string) == "Пить") return true;
         }
-        if (!found) bad.Append(only ? "в обычной карточке нет «Пить» при закрытом кране; " : "в осмотре нет «Пить» при закрытом кране; ");
-    }
-    vol.Set(Cozy.Grid.LiquidVolume.Water, 2f);
-    plan.Invoke(hud, new object[] { null, true, false, sink as Cozy.Grid.IExaminable });
-    var withWater = (System.Collections.IEnumerable)rowPlan.GetValue(hud);
-    bool ok = false;
-    foreach (var item in withWater)
+        return false;
+    };
+    vol.Set("", 0f);
+    sink.SetSwitch("TapLever", true);
+    if (!ws.Supplied) bad.Append("в дом не идёт вода, проба бессмысленна; ");
+    else
     {
-        var b = item.GetType().GetField("button").GetValue(item);
-        if ((b.GetType().GetField("Label").GetValue(b) as string) == "Пить") ok = true;
+        if (!ws.Running) bad.Append("кран не открылся рычагом; ");
+        if (!hasDrink(true)) bad.Append("кран открыт, а в обычной карточке нет «Пить»; ");
+        if (!hasDrink(false)) bad.Append("кран открыт, а в осмотре нет «Пить»; ");
     }
-    if (!ok) bad.Append("с водой в чаше «Пить» пропала; ");
-    return bad.Length == 0 ? "«Пить» у мойки: есть в обычной карточке и в осмотре, рычаг не при чём :: держится" : "КРАСНОЕ: " + bad.ToString();
+    sink.SetSwitch("TapLever", false);
+    if (ws.Running) bad.Append("кран считается открытым при опущенном рычаге; ");
+    if (hasDrink(true) || hasDrink(false)) bad.Append("кран закрыт, чаша пуста, а «Пить» есть; ");
+    vol.Set(Cozy.Grid.LiquidVolume.Water, 2f);
+    if (!hasDrink(true)) bad.Append("кран закрыт, в чаше 2 л воды, а «Пить» нет; ");
+    return bad.Length == 0 ? "«Пить» у мойки: открытый кран — в обеих карточках, закрытый и пустая чаша — нет, вода в чаше — есть :: держится" : "КРАСНОЕ: " + bad.ToString();
 }
 finally
 {

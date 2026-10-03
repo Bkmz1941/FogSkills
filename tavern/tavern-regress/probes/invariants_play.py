@@ -37,7 +37,7 @@ var bad = new System.Text.StringBuilder();
 // Сюда вносится ТОЛЬКО то, что спрятано за тихим guard-ом: члены, на которых
 // правило упало бы с NullReference, кричат сами.
 var BFq = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-var BFqs = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+var BFqs = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
 var BFqa = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
 var BFqp = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
 var qGc = typeof(Cozy.Grid.GridCursor); var qHud = typeof(Tavern.UI.HudUI); var qCam = typeof(Cozy.Character.CameraFollow);
@@ -73,7 +73,7 @@ Need("33", qHud.GetField("_activeQuick", BFq) != null, "нет HudUI._activeQuic
 Need("33", qHud.GetMethod("PocketPlacedAt", BFq) != null, "нет HudUI.PocketPlacedAt");
 Need("21b", typeof(Cozy.Grid.RainDrops).GetMethod("OpenSky", BFqs) != null, "нет RainDrops.OpenSky");
 Need("21b", typeof(Cozy.Grid.RainDrops).GetField("_rends", BFq) != null, "нет RainDrops._rends");
-Need("39", typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", BFqs) != null, "нет GameSfx.MuffleAt");
+Need("39", typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", BFqs | System.Reflection.BindingFlags.Public) != null, "нет GameSfx.MuffleAt");
 var cam = UnityEngine.Camera.main;
 var t = typeof(Cozy.Grid.Interactor);
 var skip = t.GetMethod("SkipHit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
@@ -1311,7 +1311,7 @@ if (cens4 != w4) bad.Append("перепись птиц " + cens4 + " проти�
 //     Два требования разом: у самого уха приглушения этажами нет, и этаж считается
 //     ОТБРАСЫВАНИЕМ — ветка под потолком ещё не «этажом выше», а полный этаж уже да.
 int muffle = 0;
-var mMuffle = typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+var mMuffle = typeof(Cozy.Grid.GameSfx).GetMethod("MuffleAt", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 var earTf = Cozy.Grid.PlayerRef.Transform;
 if (mMuffle != null && earTf != null)
 {
@@ -1341,6 +1341,9 @@ var savedAt = plr.transform.position;
 gcp.TeleportPlayerTo(spawnPt.transform.position);
 float feetY = plr.transform.position.y + (ccp != null ? ccp.center.y - ccp.height * 0.5f : 0f);
 float soilY = gcp.GroundY(plr.transform.position.x, plr.transform.position.z, 0f);
+var castFrom = new UnityEngine.Vector3(plr.transform.position.x, feetY + 0.5f, plr.transform.position.z);
+foreach (var fh in UnityEngine.Physics.RaycastAll(castFrom, UnityEngine.Vector3.down, 4f, ~0, UnityEngine.QueryTriggerInteraction.Ignore))
+    if (!fh.collider.transform.IsChildOf(plr.transform) && fh.point.y > soilY) soilY = fh.point.y;
 if (feetY < soilY - 0.01f) bad.Append("телепорт закопал игрока на " + (soilY - feetY).ToString("F2") + " м; ");
 if (feetY > soilY + 0.6f) bad.Append("телепорт поднял игрока на " + (feetY - soilY).ToString("F2") + " м над землёй; ");
 if (ccp != null) ccp.enabled = false;

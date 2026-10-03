@@ -37,6 +37,8 @@
 | 2026-09-26 | ilya-a0 | 425 | 97837 | 68 | 10 | GridCursor.BuildObjectSelection 139 | 3 | после ночи 25→26.09 |
 | 2026-10-01 | ilya-ca | 444 | 112214 | 79 | 14 | GridCursor.BuildObjectSelection 184 | 4 | база ночи 01.10 (ilya-ca) |
 | 2026-10-01 | ilya-ca | 442 | 112051 | 79 | 14 | GridCursor.BuildObjectSelection 184 | 4 | после ночи 01.10 (ilya-ca) |
+| 2026-10-03 | ilya-8c | 446 | 120233 | 89 | 16 | GridCursor.BuildObjectSelection 217 | 4 | база 03.10 день |
+| 2026-10-03 | ilya-8c | 446 | 120268 | 89 | 16 | GridCursor.BuildObjectSelection 217 | 4 | после 03.10 день |
 
 ## Кадр в сборке
 

@@ -2228,13 +2228,9 @@ FBX и видео не делаются. Три манекена KI рядом (
   блендтри по Speed `Idle01` 0 → `Walk_Limp` 1 ×1, **скорость состояния =
   параметр `LimpRate`** (`m_SpeedParameterActive`), чтобы клип шёл в темп любой
   скорости ходьбы с ползунка без скольжения: `CharacterAvatar.SyncPain` каждый
-  кадр ставит `LimpRate = max(0,3; Speed / LimpPace)`, `LimpPace` 0,717 м/с — ход
-  клипа при ×1 в игровых метрах, выведен из пропорции контроллера (Walk_Calm
-  0,54 м/с нативных ↔ ×2 = 2,6 м/с ⇒ 2,407 игровых м/с на 1 м/с клипа;
-  хромота 0,0124 × 24 = 0,298 × 2,407 = 0,717). Переходы: Idle → PainWalk (Pain,
+  кадр ставит `LimpRate = max(0,3; Speed / LimpPace)`, `LimpPace` 0,745 м/с — ход опоры клипа при ×1 в игровых метрах: `anim_quality_probe` по игровым FBX даёт опору `Walk_Calm` 0,52 м/с, а ходьба 2,6 м/с идёт при ×2 ⇒ 2,5 игровых м на 1 м клипа; опора хромоты 0,298 × 2,5 = 0,745 (03.10 сверено; первая оценка 0,717 из старой цифры 0,54 давала ~4 % скольжения). Переходы: Idle → PainWalk (Pain,
   не присед, Speed > 0,5; стоит ПЕРВЫМ в списке Idle, иначе уходит в Locomotion),
   Locomotion → PainWalk (Pain, не присед, Speed < 3), PainWalk → Locomotion (Pain
   снят ИЛИ Speed > 3,2 — бег в боли обычный `Jog_Calm`), PainWalk → CrouchMove
   (Crouch), PainWalk → Idle (Speed < 0,4). Статус «Боль» и его ручки —
-  EFFECTS.md, «Боль». ⚠️ `LimpPace` в play не сверен — проверить скольжение стоп
-  на 0,6 и 0,4 ходьбы.
+  EFFECTS.md, «Боль». Проверено в play 03.10 мостом: `PainWalk` с весом `Walk_Limp` 1, на беге уходит в `Locomotion`, на остановке в `Idle`.

@@ -54,7 +54,7 @@ try {
         var o = go.AddComponent<Cozy.Grid.InteractiveObject>(); o.Build(Cozy.Grid.FurnitureCatalog.ById(id));
         go.transform.position = st.position + UnityEngine.Vector3.up * 5f; UnityEngine.Physics.SyncTransforms();
         UnityEngine.Vector3 pp; UnityEngine.Quaternion pr;
-        if (pile.NextPose(o, out pp, out pr)) { go.transform.SetPositionAndRotation(pp, pr); UnityEngine.Physics.SyncTransforms(); }
+        if (pile.NextPose(o, null, out pp, out pr)) { go.transform.SetPositionAndRotation(pp, pr); UnityEngine.Physics.SyncTransforms(); }
       }
     for (int k = 0; k < xs.Length; k++)
     {
@@ -79,6 +79,7 @@ try {
         if (host != null && oio == host) continue;
         foreach (var pc in plateCols)
         {
+          if (pc.isTrigger) continue;
           UnityEngine.Vector3 dir; float dist;
           if (UnityEngine.Physics.ComputePenetration(pc, pc.transform.position, pc.transform.rotation, sc, sc.transform.position, sc.transform.rotation, out dir, out dist) && dist > 0.001f)
             bad.Append("заход " + (dist * 1000f).ToString("F0") + " мм в " + (oio != null ? oio.Def.id : sc.name) + " (этап " + stage + ", точка " + k + ", " + (blocked ? "красная" : "валидная") + "); ");

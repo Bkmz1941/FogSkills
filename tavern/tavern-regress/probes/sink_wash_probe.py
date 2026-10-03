@@ -17,10 +17,19 @@ if (!UnityEngine.Application.isPlaying || Cozy.Grid.GridCursor.I == null) return
 var gc = Cozy.Grid.GridCursor.I;
 Cozy.Grid.InteractiveObject sink = null;
 foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObject>(UnityEngine.FindObjectsSortMode.None))
-    if (io.Def != null && io.Def.pile != null && io.Def.pile.Count > 0) sink = io;
+    if (io.Def != null && io.Def.pile != null && io.Def.pile.Count > 0 && Cozy.Grid.SinkPile.On(io) != null) sink = io;
 if (sink == null) return "КРАСНОЕ: мойки нет в уровне";
 var pile = Cozy.Grid.SinkPile.On(sink);
 if (pile == null || sink.Liquid == null) return "КРАСНОЕ: у мойки нет горки или объёма";
+var already = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>();
+pile.Collect(already, null);
+var alreadyAt = new System.Collections.Generic.List<UnityEngine.Pose>();
+for (int i = 0; i < already.Count; i++)
+{
+    alreadyAt.Add(new UnityEngine.Pose(already[i].transform.position, already[i].transform.rotation));
+    already[i].transform.position = new UnityEngine.Vector3(-70f, 0f, -90f - i * 1.5f);
+}
+UnityEngine.Physics.SyncTransforms();
 var vol = sink.Liquid;
 string kind0 = vol.Kind; float l0 = vol.Litres;
 var bad = new System.Text.StringBuilder();
@@ -37,7 +46,7 @@ try
     foreach (var io in new[] { pan, plate })
     {
         UnityEngine.Vector3 p; UnityEngine.Quaternion r;
-        if (!pile.NextPose(io, out p, out r)) { bad.Append("нет позы в горке для " + io.Def.id + "; "); continue; }
+        if (!pile.NextPose(io, null, out p, out r)) { bad.Append("нет позы в горке для " + io.Def.id + "; "); continue; }
         io.transform.SetPositionAndRotation(p, r);
         UnityEngine.Physics.SyncTransforms();
         if (io == pan) continue;
@@ -82,6 +91,9 @@ finally
     if (pan != null) UnityEngine.Object.DestroyImmediate(pan.gameObject);
     if (loose != null) UnityEngine.Object.DestroyImmediate(loose.gameObject);
     vol.Set(kind0, l0);
+    for (int i = 0; i < already.Count; i++)
+        if (already[i] != null) already[i].transform.SetPositionAndRotation(alreadyAt[i].position, alreadyAt[i].rotation);
+    UnityEngine.Physics.SyncTransforms();
 }
 '''
 
