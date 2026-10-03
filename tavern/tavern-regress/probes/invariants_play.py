@@ -255,7 +255,7 @@ if (mSurfSup != null)
         var under = io.transform.parent != null ? io.transform.parent.GetComponentInParent<Cozy.Grid.InteractiveObject>() : null;
         if (under != null && under != io) continue;
         onSurface++;
-        bool held = (bool)mSurfSup.Invoke(gc, new object[] { io.gameObject, p.x, p.y, p.z, rot.eulerAngles.y, null });
+        bool held = (bool)mSurfSup.Invoke(gc, new object[] { io.gameObject, p.x, p.y, p.z, rot.eulerAngles.y, null, io.Def });
         io.transform.SetPositionAndRotation(p, rot);
         if (!held) bad.Append("корпус висит над пустотой: " + io.Def.id + " @ " + p.ToString("F2") + "; ");
     }

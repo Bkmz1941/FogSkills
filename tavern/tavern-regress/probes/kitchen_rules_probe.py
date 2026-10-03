@@ -58,8 +58,8 @@ try
     if (!ring) bad.Append("четыре яичницы не кольцом; ");
     Cozy.Grid.CookArrange.Places(lay.floorR, new System.Collections.Generic.List<Cozy.Grid.CookArrange.Piece> { saus, saus, saus, saus, saus }, spots, yaws, lifts, out fits, lay.maxLanes, lay.ringFrom);
     int lifted = 0; foreach (var l in lifts) if (l > 0.01f) lifted++;
-    if (!fits || lifted != 2) bad.Append("пять сосисок не «3 ленты + 2 сверху» (fits=" + fits + ", сверху " + lifted + "); ");
-    if (lay.limit != 5 || lay.mixCap != 3) bad.Append("лимиты тарелки не 5 / смесь 3; ");
+    if (!fits || lifted != 0) bad.Append("пять сосисок не пятью лентами без яруса (fits=" + fits + ", сверху " + lifted + "); ");
+    if (lay.limit != 4 || lay.mixCap != 3) bad.Append("лимиты тарелки не 4 яичницы / смесь 3; ");
 
     var sauce = Cozy.Grid.Sauced.On(plate);
     if (sauce != null)

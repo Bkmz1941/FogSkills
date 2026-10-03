@@ -190,7 +190,7 @@ def cmd_probes(level=None):
     if not resume():
         print('пробы: КРАСНОЕ — кадры не идут, мир заморожен'); return False
     before = state()[2]
-    for name in ('invariants_play.py', 'level_roundtrip.py', 'reach_probe.py', 'slot_gate_probe.py', 'kitchen_rules_probe.py', 'sink_wash_probe.py', 'sink_rim_probe.py', 'drink_button_probe.py'):
+    for name in ('invariants_play.py', 'level_roundtrip.py', 'reach_probe.py', 'slot_gate_probe.py', 'kitchen_rules_probe.py', 'sink_wash_probe.py', 'sink_rim_probe.py', 'drink_button_probe.py', 'drape_probe.py'):
         out = subprocess.run(['python3', str(REG / name)], capture_output=True, text=True, timeout=300, cwd=PROJECT)
         tail = [l for l in out.stdout.strip().split('\n') if l.strip()]
         last = tail[-1] if tail else 'нет ответа'
