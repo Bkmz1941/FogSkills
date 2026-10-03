@@ -7,7 +7,7 @@
 // +3/4 каймы ≈ 0.57 / 0.10 / 0.00 (1 − покрытие, 3 слоя, ядро 0.95), у границы 0; maxStep ≤ 0.15; шов < 2. Плюс счёт материалов
 // и кайм: листва на Tavern/CrownCut, кора на Lit; у каждой кроны копия-кайма (_CROWN_BAND, ZWrite 1,
 // очередь CrownWindow.BandQueue, тот же меш, без теней, БЕЗ записи глубины), включена ⇒ окно открыто;
-// маска каймы _CrownBandTex (альфа, глубина) рисуется в beginCameraRendering: пиксели маски лежат
+// маска каймы _CrownBandTex (R = 1 − альфа, G = глубина; пусто = 1, 1e4; пишется BlendOp Min) рисуется в beginCameraRendering: пиксели маски лежат
 // в кольце rIn..rOut вокруг центра окна (центроид ≈ центр, d в [rIn, rOut]), meanZ < глубины груди.
 // Персонажа под крону ставят заранее (у ствола, на 0.9 м к камере), после — вернуть.
 // С 11.09 туман окно не закрывает, поэтому клетка тумана замеру больше не мешает.
@@ -45,7 +45,7 @@ if (maskRt != null)
   var mt = new UnityEngine.Texture2D(maskRt.width, maskRt.height, UnityEngine.TextureFormat.RGBAHalf, false); var prevM = UnityEngine.RenderTexture.active; UnityEngine.RenderTexture.active = maskRt; mt.ReadPixels(new UnityEngine.Rect(0, 0, maskRt.width, maskRt.height), 0, 0); mt.Apply(); UnityEngine.RenderTexture.active = prevM;
   var mp = mt.GetPixels(); UnityEngine.Object.Destroy(mt);
   int mw = maskRt.width, mh = maskRt.height; long n = 0; double cx = 0, cy = 0; float dMin = 1e9f, dMax = 0; double zSum = 0;
-  for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { var mc = mp[y * mw + x]; if (mc.r <= 0.001f) continue; n++; cx += x; cy += y; zSum += mc.g; float dx = x - win.x, dy = y - win.y; float d = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy); if (d < dMin) dMin = d; if (d > dMax) dMax = d; }
+  for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { var mc = mp[y * mw + x]; if (mc.r >= 0.999f) continue; n++; cx += x; cy += y; zSum += mc.g; float dx = x - win.x, dy = y - win.y; float d = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy); if (d < dMin) dMin = d; if (d > dMax) dMax = d; }
   sb.Append("mask: on=" + maskOn + " size=" + mw + "x" + mh + " px=" + n + (n > 0 ? " centroid=(" + (cx / n).ToString("0") + "," + (cy / n).ToString("0") + ") d=[" + dMin.ToString("0") + ".." + dMax.ToString("0") + "] meanZ=" + (zSum / n).ToString("0.0") : "") + " flip=" + Cozy.Grid.CrownWindow.MaskFlip + " | ");
 }
 else sb.Append("mask: none (on=" + maskOn + ") | ");

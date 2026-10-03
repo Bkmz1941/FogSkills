@@ -174,7 +174,7 @@ Signal 10, Monsters 11, Level 12.
 - `storyEvents` в уровне пусто, всё сюжетное живёт в событиях зон.
 - Код событий:
   - модель — `Modules/Grid/ZoneEvent.cs`: шаблоны attack, call, sms,
-    crow_spawn/despawn, birds_on/off; условия day, time, item, absent, present;
+    crow_spawn/despawn, robin_spawn/despawn; условия day, time, item, absent, present;
   - очередь — `Modules/Story/ZoneEventRunner.cs`;
   - связка с телефоном — `Game/UI/HudUI.Gameplay.cs` `HookStoryEvents`;
   - редактор — `Game/UI/HudUI.ZoneEvents.cs`, дебаг — F1 → «События».

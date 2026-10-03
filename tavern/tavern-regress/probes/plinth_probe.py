@@ -6,15 +6,16 @@ python3 plinth_probe.py        замер в play, без побочных эф�
 1. Куски есть и разложены по этажам: `PlinthPiece.All` непустой, счёт по этажам и граням.
    Пусто — «НЕЧЕГО ПРОВЕРЯТЬ», это не зелёное. Куски на лестницах и под проёмами
    носителя-стены не имеют и в проверки не идут — их счёт печатается справочно.
-   Куски ПОД ПРОЁМАМИ (`PlinthPiece.span`, строит `PlinthView.BuildSpan`) вырезов
-   мебели не знают по устройству — считаются отдельно и красным не делают,
-   починка этого лежит в `tavern-refactor/TARGETS.md`.
+   Куски ПОД ПРОЁМАМИ (`PlinthPiece.span`) с 02.10 идут через те же дыры и опору
+   (`PlinthView.SpanSegments`, P718): внутри мебели — красное, как и у прогонов;
+   кусок короче 0,3 м (`MinPiece`) — красное.
 2. Не утоплен: вынос куска от грани носителя не меньше замеренного выноса досок
    обшивки той же грани (`PlankSide*`). Утопленный кусок Илья не видит за текстурами.
 3. Этаж куска считается так же, как гейт видимости считает свой якорь
    (`floor((y + 0.12) / 3)`): подоконные куски сидят у полутора метров, и
    округление к ближайшему этажу давало то 68/40, то 70/38 на одном и том же доме.
-4. Не внутри мебели: габарит куска не пересекает корпус напольной мебели, СТОЯЩЕЙ
+4. Не внутри мебели: габарит куска не пересекает корпус напольной мебели, которая по
+   коду рвёт линию (`PlinthView.RipsLine`: без штор, перил, горшков, `KeepPlinth`), СТОЯЩЕЙ
    с этой стороны грани (ближний край ближе 0.25 м, центр по внешнюю сторону) —
    иначе открытый ящик тумбы показывает полосу плинтуса внутри себя. Условие
    отбора то же, что у `PlinthView.FreeSpans`, проверяется результат.
@@ -78,13 +79,13 @@ var fronts = new System.Collections.Generic.List<float>();
 int sunk = 0; float worstSunk = 0f; string worstWhere = "";
 int inFurn = 0; string furnWhere = "";
 int gaps = 0; float worstGap = 0f; string gapWhere = "";
-int noOwner = 0; int spans = 0; int spanInFurn = 0;
+int noOwner = 0; int spans = 0; int spanInFurn = 0; int shortPieces = 0; string shortWhere = "";
 var byPiece = new System.Collections.Generic.Dictionary<Cozy.Grid.PlinthPiece, float>();
 var furn = new System.Collections.Generic.List<UnityEngine.Bounds>();
 foreach (var io in Cozy.Grid.InteractiveObject.All)
 {
     if (io == null || io.Def == null || io.Def.movable) continue;
-    if (io.Def.mount != Cozy.Grid.ObjectMount.Floor || io.Def.id.StartsWith("veg_")) continue;
+    if (!Cozy.Grid.PlinthView.RipsLine(io)) continue;
     furn.Add(io.WorldBounds);
 }
 foreach (var pc in all)
@@ -93,6 +94,8 @@ foreach (var pc in all)
     var gb = pc.owner as Cozy.Grid.GridBlock;
     if (gb == null) { noOwner++; continue; }
     if (pc.span) spans++;
+    { var pbb = pc.Rend.bounds; float plen = UnityEngine.Mathf.Max(pbb.size.x, pbb.size.z);
+      if (plen < 0.29f) { shortPieces++; if (shortWhere == "") shortWhere = pbb.center.ToString("F1"); } }
     var outward = dirOf(pc.face);
     bool thinX = UnityEngine.Mathf.Abs(outward.x) > 0.5f;
     float sign = thinX ? UnityEngine.Mathf.Sign(outward.x) : UnityEngine.Mathf.Sign(outward.z);
@@ -423,6 +426,8 @@ if (orphans > 0) bad.Append("сирота без носителя " + orphans + 
 if (stale > 0) bad.Append("дыра без причины " + stale + " (" + staleWhere + "); ");
 if (bareFaces > 0) bad.Append("грань с флагом без куска при опоре " + bareFaces + " (" + bareWhere + "); ");
 if (stubs > 0) bad.Append("огрызок внутри стены " + stubs + " (" + stubWhere + "); ");
+if (spanInFurn > 0) bad.Append("под проёмом внутри мебели " + spanInFurn + " (P718); ");
+if (shortPieces > 0) bad.Append("кусок короче 0,3 м " + shortPieces + " (" + shortWhere + ", P718); ");
 string s = "кусков " + all.Count + " (под проёмами " + spans + ", из них в мебели " + spanInFurn + "; на лестницах " + noOwner + "), " + floors.ToString() + "дверей " + doors
     + ", вынос " + minF.ToString("F3") + ".." + maxF.ToString("F3") + " м, углов цоколя " + corners;
 return (bad.Length == 0 ? "плинтус: ок — " : "плинтус: КРАСНОЕ: " + bad + "| ") + s;
