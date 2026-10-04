@@ -8,7 +8,15 @@ python3 forest_gen.py [--seed N] [--dry]
 самых стен пусто. Дворовый проход сажает ТОЛЬКО низкое — траву, цветы куртинами,
 редкие кустики и палки, — держит чистой полосу у стен (`WALLGAP`) и круги перед
 дверями, деревьев не ставит вовсе.
-python3 forest_gen.py --yard [--seed N] [--dry]"""
+python3 forest_gen.py --yard [--seed N] [--dry]
+
+--near — деревья и кусты ВПЛОТНУЮ к дому (Илья 2026-10-04: «вокруг дома прям
+рядом добавь растительность, деревья и тд, только со стороны входа не надо»).
+Кольцо 0,9–6 м от стен с трёх сторон; сторона входа — та стена, у которой
+наружная дверь первого этажа, её полоса пропускается целиком (с углами).
+Деревья в 2,2 м от стен и в 2,6 м друг от друга, кусты, камни и палки. НЕ
+сохраняет уровень сам (`--save` — сохранить): Илья смотрит и сохраняет.
+python3 forest_gen.py --near [--seed N] [--dry] [--save]"""
 import json, subprocess, sys, pathlib
 MCP = str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py')
 PROJECT = '/media/ilya/T714/Unity/Tavern-fresh'
@@ -16,6 +24,8 @@ seed = 20260920
 if '--seed' in sys.argv: seed = int(sys.argv[sys.argv.index('--seed') + 1])
 dry = 'true' if '--dry' in sys.argv else 'false'
 yard_mode = '--yard' in sys.argv
+near_mode = '--near' in sys.argv
+save = 'true' if '--save' in sys.argv else 'false'
 
 yard_code = '''
 if (!UnityEngine.Application.isPlaying) return "не в play";
@@ -324,7 +334,121 @@ return "двор x " + cx0.ToString("F1") + ".." + cx1.ToString("F1") + " z " + 
   + " || всего " + made + " из " + tried + " попыток" + (DRY ? " (СУХОЙ ПРОГОН)" : saved);
 '''.replace('SEEDVAL', str(seed)).replace('DRYFLAG', dry)
 
-out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": yard_code if yard_mode else code})],
+near_code = '''
+if (!UnityEngine.Application.isPlaying) return "не в play";
+var gc = UnityEngine.Object.FindFirstObjectByType<Cozy.Grid.GridCursor>();
+if (gc == null) return "нет GridCursor";
+var T = typeof(Cozy.Grid.GridCursor);
+var BFI = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+var spawn = T.GetMethod("SpawnObject", BFI);
+var groundOk = T.GetMethod("GrassGroundOk", BFI);
+var groundY = T.GetMethod("GroundY", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+if (spawn == null || groundOk == null || groundY == null) return "нет методов";
+bool DRY = DRYFLAG, SAVE = SAVEFLAG;
+var rnd = new System.Random(SEEDVAL);
+
+float hx0 = 1e9f, hx1 = -1e9f, hz0 = 1e9f, hz1 = -1e9f;
+foreach (var gb in Cozy.Grid.GridBlock.All)
+{
+    if (gb == null || gb.Rend == null) continue;
+    if (gb.role != Cozy.Grid.GridRole.Wall && gb.role != Cozy.Grid.GridRole.Floor) continue;
+    var b = gb.Rend.bounds;
+    if (b.min.x < hx0) hx0 = b.min.x; if (b.max.x > hx1) hx1 = b.max.x;
+    if (b.min.z < hz0) hz0 = b.min.z; if (b.max.z > hz1) hz1 = b.max.z;
+}
+float ring = 6f, wall = 0.9f, treeWall = 2.2f;
+
+// ── сторона входа: наружная дверь первого этажа у края габарита
+var doors = new System.Collections.Generic.List<UnityEngine.Vector3>();
+foreach (var dp in UnityEngine.Object.FindObjectsByType<Cozy.Grid.DoorPiece>(UnityEngine.FindObjectsSortMode.None))
+    if (dp != null) doors.Add(dp.transform.position);
+string entrance = "";
+foreach (var d in doors)
+{
+    if (d.y > 1f) continue;
+    if (UnityEngine.Mathf.Abs(d.x - hx0) < 0.7f) entrance += "W";
+    else if (UnityEngine.Mathf.Abs(d.x - hx1) < 0.7f) entrance += "E";
+    else if (UnityEngine.Mathf.Abs(d.z - hz0) < 0.7f) entrance += "S";
+    else if (UnityEngine.Mathf.Abs(d.z - hz1) < 0.7f) entrance += "N";
+}
+System.Func<float, float, bool> entranceSide = (x, z) =>
+    entrance.Contains("W") && x < hx0 || entrance.Contains("E") && x > hx1
+    || entrance.Contains("S") && z < hz0 || entrance.Contains("N") && z > hz1;
+System.Func<float, float, float> wallGap = (x, z) =>
+{
+    float dx = UnityEngine.Mathf.Max(0f, UnityEngine.Mathf.Max(hx0 - x, x - hx1));
+    float dz = UnityEngine.Mathf.Max(0f, UnityEngine.Mathf.Max(hz0 - z, z - hz1));
+    return UnityEngine.Mathf.Sqrt(dx * dx + dz * dz);
+};
+
+var stuff = new System.Collections.Generic.List<UnityEngine.Vector2>();
+var planted = new System.Collections.Generic.List<UnityEngine.Vector3>();
+foreach (var io in Cozy.Grid.InteractiveObject.All)
+{
+    if (io == null || io.Def == null) continue;
+    var p = io.transform.position;
+    if (wallGap(p.x, p.z) > ring + 3f) continue;
+    if (io.Def.id != null && (io.Def.id.StartsWith("veg_grass") || io.Def.id.StartsWith("veg_flower") || io.Def.id.StartsWith("veg_pebble"))) continue;
+    if (io.Def.id != null && (io.Def.id.StartsWith("veg_tree") || io.Def.id.StartsWith("veg_bush")))
+        planted.Add(new UnityEngine.Vector3(p.x, p.z, io.Def.id.StartsWith("veg_tree") ? 2.6f : 1.4f));
+    else stuff.Add(new UnityEngine.Vector2(p.x, p.z));
+}
+int before = planted.Count;
+System.Func<float, float, float, bool> free = (x, z, r) =>
+{
+    foreach (var d in doors) if ((d.x - x) * (d.x - x) + (d.z - z) * (d.z - z) < 2.4f * 2.4f) return false;
+    foreach (var o in stuff) if ((o.x - x) * (o.x - x) + (o.y - z) * (o.y - z) < 1.2f * 1.2f) return false;
+    foreach (var q in planted)
+    {
+        float rr = UnityEngine.Mathf.Max(r, q.z);
+        if ((q.x - x) * (q.x - x) + (q.y - z) * (q.y - z) < rr * rr) return false;
+    }
+    return true;
+};
+var defs = new System.Collections.Generic.Dictionary<string, Cozy.Grid.ObjectDef>();
+var log = new System.Text.StringBuilder();
+int made = 0;
+System.Func<string, float, float, float, float, bool> put = (id, x, z, r, minWall) =>
+{
+    float g = wallGap(x, z);
+    if (g < minWall || g > ring || entranceSide(x, z) || !free(x, z, r)) return false;
+    if (!defs.ContainsKey(id)) defs[id] = Cozy.Grid.FurnitureCatalog.ById(id);
+    var d = defs[id];
+    if (d == null) return false;
+    float y = (float)groundY.Invoke(gc, new object[]{ x, z, 0f });
+    var pos = new UnityEngine.Vector3(x, y, z);
+    if (!(bool)groundOk.Invoke(gc, new object[]{ pos, 0f })) return false;
+    planted.Add(new UnityEngine.Vector3(x, z, r));
+    if (!DRY) spawn.Invoke(gc, new object[]{ d, pos, (float)(rnd.NextDouble() * 360.0) });
+    log.Append(id + "@" + x.ToString("F2") + "," + z.ToString("F2") + ";");
+    made++;
+    return true;
+};
+System.Func<float> rx = () => hx0 - ring + (float)rnd.NextDouble() * (hx1 - hx0 + ring * 2f);
+System.Func<float> rz = () => hz0 - ring + (float)rnd.NextDouble() * (hz1 - hz0 + ring * 2f);
+
+int trees = 0, bush = 0, rock = 0, stick = 0;
+for (int a = 0; a < 20000 && trees < 16; a++)
+    if (put("veg_tree" + (rnd.Next(5) == 0 ? "" : "_" + (rnd.Next(4) + 2)), rx(), rz(), 2.6f + (float)rnd.NextDouble() * 0.6f, treeWall)) trees++;
+for (int a = 0; a < 20000 && bush < 26; a++)
+    if (put("veg_bush" + (rnd.Next(5) == 0 ? "" : "_" + (rnd.Next(4) + 2)), rx(), rz(), 1.3f, wall)) bush++;
+for (int a = 0; a < 8000 && rock < 6; a++) { int v = rnd.Next(12); if (put("veg_rock" + (v == 0 ? "" : "_" + (v + 1)), rx(), rz(), 1.0f, wall)) rock++; }
+for (int a = 0; a < 8000 && stick < 8; a++) { int v = rnd.Next(5); if (put("deco_stick" + (v == 0 ? "" : "_" + (v + 1)), rx(), rz(), 0.8f, wall)) stick++; }
+
+string saved = "";
+if (!DRY && SAVE)
+{
+    string lvl = Cozy.Grid.LevelIO.CurrentLevelName;
+    Cozy.Grid.LevelIO.Save(lvl);
+    saved = " || сохранён уровень " + lvl;
+}
+return "дом x " + hx0.ToString("F1") + ".." + hx1.ToString("F1") + " z " + hz0.ToString("F1") + ".." + hz1.ToString("F1")
+  + " | вход: " + (entrance == "" ? "не найден" : entrance) + " | было рядом деревьев и кустов " + before
+  + " || деревья " + trees + ", кусты " + bush + ", камни " + rock + ", палки " + stick + " — всего " + made
+  + (DRY ? " (СУХОЙ ПРОГОН)" : SAVE ? saved : " (НЕ сохранено)") + " || " + log;
+'''.replace('SEEDVAL', str(seed)).replace('DRYFLAG', dry).replace('SAVEFLAG', save)
+
+out = subprocess.run(['python3', MCP, 'execute_code', json.dumps({"action": "execute", "code": near_code if near_mode else yard_code if yard_mode else code})],
                      capture_output=True, text=True, timeout=900, cwd=PROJECT)
 text = out.stdout.strip(); line = text.splitlines()[-1] if text else '{}'
 try:

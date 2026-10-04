@@ -242,7 +242,9 @@ Feet, `soleLift` 0,021), на героине `Clothes/SneakersF.fbx`, в мир�
 (жен.)», слот Body вместо футболки), `Clothes/HoodieF.fbx`, сложенная —
 `HoodieFFolded` (`hoodie_f_folded`, модель `hoodieGirlFolded`); `BLENDER.md`,
 «Толстовка девушки». С 30.09 — мужская `Items.Hoodie` (`hoodie`, «Синяя
-толстовка (муж.)», слот Body, карман 4×1, глиф `shirt`, `colorName` «синий»),
+толстовка (муж.)», слот Body, карман 4×1, `colorName` «синий»; ⭐ 04.10 иконка —
+картинка Ильи `Fog/Clothes/blue hoodie(man).png` → `Resources/Icons/hoodie.png`,
+`iconPicture: true`, до этого глиф `shirt`),
 `Clothes/HoodieM.fbx`, сложенная `HoodieFolded` (`hoodie_folded`, модель
 `hoodieFolded`), кнопка «Синяя толстовка (муж., сложенная)», стопки шкафов;
 сумка поверх неё — `SportBagHoodieM` (`ResourceFor`: Body `hoodie` или

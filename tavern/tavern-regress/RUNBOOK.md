@@ -43,6 +43,7 @@ git diff <файл> | head -40            # чей это код
 - «Правка не действует» — Unity отложил компиляцию (в play) или не импортировал
   ассет; проверить `isCompiling` и время сборки в `Library/ScriptAssemblies`.
 - «Проба говорит не в play» — редактор вышел из play сам (перекомпиляция).
+- «Слот всегда свободен / `InteractiveObject.All` = 0 / контейнер не видит содержимое» — редактор НЕ в play (кто-то вышел после твоей сборки): `All` заполняется только в play, спавн в edit mode молча «работает». Перед пробой — `cycle.py status`, в пробе — печатать `Application.isPlaying` (04.10, колода).
 - Замер до/после снимать только когда сцену никто не трогает: чужая игра
   сдвигает предметы, и дифф покажет дрейф, а не правку.
 
@@ -95,11 +96,39 @@ MCP for Unity (CoplayDev, `f445f81`) работает по HTTP и по умол
   в нём удалённые соседями исходники (`CS2001`) и старые пакеты (`CS0006`). Проверяет ТОЛЬКО свою сборку:
   rsp сборки UI ссылается на `Library/ScriptAssemblies/Cozy.Grid.dll` редактора, новое поле Grid там не
   видно. Истина — компиляция редактора (`cycle.py compile`).
+- ⭐ 04.10 (P856): зависимая сборка (Tavern.UI) ссылается на `Library/Bee/artifacts/*/Cozy.Grid.ref.dll` — подменять
+  ЭТОТ путь на свою свежую `Cozy.Grid.dll` из скретчпада. Новые `.cs` соседей в rsp нет (CS0103 на чужих именах) —
+  дописать недостающие файлы папки сборки; у rsp нет перевода строки в конце, перед дозаписью добавить `\n`, иначе путь
+  склеится с `/additionalfile:…"`.
 - Постановку в play доказывает только настоящий конвейер `ComputeObjectPose` (камера НИЖЕ перекрытия
   этажа, мышь через `InputSystem.QueueStateEvent` + `InputSystem.Update()`, герой в досягаемости) или глаза
   Ильи. Рефлексивный `ValidatePose` с сырым Y и `SurfaceSupported`/`OverlapsOthers` по отдельности —
   подсказка, не вердикт: они ждут уже разрешённую высоту.
 
+
+## Офлайн-компиляция цепочкой (04.10, P800)
+
+Когда правка задевает несколько сборок, а соседи параллельно меняют свои, одиночный `csc @rsp` врёт
+(ref на старые соседние сборки, новые файлы соседей не в rsp). Рецепт, которым сессия ilya-83 04.10
+проверяла каждую правку, Илья в play:
+
+```bash
+cd /media/ilya/T714/Unity/Tavern-fresh
+B=Library/Bee/artifacts/2400b0aE.dag; S=<scratchpad>/oc; mkdir -p $S
+DN=~/Unity/Hub/Editor/6000.3.10f1/Editor/Data/NetCoreRuntime/dotnet
+CSC=~/Unity/Hub/Editor/6000.3.10f1/Editor/Data/DotNetSdkRoslyn/csc.dll
+cp $B/*.ref.dll $B/*.UnityAdditionalFile.txt $S/
+names="Cozy.Loc Cozy.View Cozy.Grid Cozy.Character Cozy.Effects Cozy.Weather Cozy.Cooking Cozy.Story Cozy.Combat Cozy.Monsters Tavern.Net Tavern.Core Tavern.UI Tavern.Tests.EditMode"
+for a in $names; do sed "s#$B/#$S/#g" $B/$a.rsp > $S/$a.rsp; done   # выход и ref — в scratch
+for pass in 1 2; do for a in $names; do $DN $CSC /nologo @$S/$a.rsp 2>&1 | grep " error "; done; done
+```
+
+- Порядок сборок — по зависимостям; второй проход добирает то, что упало из-за порядка.
+- Новые `.cs` соседей, которых нет в rsp (редактор их ещё не компилировал): найти
+  `for f in $(find Assets/Modules/Grid -name "*.cs"); do grep -q "$f" $S/Cozy.Grid.rsp || echo $f; done`
+  и дописать в rsp строками `"путь"` С НОВОЙ СТРОКИ (последняя строка rsp без перевода строки — склейка).
+- Без `UnityAdditionalFile.txt` рядом — `CS2001`. `MonoScriptInfoGenerator` warning `CS8785` — шум.
+- Ошибка в чужом файле — сначала свежесть rsp/ref (P800), не чинить чужое.
 
 ## Пробы через мост и расчёт позы (03.10, P767)
 

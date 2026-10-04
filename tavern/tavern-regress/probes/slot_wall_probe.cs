@@ -6,6 +6,13 @@ var sb = new System.Text.StringBuilder();
 var byDef = new System.Collections.Generic.Dictionary<string, int[]>();
 var hits = new UnityEngine.RaycastHit[64];
 int hosts = 0, rays = 0, leaks = 0;
+var forcedOn = new System.Collections.Generic.List<UnityEngine.Renderer>();
+foreach (var fh in Cozy.Grid.InteractiveObject.All)
+{
+    if (fh == null || fh.Def == null || string.IsNullOrEmpty(fh.Def.slotNodes)) continue;
+    foreach (var fr in fh.GetComponentsInChildren<UnityEngine.MeshRenderer>())
+        if (!fr.enabled && !Cozy.Grid.InteractHighlight.IsCopy(fr) && fr.GetComponentInParent<Cozy.Grid.InteractiveObject>() == fh) { fr.enabled = true; forcedOn.Add(fr); }
+}
 foreach (var host in Cozy.Grid.InteractiveObject.All)
 {
     if (host == null || host.Def == null || !(bool)shows.Invoke(null, new object[] { host.Def })) continue;
@@ -28,17 +35,17 @@ foreach (var host in Cozy.Grid.InteractiveObject.All)
             var from = target + dirs[s] * (hb.extents.magnitude + 1f);
             var dir = (target - from).normalized;
             int n = UnityEngine.Physics.RaycastNonAlloc(from, dir, hits, 10f, ~0, UnityEngine.QueryTriggerInteraction.Collide);
-            UnityEngine.RaycastHit hostHit = new UnityEngine.RaycastHit(); bool gotHost = false, gotItem = false; float hd = 1e9f;
+            UnityEngine.RaycastHit hostHit = new UnityEngine.RaycastHit(); bool gotHost = false, gotItem = false; float hd = 1e9f, idist = 1e9f;
             for (int i = 0; i < n; i++)
             {
                 var h = hits[i];
                 var owner = h.collider.GetComponentInParent<Cozy.Grid.InteractiveObject>();
                 if (owner == host && !h.collider.transform.IsChildOf(it.transform) && h.distance < hd) { hd = h.distance; hostHit = h; gotHost = true; }
-                if (h.collider.transform.IsChildOf(it.transform)) gotItem = true;
+                if (h.collider.transform.IsChildOf(it.transform)) { gotItem = true; idist = UnityEngine.Mathf.Min(idist, h.distance); }
             }
             if (!gotHost || !gotItem) continue;
             rays++;
-            bool lets = (bool)through.Invoke(null, new object[] { hostHit, col, host });
+            bool lets = (bool)through.Invoke(null, new object[] { hostHit, col, host, from + dir * idist });
             byDef[host.Def.id][s * 2] += 1;
             if (lets) { byDef[host.Def.id][s * 2 + 1] += 1; leaks++; }
         }
@@ -51,4 +58,5 @@ foreach (var kv in byDef)
     for (int s = 0; s < 4; s++) sb.Append(sides[s] + " " + kv.Value[s * 2 + 1] + "/" + kv.Value[s * 2] + " ");
     sb.Append("; ");
 }
+foreach (var fr in forcedOn) if (fr != null) fr.enabled = false;
 return "хозяев с содержимым=" + hosts + " лучей=" + rays + " сквозь стенку=" + leaks + " :: " + sb;

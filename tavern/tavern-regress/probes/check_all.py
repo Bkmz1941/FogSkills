@@ -2,7 +2,7 @@
 
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/check_all.py
 """
-import json, subprocess, sys, time
+import json, pathlib, subprocess, sys, time
 
 GAME = '/home/ilya/.claude/skills/tavern-game'
 REG = '/home/ilya/.claude/skills/tavern-regress'
@@ -126,6 +126,23 @@ def probe(name, *args):
     return tail
 
 
+def probe_cs(name, again=False):
+    code = open(REG + '/probes/' + name).read()
+    out = subprocess.run(['python3', str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py'), 'execute_code',
+                          json.dumps({'action': 'execute', 'code': code})], capture_output=True, text=True, timeout=300, cwd=PROJECT)
+    lines = out.stdout.strip().splitlines()
+    try:
+        d = json.loads(lines[-1]) if lines else {}
+    except Exception:
+        d = {}
+    res = str((d.get('data') or {}).get('result') or d.get('message') or 'нет ответа')
+    if res.startswith('ПОДГОТОВКА') and not again:
+        print(name + ':', res)
+        time.sleep(2.5)
+        return probe_cs(name, again=True)
+    print(name + ':', res[:1400])
+
+
 def main():
     print('=== проверка «всё, что работало, работает» ===')
     ok_lint = lint()
@@ -148,6 +165,9 @@ def main():
         probe('tilt_probe.py')
         probe('paint_strip_probe.py')
         probe('gc_probe.py', 'check')
+        probe_cs('slot_wall_probe.cs')
+        probe_cs('slot_open_probe.cs')
+        probe_cs('box_place_probe.cs')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')

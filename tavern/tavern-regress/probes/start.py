@@ -77,6 +77,15 @@ def main():
     print('--- последние грабли (PITFALLS)')
     for h in last_headers(GAME / 'PITFALLS.md', 3, r'^## P\d{3} '):
         print(' ', h[3:110])
+    text = (GAME / 'PITFALLS.md').read_text(encoding='utf-8')
+    pend = []
+    for block in re.split(r'(?m)^(?=## P\d{3} )', text):
+        m = re.match(r'## (P\d{3}) · ([^·]+)·\s*(.{0,60})', block)
+        if m and re.search(r'⏳|не проверен[оа] в игре|живьём не проверен', block, re.IGNORECASE):
+            pend.append(f"{m.group(1)} ({m.group(2).strip()}): {m.group(3).strip()}")
+    if pend:
+        print('--- ⏳ НЕПРОВЕРЕННЫЕ ПОЧИНКИ — проверить пробой при первом свободном play, потом снять ⏳:')
+        for l in pend: print(' ', l)
     inv = [l for l in (REG / 'INVARIANTS.md').read_text(encoding='utf-8').splitlines() if re.match(r'^\| \d+ \|', l)]
     print(f'инвариантов: {len(inv)}; линт:', sh(f'python3 {REG}/probes/bugs.py --lint | tail -n 1'))
     open_md = GAME / 'OPEN.md'
