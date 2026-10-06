@@ -14,7 +14,7 @@ Headless Blender по двум файлам одежды: Т-поза `JacketSta
 """
 import json, os, re, subprocess, sys, tempfile
 
-BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
+BLENDER = '/media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender'
 WORK = '/media/ilya/T714/Unity/Tavern-fresh/BlenderWork'
 FILES = [('Library/humanClothes.blend', 'JacketStand_V1_Cut', [None]),
          ('Library/humanJacket.blend', 'JacketStand_V1_J1_Cut', [1, 20, 40, 60, 80]),

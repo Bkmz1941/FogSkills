@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 
-BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
+BLENDER = '/media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender'
 PROPS = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/Props'
 DEFAULT = [os.path.join(PROPS, n + '.fbx') for n in ('Crow_Sit', 'Crow_Stand', 'Owl_Sit', 'Owl_Stand')]
 

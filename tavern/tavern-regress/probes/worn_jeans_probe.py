@@ -10,7 +10,7 @@ Headless Blender: импортирует игровой FBX тела и Clothes/
 """
 import os, subprocess, sys, tempfile
 
-BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
+BLENDER = '/media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender'
 RES = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/'
 INNER = r'''
 import bpy, math

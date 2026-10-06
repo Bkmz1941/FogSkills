@@ -133,8 +133,8 @@ C# (огонь, ветер), либо выгрузка раскладки дан
 ## Команды, которые нужны каждый раз
 
 ```bash
-# Blender 4.2
-/media/ilya/T714/Tools/blender-4.2.3-linux-x64
+# Blender 5.2 LTS (с 06.10; 4.2 удалён) — `blender` в PATH: ~/.local/bin/blender → он же
+/media/ilya/T714/Tools/blender-5.2.2-linux-x64
 
 # мост Claude → Blender: поднять / открыть файл / погасить
 bash BlenderWork/blender_mcp_up.sh
@@ -302,7 +302,7 @@ _Полная редакция 2026-08-14. Выработан с Ильёй ит
 2. Примитивы (`ProceduralModels`) — ТОЛЬКО угловатая мебель с интерактивными
    нодами (створки/ящики), строго по Kenney-гайду выше.
 3. **Blender-пайплайн — дефолт для всего остального** (мягкие формы, пропы,
-   фабричные предметы). Blender 4.2: `/media/ilya/T714/Tools/blender-4.2.3-linux-x64`.
+   фабричные предметы). Blender 5.2: `/media/ilya/T714/Tools/blender-5.2.2-linux-x64` (переезд с 4.2 — раздел «Blender 5.2» ниже).
 
 **1. Blender-сессия (итерации с Ильёй):**
 - Референс: Илья кидает картинку/URL → скачать (curl) → посмотреть (Read).
@@ -537,6 +537,45 @@ _Полная редакция 2026-08-14. Выработан с Ильёй ит
 - Запуск GUI-Blender из фона: `nohup env DISPLAY=:1 blender …` (без DISPLAY
   тихо умирает; `setsid` в этой среде отваливался).
 
+## ⭐ Blender 5.2 (с 2026-10-06, вместо 4.2)
+
+Переехали целиком по слову Ильи («попробуем полностью переехать, чтобы удалить
+старую версию»). Перед переездом на 5.2.2 прогнали все 230 `*_scene.py` и все
+`build_*.py`, а выгруженные FBX сверили с HEAD.
+
+- **`action.fcurves` в 5.0 убран**: кривые теперь лежат в слотах action →
+  layers → strips → channelbags. Писать `fcurves(action)` из
+  `BlenderWork/bl_compat.py`: он отдаёт то же, что раньше `action.fcurves`
+  (перебор, `len`, `find`, `remove`). Новый скрипт с анимацией — сразу через
+  него: `.fcurves` напрямую на 5.x падает с `AttributeError`.
+- **Движок EEVEE снова называется `'BLENDER_EEVEE'`**; `'BLENDER_EEVEE_NEXT'`
+  из 4.2 на 5.x — `TypeError` при присваивании.
+- **`.blend`, сохранённый в 5.2, в 4.x не откроется.** Возврата на 4.2 нет.
+- **Видео:** перед `image_settings.file_format = 'FFMPEG'` нужен
+  `image_settings.media_type = 'VIDEO'`, иначе `TypeError: enum "FFMPEG" not
+  found` (8 скриптов поправлены).
+- **Наш мост (`mcp-blender`) пропатчен локально** в
+  `T714/Tools/mcp-blender/addon/blender_mcp_addon`: `compat.get_eevee_engine_name`
+  на 5.x отдаёт `BLENDER_EEVEE`, `get_action_fcurves` читает channelbags,
+  `handlers/ai.py` берёт движок через compat. Наверху (RFingAdam/mcp-blender) на
+  06.10 это не исправлено: `git pull` патч перетрёт — проверить
+  `git -C T714/Tools/mcp-blender diff` до обновления.
+- Сверка 06.10: те же `build_*.py` на 4.2 и 5.2 — 366 из 413 FBX совпали
+  целиком, 20 отличаются только порядком материалов (Unity связывает по имени),
+  остальные — разбивкой надписей на треугольники, склейкой повторных слотов
+  материала, гранями плюшевых игрушек; на рендере не отличить.
+- В архиве Blender для Linux 79 симлинков на `.so`, а T714 — exFAT: после
+  `tar x` недостающие ссылки заменить копиями целей, иначе Blender не стартует.
+- **Официальный MCP Blender Lab** (`blender-lab` в `claude mcp list`, сервер
+  `~/.local/bin/blender-mcp`, исходники `T714/Tools/blender_lab_mcp/src`):
+  26 инструментов, среди них поиск по справке Python API и мануалу
+  (`search_api_docs`, `get_python_api_docs`) и сводки по `.blend` без окна
+  (`*_for_cli`). Порт 9877, чтобы не мешать нашему мосту на 9876. Поднять окно:
+  `bash /media/ilya/T714/Tools/blender_lab_mcp/up.sh [файл]`, погасить —
+  `… up.sh stop`. Аддону нужен `--online-mode`, иначе отказ «Online access must
+  be enabled». Код из чата исполняется без ограничений — держать поднятым только
+  на время работы.
+
 ## ⭐ Мост Claude → Blender (MCP)
 
 _Заведён 2026-09-03._
@@ -555,8 +594,9 @@ _Заведён 2026-09-03._
 - сервер `~/.local/bin/mcp-blender` (uv tool из исходников
   `T714/Tools/mcp-blender`, репозиторий `RFingAdam/mcp-blender`). ⚠️ НЕ ставить
   `pip install mcp-blender`: на PyPI под этим именем лежит чужой пакет;
-- аддон симлинком: `~/.config/blender/4.2/scripts/addons/blender_mcp_addon` →
-  `T714/Tools/mcp-blender/addon/blender_mcp_addon`, включён в userpref;
+- аддон симлинком: `~/.config/blender/5.2/scripts/addons/blender_mcp_addon` →
+  `T714/Tools/mcp-blender/addon/blender_mcp_addon`; `blender_mcp_up.sh` включает его
+  при каждом запуске (на 5.2.2 регистрируется, проверено 06.10);
 - сервер прописан в `~/.claude.json` (область user, `claude mcp list` показывает
   `blender ✔ Connected`). Claude Code поднимает его сам при старте сессии;
   добавленный ПОСЛЕ старта сервер требует `/mcp` или перезапуска сессии.

@@ -25,7 +25,7 @@ import os
 import subprocess
 import sys
 
-BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
+BLENDER = '/media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender'
 FURNITURE = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/Furniture'
 
 # модель → нода → куда смотрит: 'wall' (к стене) или 'room' (в комнату)

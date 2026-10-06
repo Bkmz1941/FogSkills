@@ -172,7 +172,7 @@
 ## Проверка (обязательна после любой правки констант или правил)
 
     cd BlenderWork/sink_game_check
-    /home/ilya/Tools/blender-4.2.3-linux-x64/blender -b --python game_pile_check.py -- all
+    /media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender -b --python game_pile_check.py -- all
     python3 analyze.py
 
 Порт планировщика (`game_pile2.py`) сверен с игрой до 0.5 мм. Проверка

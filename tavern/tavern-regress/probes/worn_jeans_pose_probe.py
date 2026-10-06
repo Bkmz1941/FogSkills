@@ -14,7 +14,7 @@ Headless Blender: берутся ИГРОВЫЕ файлы — тело `HumanCh
 """
 import glob, os, subprocess, sys, tempfile
 
-BLENDER = '/media/ilya/T714/Tools/blender-4.2.3-linux-x64/blender'
+BLENDER = '/media/ilya/T714/Tools/blender-5.2.2-linux-x64/blender'
 CLOTHES = '/media/ilya/T714/Unity/Tavern-fresh/BlenderWork/Library/humanClothes.blend'
 RES = '/media/ilya/T714/Unity/Tavern-fresh/Assets/Game/Resources/'
 LIMIT = 40
