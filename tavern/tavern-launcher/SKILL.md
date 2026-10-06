@@ -20,7 +20,7 @@ description: Дистрибуция «Таверны» вне Steam — ПЛАН
 
 | Что | Где | Состояние |
 |---|---|---|
-| Игра | `/media/ilya/T714/Unity/Tavern-fresh`, GitHub `Bkmz1941/tavern`, ветка `main`, Unity 6000.3.10f1 | `productName: Tavern`, `companyName: DefaultCompany`, `bundleVersion: 0.1.0` |
+| Игра | `/media/ilya/T714/Unity/Tavern-fresh`, GitHub `Bkmz1941/Fog` (до 06.10 — `tavern`), ветка `main`, Unity 6000.3.10f1 | `productName: Tavern`, `companyName: DefaultCompany`, `bundleVersion: 0.1.0` |
 | Сборка | `Assets/Editor/BuildLinux.cs`, триггеры `BuildRequests/linux.request` / `linux_prod.request` (подробно — `tavern-game/ARCHITECTURE.md`, «Сборка игры под Linux») | ТОЛЬКО Linux. Прод ≈ 245 МБ, дев ≈ 320 МБ. Модули Windows/Mac/WebGL в редакторе установлены, скрипта сборки под Windows нет |
 | Скриптинг-бэкенд | `ProjectSettings.asset` | Standalone = **Mono** (IL2CPP включён только для Android). До публичной раздачи переключить, см. «Безопасность» |
 | **Бэкенд** | `/media/ilya/T714/Unity/tavern-server` — **Kotlin + Spring Boot 4 WebFlux, Java 25, Gradle**, jOOQ + Liquibase, PostgreSQL 17 в Docker (`tavern-postgres`, порт 5432), порт **8085**. README с запуском и curl-примерами | Живой с 2026-07-05 (последний коммит 05.07 «роль admin в users»), рабочее дерево чистое, **git remote НЕ заведён** (в DESIGN_LOG 05.07 «завести на GitHub» — не сделано). Контейнер Postgres на 20.09 не запущен |

@@ -66,7 +66,7 @@
 |---|---|---|---|
 | вещь НА ГЕРОЕ | `Library/humanClothes.blend` (функция `make_*` в `human_skin_cut.py` + числа в `human_skin_params.json`) | `blender -b --python human_skin_garment_export.py -- <Имя>` → `Resources/Clothes/<Имя>.fbx` + `-materials.json` | `WardrobeVisuals.GarmentResource` (switch по id), `PlayerModelCatalog.AttachSkinnedGarment`, `KitMaterials.Apply` |
 | вещь КАК ЛЕЖИТ (объект мира) | своя сцена `*_folded_scene.py` на ките `pants_fold_kit.py` ЛИБО корень `SH*` в файле одежды | `build_kit.py -- <ключ>` (реестр `pipeline.py`) ЛИБО тот же экспорт в режиме `ITEMS` → `Resources/Furniture/*.fbx` + json | `FurnitureCatalog.Props.*`, `Categories.Clothing`, `HudUI.BottomBar` группа «Одежда» |
-| ИКОНКА | картинка Ильи `~/Documents/Fog/Clothes/*.png` | копия в `Resources/Icons/<id предмета>.png`, `.meta` с новым guid по образцу `jeans.png.meta` | `Items.<Вещь>` с `icon: "<id>"` + `iconPicture: true` |
+| ИКОНКА | картинка Ильи `~/Documents/Fog/Clothes/<id>/*.png` (папка на вещь; `OLD_*` — устаревшие) | копия в `Resources/Icons/<id предмета>.png`, `.meta` с новым guid по образцу `jeans.png.meta` | `Items.<Вещь>` с `icon: "<id>"` + `iconPicture: true` |
 | ПРЕДМЕТ инвентаря | `Modules/Grid/Inventory/Items.cs` | — | `ItemDef`: размер, `slot`, `category "одежда"`, `weight`, `soleLift`; в списке `Items.Clothing` |
 
 Связь объекта и предмета — `ObjectDef.pickupItemId` (НЕ совпадение id): у
@@ -243,7 +243,7 @@ Feet, `soleLift` 0,021), на героине `Clothes/SneakersF.fbx`, в мир�
 `HoodieFFolded` (`hoodie_f_folded`, модель `hoodieGirlFolded`); `BLENDER.md`,
 «Толстовка девушки». С 30.09 — мужская `Items.Hoodie` (`hoodie`, «Синяя
 толстовка (муж.)», слот Body, карман 4×1, `colorName` «синий»; ⭐ 04.10 иконка —
-картинка Ильи `Fog/Clothes/blue hoodie(man).png` → `Resources/Icons/hoodie.png`,
+картинка Ильи `Fog/Clothes/hoodie/OLD_blue hoodie(man).png` → `Resources/Icons/hoodie.png`,
 `iconPicture: true`, до этого глиф `shirt`),
 `Clothes/HoodieM.fbx`, сложенная `HoodieFolded` (`hoodie_folded`, модель
 `hoodieFolded`), кнопка «Синяя толстовка (муж., сложенная)», стопки шкафов;
@@ -423,7 +423,7 @@ HideUnderwearUnderClothes` — часть `SportTop*` прячется под в
 |---|---|---|---|
 | штаны на герое | `Library/humanClothes.blend` ← `human_skin_cut.py` (+ `human_skin_params.json`) | `human_skin_garment_export.py` → `Resources/Clothes/JeansM.fbx` + `JeansM-materials.json` | `PlayerModelCatalog.AttachSkinnedGarment`, `KitMaterials.Apply` |
 | предмет мира «сложенные джинсы» | `jeans_folded_scene.py` (форма в коде, `SLAB`/`BELT`/`HEX`) | `build_jeans_folded.py` → `Resources/Furniture/jeansFolded.fbx` + json; `Library/jeansFolded.blend` | `FurnitureCatalog.Props.JeansFolded`, `Categories.Clothing`, `HudUI.BottomBar` группа «Одежда» |
-| иконка | картинка Ильи `~/Documents/Fog/Clothes/*.png` | `Resources/Icons/jeans.png` (+ `.meta`, скопирован с соседней иконки, guid новый) | `Items.Jeans` с `iconPicture: true` |
+| иконка | картинка Ильи `~/Documents/Fog/Clothes/<id>/*.png` (папка на вещь; `OLD_*` — устаревшие) | `Resources/Icons/jeans.png` (+ `.meta`, скопирован с соседней иконки, guid новый) | `Items.Jeans` с `iconPicture: true` |
 | предмет инвентаря | `Inventory/Items.cs` | — | `ItemDef` 2×2, `slot = EquipSlot.Legs`, `weight 0.7`, категория «одежда» |
 
 **Штаны (одежда на герое).** Ткань — копия зоны «ноги» тела, отодвинутая

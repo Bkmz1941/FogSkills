@@ -1,7 +1,7 @@
 """Цикл проверки правок в редакторе одной командой (Илья 01.09 разрешил сессиям самим stop/play).
 
 python3 cycle.py status            play / compiling / текущий и стартовый уровень
-python3 cycle.py stop              выйти из play (уровень запоминается)
+python3 cycle.py stop [--force]    выйти из play (уровень запоминается); откажет, если живой уровень разошёлся с файлом
 python3 cycle.py compile           refresh + компиляция, ждать готовности, показать ошибки консоли
 python3 cycle.py tests             EditMode-тесты (только вне play), красные — списком
 python3 cycle.py play              войти в play и вернуть уровень, который был при stop
@@ -69,6 +69,12 @@ def cmd_status():
     return True
 
 
+def unsaved():
+    code = (REG / 'unsaved_check.cs').read_text(encoding='utf-8')
+    res = str(run(code) or 'НЕ СОХРАНЕНО: проба не ответила')
+    return None if res.startswith('СОХРАНЕНО') else res
+
+
 def cmd_stop():
     p, c, lvl, _ = state()
     if p is None:
@@ -77,6 +83,10 @@ def cmd_stop():
         STATE.write_text(lvl)
     if not p:
         print('уже не в play'); return True
+    diff = unsaved()
+    if diff and '--force' not in sys.argv:
+        print('stop: ОТКАЗ — ' + diff + ' (P843: несохранённое у Ильи пропадёт; сохранить уровень или --force)')
+        return False
     mcp('manage_editor', {"action": "stop"})
     ok = wait_state(play=False, seconds=60)
     print('stop:', 'ок' if ok else 'не дождался выхода из play')

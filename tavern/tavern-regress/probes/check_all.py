@@ -167,6 +167,9 @@ def main():
         probe('gc_probe.py', 'check')
         probe_cs('slot_wall_probe.cs')
         probe_cs('slot_open_probe.cs')
+        probe_cs('build_pick_probe.cs')
+        probe_cs('stairwell_view_probe.cs')
+        probe_cs('crow_glow_probe.cs')
         probe_cs('box_place_probe.cs')
     else:
         print('живые пробы: пропущены — нужен play')

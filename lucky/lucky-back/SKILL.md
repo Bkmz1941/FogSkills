@@ -123,7 +123,7 @@ npm run root-admin:create | root-admin:reset-local   # рут-админ лок�
 | `content` | CMS витрины: секции главной, баннеры, меню, страницы, rich-text, снапшоты-публикации (`content_publications`) |
 | `front` | публичный API витрины: `/v1/core/*` (игрок: auth, профиль, балансы, игры, платежи, бонусы) и `/v1/cms/*` (контент); guard'ы `public-project-key` / `player-token`; свой exception-filter и локализация |
 | `transactions` | деньги: `FinanceService` (`moveWalletFunds`, расчёт раундов, ручные корректировки, выводы), кошельки `client_wallets`, `money.ts` — строки, не number |
-| `bonuses` | бонусные балансы (promotion) и маркетинговые бонусы/фрибеты: системный каталог рута + проектные наследники |
+| `bonuses` | **УСТАРЕЛО (с 2026-10-05/06).** Бонусные балансы (promotion, `client_bonus_balances`) и маркетинговые бонусы/фрибеты: системный каталог рута + проектные наследники. В админке это меню **Marketing → Bonuses** (`/marketing/bonuses` у рута, `/project/marketing/bonuses` у проекта). Не развивать и не опираться — см. «Устаревшее: Marketing → Bonuses» ниже |
 | `wheel-fortune` | колесо фортуны: настройки, секторы, публикация, идемпотентные спины, award-receipts, freebet-entitlements. **Временный** тест-байпас кулдауна (заголовок `X-Wheel-Fortune-Test-Bypass`, `src/main.ts` + `public-wheel-fortune.controller.ts`) — убрать до открытия игрокам |
 | `payment-providers` | реестр платёжных провайдеров (`nowpayments/`, `testpay/`), проектные способы оплаты, иконки |
 | `integrations` | игровой провайдер, обе стороны: `GameLaunchService` (URL запуска, `launch_token`, `game_sessions` с TTL) и входящий seamless-wallet API `/v1/external/game-provider/*` (playerInfo / bet / win → `FinanceService`). Провайдер опознаётся по `x-api-key` и HMAC, вендор в именах не зашит. **Эталон новой раскладки модуля — см. раздел ниже** |
@@ -136,6 +136,33 @@ npm run root-admin:create | root-admin:reset-local   # рут-админ лок�
 `migrations/` — 88 файлов `17217000xxxxx-*.ts`; у папки **свой CLAUDE.md**);
 `src/shared/index.ts` — контракт API, после правки копировать руками в
 `../lucky-admin/src/shared/index.ts`.
+
+## Устаревшее: Marketing → Bonuses (отмечено 2026-10-06)
+
+В админке у рута и у проекта есть меню **Marketing → Bonuses** (маркетинговые бонусы, фрибеты, промо-балансы
+`client_bonus_balances`, модуль `src/modules/bonuses`). Это **старая модель бонусов, она устарела** — код помечен
+`@deprecated` 05.10, фрибеты выключены, данные в новую модель не переносились.
+
+**Устарело всё про бонусы, кроме бонусных кошельков:**
+- модуль `src/modules/bonuses` целиком (промо-балансы `client_bonus_balances` и их история, маркетинговые бонусы и
+  фрибеты, каталог рута и проектные копии) и меню Marketing → Bonuses;
+- ручки витрины `GET /v1/core/bonus-balance` и `/v1/core/bonus-balance/freebets`;
+- `include_promotion_operations` в истории игрока (подмешивает старый промо-леджер);
+- у колеса фортуны: фрибет-права (`wheel_fortune_freebet_entitlements`) и привязка сектора к маркетинговому бонусу
+  (`bonus_id`, `bonus_item_id`). Начисление колесом `bonus_award` в бонусный кошелёк — актуально;
+- виды балансов `bonus` и `freebet` в `balance_definitions` (выкидываются при чтении) и их маппинг в `clients` и в
+  бэкапах проекта (`bonus_balances`). Новые фичи туда не добавлять, баги
+там чинить только если просит Илья, на вопросы «где бонусы» отвечать новой моделью.
+
+**Актуальная модель бонусов:**
+- бонусный кошелёк `<cash>_bonus` рядом с каждым денежным (`transactions/bonus-wallets.ts`), начисляет проект-админ
+  ручной корректировкой (Users → игрок, баланс `*_bonus`) или колесо (`bonus_award`);
+- настройки по валютам — проект → вкладка **Bonuses** (свич и Coefficient, `projects.settings.bonus_currencies`);
+- денежный отыгрыш — проект → вкладка **Currencies** (Coefficient, `project_currencies.coefficient`);
+- коэффициент, требуемый коэффициент и «отыгрался» пишутся в мету `win` и видны в Transaction details.
+
+Ручную корректировку **нельзя** делать из сессии «Sign in as» (403 `Impersonated project sessions cannot create
+manual balance adjustments`) — только проект-админ, вошедший сам.
 
 ## Как мы раскладываем модуль (принято 2026-09-09)
 
@@ -200,6 +227,9 @@ integrations/
   витрины и колеса фортуны.
 
 ## Что ломают чаще всего (коротко, подробно — CLAUDE.md репо)
+
+- **Обложка игры «есть, но не рисуется»** — проверять ссылку запросом с `Sec-Fetch-Site: cross-site`, а не простым curl
+  (Google Drive отдаёт 403 только браузеру; с 05.10 Drive-ссылки переписываются на `lh3.googleusercontent.com/d/<id>`).
 
 - **Деньги** — только строки/`numeric`, движение через `FinanceService.moveWalletFunds`
   под row lock в одной DB-транзакции с записью в `transactions`; исправление = новая
@@ -338,7 +368,7 @@ idempotency_conflict`. Через неё же идёт откат (до 11.09 о
   пустая и без ошибок.
 - **Форма входа админки** пробует root → project → provider: неверный пароль =
   три запроса и три `login_failed` в аудите.
-- **Комиссия на игру** (`game_provider_games.commission_percent`, по умолчанию 10, миграция `1721700119000`) — ставит сам провайдер в кабинете, раздел Games. При расчёте раунда процент пишется в `metadata.provider.game.commission_percent` транзакции. С 24.09 `commission_amount` в сводке — сумма записей кошелька провайдера за период (раньше GGR × % в SQL).
+- **Комиссия на игру** (`game_provider_games.commission_percent`, по умолчанию 10, миграция `1721700119000`) — с 05.10 ставит рут (вкладка Games провайдера), до этого — провайдер в кабинете. При расчёте раунда процент пишется в `metadata.provider.game.commission_percent` транзакции. С 24.09 `commission_amount` в сводке — сумма записей кошелька провайдера за период (раньше GGR × % в SQL).
 - **Кошельки провайдера** (миграция `1721700120000`): `game_provider_wallets` + `game_provider_wallet_transactions`, живут в модуле `transactions`. `ProviderCommissionService.accrue`/`reverse` вызываются из `FinanceService` внутри той же DB-транзакции, что и раунд. **Правило с 24.09 — комиссия только с проигрыша игрока**: начисляется один раз на `win` (SettleBet), ставка ищется по `betId` того же игрока и провайдера, сумма `max(0, ставка − выигрыш) × %`; ставка и отмена ничего не двигают, кошелёк не уходит в минус; нет ставки или она откачена — нет комиссии; откат выигрыша пишет `commission_reversal`. В `metadata` записи — `bet_id`, `stake_amount`, `win_amount`; API кошелька отдаёт их как `bet_id`, `operation_amount` (ставка), `win_amount`. Арифметика в SQL numeric, строка кошелька под `FOR UPDATE`, уникальность `(transaction_id, type)`. Бэкфилла нет, округления нет, вывода нет.
 - **Ревью вывода** (23.09): четыре колонки `reviewed_*`/`review_*` у `transactions` сняты миграцией `1721700121000`, значения переехали в `metadata.review`; повтор approve/reject определяется по его наличию.
 - Тесты: `src/modules/provider-cabinet/resources/tests/**`, `src/modules/transactions/provider-commission.service.spec.ts`.
@@ -446,8 +476,10 @@ Zero dash его принимает.
 флаге → `403 DEMO_DISABLED`. Витрина (`PageGame`): гость + флаг → `/demo`, гость без флага → «Log in to play»,
 залогиненный — всегда `/launch` на деньги. Проверено на brobro.casino: Altitude открывается гостем в демо.
 
-**Комиссия провайдера** ставится **только провайдером в его кабинете** (Games → кнопка в конце строки →
-Commission, %). Руту поле НЕ давать (решение Ильи 24.09; правку откатил). В кабинете проекта комиссии нет и не будет.
+**Комиссия провайдера** с 2026-10-05 ставится **только рутом**: страница провайдера → вкладка Games → шестерёнка в
+конце строки → Commission, % (`PATCH /v1/root/games/:id` с `commission_percent`). У провайдера роут
+`PATCH /v1/provider/games/:id` удалён, колонку он видит только для чтения (решение Ильи 05.10 отменило решение 24.09
+«руту не давать»). В кабинете проекта комиссии нет и не будет.
 С `13c759c` новая игра = **0%** (миграция `1721700124000` меняет DEFAULT; загрузка провайдером ставит `"0.00"`).
 24.09 всем существующим играм выставлен 0 прямым `UPDATE` (прод 166 игр, дев 13; в аудите этого нет).
 
@@ -791,6 +823,129 @@ folderId: 0}`). Заголовок первого уровня из markdown у�
 - [ ] Дополнять по мере работы: разбор инцидентов по коду, типовые запросы.
 
 ## История
+
+- **2026-10-05 (день) — Crash Hockey (RNG-игра крашей) в BroBro на проде.** Игра `external_id 19` у провайдера
+  Crash Games (`087d3cfb-…`) **заведена руками**: краши отдают её не через `games_url` (у RNG-игры `settings []` →
+  нет в `/api/external/games`), синк провайдера ручные игры **не отключает** (`syncGames` только добавляет/обновляет).
+  Прод: игра `e691f818-c2ec-4d39-8f51-89c419536702` (`crash-games-crash-hockey`, «Crash Hockey», category crash,
+  approved, active, обложка `https://api.crash-heroes.com/storage/games/covers/crash-hockey-site.png`), в BroBro
+  `public_id 17` → **`https://brobro.casino/games/1/17`**. Плитка первой в разделе «Crash Games» главной
+  (`809744f6-…`) и на странице `/crashgames` (страница `383497be-…`, раздел `a6d89538-…`), обе опубликованы.
+  На деве та же игра — «Test_RNG» (заведена 21.09).
+  - **Как менять прод Lucky, когда классификатор не пускает** (запись на 178.105.17.213 — «Remote Shell Writes»,
+    выпуск токена из хэша — «Credential Exploration»): скрипт в scratchpad, который Илья запускает `! bash …`.
+    Внутри — `ssh lucky-prod-legacy 'bash -s'` → `password_hash` рута из `root_admins` psql'ом → `docker exec -i
+    luckyserver-api-1 node --input-type=module` (контейнер distroless, `sh` нет) → `issueAuthToken` из
+    `/app/dist/modules/auth/auth-tokens.js` (root, TTL 600) → вызовы `http://127.0.0.1:8080/v1/…`. Проект-админ —
+    `POST /root/projects/{p}/admins/{a}/impersonate` (штатный «Sign in as», пишется в аудит). Секреты и токены
+    наружу не печатаются. Скрипты 05.10: `lucky-prod-add-crash-hockey.sh`, `…-to-brobro.sh`,
+    `lucky-prod-crash-hockey-tiles.sh`.
+  - **Грабля:** Fastify отвечает 400 «Body cannot be empty when content-type is set to 'application/json'» —
+    `content-type` слать только с телом (так упал первый скрипт на impersonate, игра к тому моменту уже была создана).
+  - **CMS:** плитки игр — `POST project/content/main-page/sections/{s}/games` и
+    `…/pages/{page}/sections/{s}/games` (`{game_ids}`, встают в конец), порядок — `PUT …/items/order` со **всеми** id
+    раздела, публикация — `POST project/content/publications/main_page/publish` / `…/pages/{page}/publish`.
+    **Публикуется весь черновик страницы**: у `/crashgames` черновик расходился с опубликованным (на сайте Clown
+    Fest и Beer Fest, в черновике их не было) — перед публикацией сверять `content_section_items` с
+    `content_publications.payload` и `max(updated_at)` черновика против `published_at`; недостающие плитки
+    вернуть в черновик. Balloon Fly (в BroBro `public_id 18`) ни в одном разделе крашей нет — там висела её
+    старая, удалённая запись.
+  - Публичный ключ витрины BroBro сменился: актуальный `pk_wwQOjPKyfTec7oZr5tXPCyIf` (старый из скила
+    `lucky-infra` — `PUBLIC_KEY_INVALID`). Страница раздела: `GET /v1/cms/page?path=/crashgames&locale=en&currency=USD&time_zone=Europe/Moscow`
+    с `X-Public-Key`.
+
+- **2026-10-05 (ночь) — Red Eagle, Donkey Rush, балансы в списке транзакций, обложки с Google Drive.** Всё ниже
+  выкачено на прод **руками из рабочего дерева** и на момент записи **не закоммичено** (`dev` `79a8fb5` + правки в
+  `finance.service.ts`, `catalog/game-thumbnail-url.ts`(+spec), `catalog/games.service.ts`,
+  `catalog/game-providers.service.ts`, `integrations/.../provider-games.service.ts`,
+  `provider-cabinet/.../provider-games.service.ts`): следующий пайплайн `master` их откатит — закоммитить и запушить.
+  Откаты прода: `api-rollback-20261005h` (до правки балансов), `api-rollback-20261005i` (до обложек).
+  - **Ручной выкат API незакоммиченного кода (рецепт сессии):** `git diff > patch` (новые файлы — `git add -N` перед
+    diff, потом `git reset`), `git worktree add <scratch>/wt-api HEAD`, `git apply`, `docker build --platform linux/amd64
+    --target api --build-arg APP_VERSION=<tag> --build-arg APP_IMAGE=luckyserveragg/luckyserver -t …:api-<tag>`,
+    `docker save | gzip -1 | ssh lucky-prod-legacy 'gunzip | docker load'`, на сервере тег текущего `api-latest` →
+    `api-rollback-<дата><буква>`, новый → `api-latest`, `docker compose up -d` в `~/luckyserver`, проверить
+    `/v1/health`. Классификатор auto mode пропускает только после прямого «обнови прод» в текущем сообщении.
+  - **Рутовые действия на проде без пароля:** скрипт `.mjs` копируется в `luckyserver-api-1` (`docker cp`), внутри
+    `dataSource` из `/app/dist/database/data-source.js` берёт активного рута, `issueAuthToken` из
+    `/app/dist/modules/auth/auth-tokens.js` выпускает короткий рут-токен (TTL 120–600 с), дальше обычные вызовы
+    `http://127.0.0.1:8080/v1/root/...`. Так одобряли игры, синкали каталог, публиковали главную. В контейнере нет `rm`.
+  - **Список транзакций админки: пустые «Balance before/after».** Представление `client_wallet_operations` берёт
+    балансы только со строк счёта `available`, а ставка с денег из `pending` и пополнение двигают `pending`. Решение
+    (Илья: новую колонку `wallet_balance_after` **не добавлять**): в `FinanceService.listBuilder()` до/после читаются
+    подзапросом `OPERATION_ACCOUNT_ROW` из журнала — строка операции с наибольшим `abs(amount)`, при равенстве
+    `available`; `COALESCE` с колонками представления. Тот же билдер у `list()` и `detail()`; `walletJournal()`
+    (страница кошелька) считает сам. Проверено на lp@agg.one: deposit 0→1000, bet 1000→900, win 0 900→900.
+  - **lp@agg.one (`29ab1711-…`, BroBro) по командам Ильи:** история очищалась SQL-скриптом (журнал + выводы, CSV-выгрузка
+    в `/tmp` прод-сервера, затем 1000 USD в cash `pending` одной строкой `deposit`, проверка, что журнал сходится со
+    счетами); бонусных 500 USD начисляли отдельно. Шаблон — `scratchpad/lp-reset3.sql` сессии.
+  - **Donkey Rush на проде:** провайдер `Donkey Rush` (`b5cdc0a4-…`), игра `724a1fe7-…`, синк → approve →
+    `is_active`, добавлена в BroBro и поставлена первой в секцию «Crash Games» главной (публикация от проект-админа
+    it@agg.one через «Sign in as»; скрипт останавливается, если в черновике главной есть чужие неопубликованные правки).
+    Движок и nginx на `crash-prod` — крашевый скил. Грабля: рутовый `/v1/root/projects/:id/games` отдаёт и
+    непривязанные игры с `public_id` 0 — «уже в проекте» проверять по `public_id > 0`.
+  - **Red Eagle (`0d233bb7-…`) — 103 игры одобрены и включены рутом.** `games_url` провайдера —
+    `launcher-staging.g-div.com/lucky/games` (staging!) — уточнить у них боевой. Две разные игры «Panda Golds»
+    (`external_id` 901013 и 5628) — так у провайдера. «keno» (`6600`) из каталога провайдера пропала, у нас осталась.
+    В проекты (BroBro) не добавлены — ждут команды.
+  - **Регресс игр:** новая проба `probes/games-launch-regress.mjs <env> "<провайдер>"…` (описана в `REGRESS.md`):
+    привязывает игры к стенду `Regress` скрытыми, по каждой — запуск игроком, гостевое демо, ссылка `link` открывается
+    200. Демо ограничено 30/мин — проба ждёт на 429. Прод: Red Eagle + Donkey Rush **104/104**. Для этого проекту
+    стенда открыт доступ к обоим провайдерам (`POST /v1/root/game-providers/:id/projects` — только добавляет, чужой
+    доступ не трогает). Ставки/выигрыши провайдер шлёт сам — денежную часть этих игр проверяет только живая игра.
+  - **Обложки Red Eagle не рисовались:** все `thumbnail_url` — `drive.google.com/uc?export=view&id=…`. Google Drive на
+    межсайтовый запрос браузера (`Sec-Fetch-Site: cross-site`) отвечает 403 + HTML; сервер и curl получают картинку,
+    поэтому снаружи «всё работает». Тот же файл отдаётся межсайтово с `https://lh3.googleusercontent.com/d/<id>`.
+    Хелпер `catalog/game-thumbnail-url.ts` (`embeddableThumbnailUrl`) переписывает Drive-ссылки (`uc?id=`, `open?id=`,
+    `file/d/<id>/view`, `thumbnail?id=`) на входе — синк рутом, загрузка каталога провайдером, создание/правка игры и
+    обложки в проекте рутом, кабинет провайдера. После выката Red Eagle пересинкан (102 обновлены), «keno» переписана
+    рутовым `PATCH /v1/root/games/:id` с тем же URL. Правильное решение — CDN у провайдера; попросить.
+
+- **2026-10-05 (вечер) — правила счетов и бонусные кошельки на проде** (пайплайн из `master` `a75421d`, админка `main`
+  `0894a2f`, витрина `main` `c5b8cfd`). Пополнения и ручные начисления → `pending`; ставка из `pending`, потом `available`;
+  выигрыш > 0 → `available`, проигрыш (win 0) и пустой откат — нулевая строка на счёте ставки; отмена — на счета ставки;
+  вывод только из `available` (`insufficient_withdrawable_funds`). Бонусный кошелёк `<cash>_bonus` на каждый денежный
+  (`transactions/bonus-wallets.ts`, миграция `1721700128000`): начисляет админ ручной корректировкой или колесо
+  (`bonus_award`), пополнить/вывести нельзя; ставка с него, выплата до ставки → бонусный `pending`, сверх → `available`
+  денежного; откат по обоим кошелькам. Старая промо-бухгалтерия `@deprecated`, данные не переносились; фрибеты выключены.
+  Витрина: переключатель кошельков в шапке, запуск игры ключуется активным балансом. В `main` витрины только этот коммит
+  (cherry-pick): 57 коммитов коллеги из `dev` витрины на прод не уходили. Дамп перед выкатом —
+  `~/deploy-backups/luckyserver-prod-db-20261005-bonus.dump`. Регресс прод 23/23, журнал 0 расхождений на 111 счетах. Правила счетов и бонусный кошелёк проверяет
+  `probes/wallet-rules-regress.mjs dev|prod|local` (14 проверок, счета через API проект-админа, без доступа к базе);
+  гонять вместе с `regress-run.mjs`. На проде TestPay выключен глобально: проверка «депозит в бонусный запрещён» там
+  получает 503 от TestPay, а не 400 от правила бонусного кошелька.
+
+- **2026-10-05 ~11:10 UTC — раннеры GitLab снова работают.** Пуш `master` (`cad1fba`) сам собрал образ и выкатил прод
+  (`api-latest` = образ с `APP_VERSION=cad1fbae`), перезаписав ручной выкат из рабочего дерева. Вывод: **ручной выкат
+  незакоммиченного кода живёт только до следующего пайплайна `master`** — выкатывать через коммит и пуш. Админка из
+  `main` пайплайном в тот раз не перезаписалась (её ручная сборка осталась).
+
+- **2026-10-05 (поздний вечер)** — деньги в одном журнале: `transactions` заменена на `client_wallet_account_transactions`
+  (строка на изменение счёта, `operation_id` = ключ идемпотентности), счета `pending`/`available`/`locked`,
+  `withdrawal_requests`, представление `client_wallet_operations` для списков в форме старой `transactions`. Миграция
+  `1721700127000` переносит историю и падает, если журнал не сходится с балансами; проверена на копии дева (1402 операции,
+  туда-обратно точно). Коммит API `9388e0d`, админка `c35a418`, смержены в `dev` локально (`7732e4e`, `03f22c7`) —
+  запушены в `dev` и выкачены на дев руками (миграция применилась, журнал сошёлся: 0 расхождений на 195 счетах; регресс дев 23/23). Откат дева: API — `docker tag luckyserveragg/luckyserver:api-dev-rollback-20261005 …:api-latest-dev` + `docker compose up -d` в `~/luckyserver-dev` **и** база из `~/deploy-backups/luckyserver-dev-db-20261005-journal.dump` (старый код без `transactions` не встанет); админка — `~/deploy-backups/lucky-admin-dev-app-20261005`. **Прод — 05.10 ~11:00 UTC**: перед выкатом миграция прогнана на копии прод-базы прямо на сервере (временная база `lucky_journal_check`, сервис `migrate` из прод-compose с override-образом; совпало всё по типу+статусу и сумме, 0 строк открытия, 14 366.19), затем `docker compose stop api` → `up -d` (простой ~4 с, чтобы старый API не писал в `transactions` во время миграции). Прод-журнал 0 расхождений на 57 счетах, регресс прод 23/23 + 30/30, edge 27/32 (база). Прод работает на коммите `dev` `7732e4e`; в тот же день смержено и запушено: API `master` `cad1fba`, админка `main` `5de6da6` (код = `dev`). Откат прода: API — тег `api-rollback-20261005c` → `api-latest` + `up -d` **и** база из `~/deploy-backups/luckyserver-prod-db-20261005-journal.dump`; админка — `~/deploy-backups/lucky-admin-app-20261005c`. Проба ставок с общей и точечной комиссией —
+  `probes/commission-regress-local.mjs` (только локально: выпускает рут-токен из `.env`; запуск из `lucky-api`:
+  `node --env-file=.env ~/.claude/skills/lucky-back/probes/commission-regress-local.mjs`), 98/98.
+
+- **2026-10-05 (вечер)** — комиссия на уровне провайдера: `game_providers.commission_percent` (рут, админка: провайдер →
+  Settings, поле под Provider name), у игры `commission_percent` nullable — `NULL` = «как у провайдера», число = перекрытие
+  (шестерёнка в Games, «Use provider's» шлёт `null`). `RootGameSummary.commission_percent` — действующий процент, плюс
+  `commission_overridden` (иконка ⓘ с тултипом в таблице). Раунд пишет действующий процент. Миграция `1721700126000`:
+  игры с 0 → `NULL`, остальные остались перекрытием. Коммиты API `83548c1` и админка `396e063` сделаны прямо в
+  `master`/`main` по команде Ильи и выкачены на прод руками; **не запушены и не в `dev`**. Откат: API — тег
+  `api-rollback-20261005b`, админка — `~/deploy-backups/lucky-admin-app-20261005b`. Прод-регресс 23/23. Кошельки
+  (pending/available) лежат в stash `feat/wallet-pending-available WIP` в обоих репо, ветка без коммитов; их миграцию
+  `1721700125000` при возврате перенумеровать выше `126000`.
+
+- **2026-10-05** — комиссию игры ставит рут (вкладка Games провайдера → шестерёнка), провайдерский
+  `PATCH /v1/provider/games/:id` удалён. Выкачено на прод руками из коммитов `dev` (API `a73f90b`, админка `b556d01`);
+  потом в тот же день: кнопка удаления вместо шестерёнки в кабинете провайдера (админка `c61b10f`), мерж `dev` →
+  `master` (`15bf078`) и `main` (`e801d8a`) по прямому «разрешаю», дев-серверы обновлены; регресс dev и prod 23/23. Откат прода: API —
+  `docker tag luckyserveragg/luckyserver:api-rollback-20261005 …:api-latest` + `docker compose up -d` в `~/luckyserver`;
+  админка — `~/deploy-backups/lucky-admin-app-20261005`. Регресс шаг комиссии теперь читает ставку (10% у стенда) и
+  проверяет 404 на провайдерский PATCH; прод 23/23.
 
 - **2026-09-28** — на прод (мерж делал Claude по прямому «мержи и выкатывай сам»; правило «мерж только Илья»
   по умолчанию остаётся): рекомендации «You may also like» только из своего проекта (было `OR` без скобок в

@@ -1781,7 +1781,7 @@ Blender). Перевыгрузка: `strikes` 5, `Finish` = 4 · 1.35 + 0.5 + 0.
 ### ✅ Иконки ветки и ножа, ветка 1×2 (Илья 17.09, ilya-de)
 
 Илья: «я добавил иконки ветки и ножа для инвентаря, ветка это 1x2». Картинки
-Ильи — `~/Documents/Fog/Equipment/tree_stick.png` (1376×768) и
+Ильи — `~/Documents/Fog/Equipment/stick/tree_stick.png` (1376×768) и
 `kitchen_knife.png` (1024×1024). В игре: `Resources/Icons/deco_stick.png`
 (картинка повёрнута на 90° в портрет 768×1376 — под предмет 1 колонка × 2 ряда,
 иначе с `preserveAspect` рисунок мелкий) и `Icons/kitchen_knife.png`, меты —

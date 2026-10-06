@@ -29,6 +29,7 @@ claude-skills/
   poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
   personal/        shinobi-council/  формат ответов «Совет шиноби»
   tools/           scripts/          наши шелл-скрипты (dps) и их раскатка
+                   image-gen/        генерация картинок локально (ig: ComfyUI + FLUX.2 klein)
 ```
 
 ### ⚠️ Почему симлинки всё равно ПЛОСКИЕ

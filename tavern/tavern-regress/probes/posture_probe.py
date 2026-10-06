@@ -233,7 +233,8 @@ try
                     bad.Add("после выхода из " + key(h) + " игрок встал за преградой " + ph.collider.name + (ph.collider.transform.parent != null ? "/" + ph.collider.transform.parent.name : "") + " (сквозь стену)");
                     break;
                 }
-                if (ownClip && !inFront) bad.Add("после выхода из " + key(h) + " игрок встал не перед фронтом хозяина со своим клипом");
+                bool leavesForward = ownClip || (Cozy.Grid.FeatureHost.Get<Cozy.Grid.SitFeature>(h) != null && h.Def != null && !h.Def.chair);
+                if (leavesForward && !inFront) bad.Add("после выхода из " + key(h) + " игрок встал не перед фронтом (свой клип или не стул — P921)");
             }
             if (Cozy.Grid.HideFeature.PlayerHidden || Cozy.Grid.SitFeature.PlayerSeated || Cozy.Grid.SleepFeature.PlayerLying)
                 bad.Add("после выхода из " + key(h) + " игрок всё ещё в позе");

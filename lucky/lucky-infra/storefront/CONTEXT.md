@@ -12,7 +12,7 @@ commit), рабочая — `dev`, feature-ветки вида `mcdx/lsr-…`. V
 
 - **Хостинг**: сервер `lucky-prod` (144.31.40.52), nginx-статика из
   `/home/admin/brobro-casino/dist` (SPA-fallback, `/assets/` immutable-кэш на
-  год), домены `brobro.casino` + `www.brobro.casino` (DNS уже сюда), серт
+  год — **отменено 2026-10-05**, см. ниже), домены `brobro.casino` + `www.brobro.casino` (DNS уже сюда), серт
   Let's Encrypt `brobro.casino` (certbot --nginx, без email как на дев-хостах,
   redirect 80→443, автопродление таймером). `/home/admin` выставлен 751 (o+x),
   каталоги 755 — иначе www-data не пройдёт в home. Эталон вхоста в репо:
@@ -24,7 +24,7 @@ commit), рабочая — `dev`, feature-ветки вида `mcdx/lsr-…`. V
   дев-деплой (`SSH_PRIVATE_KEY_DEV_BASE64`, storefront.luckyserver.pro).
   Тег `legacy-last` = старый `main` (init), релиз — `0.9.3`.
 - **`.env.prod`**: `APP_API_BASE_URL=https://api.luckyserver.pro`,
-  `APP_PUBLIC_KEY=pk_dHuWZjOP1QmdOCmxPcPxq0M5` (клиентский ключ прод-проекта
+  `APP_PUBLIC_KEY=pk_dHuWZjOP1QmdOCmxPcPxq0M5` (**на 05.10 отозван** — витрина ходит с `pk_wwQOjPKyfTec7oZr5tXPCyIf`) (клиентский ключ прод-проекта
   «BroBro Casino», id `30465ae8-7626-46c4-a7f2-f990d19a49f0`, primary_domain
   brobro.casino, status active), `APP_CURRENCY=USD`, `APP_LOCALE=en`,
   `APP_DEFAULT_TIME_ZONE=Europe/Moscow`, `APP_VERSION=0.9.3`.
@@ -51,6 +51,59 @@ commit), рабочая — `dev`, feature-ветки вида `mcdx/lsr-…`. V
   `deploy@gitlab` из authorized_keys admin).
 - В репо остался стейловый `.deploy/deploy.conf` от старого
   docker-пайплайна white-label-front — не использовать.
+
+### Кэш в браузере (с 2026-10-05, по указанию Ильи)
+
+На обоих серверах витрины (дев `lucky-dev`
+`/etc/nginx/sites-available/storefront.luckyserver.pro`, прод `lucky-prod`
+`/etc/nginx/sites-available/brobro.casino`) `/assets/` и `location /` отдают
+блок Ильи: `add_header Last-Modified $date_gmt;` + `Cache-Control "no-store,
+no-cache, must-revalidate, proxy-revalidate, max-age=0"` + `expires off` +
+`etag off` — браузер ничего не хранит и каждый раз качает текущую сборку
+(было `expires 1y` + `immutable`, из-за чего у игроков висел старый JS после
+выкатки 05.10). Бэкапы прежних конфигов — `/home/admin/*.nginx.bak-20261005*`.
+Эталоны в репо — `infra/nginx/*.conf`.
+
+### Журнал 2026-10-05 — правки витрины (дев и прод)
+
+**`dev` и `main` разошлись.** На 05.10 в `dev` было ~54 коммита kvaggone, которых нет в `main` (мобильный шелл:
+вкладки, Konsta, профиль, селектор проектов, PWA). При этом **`dev` откатывает то, что есть на проде**: гостевое демо
+на странице игры (`6dad45a`, `mode = demo`) и прод-джобу CI (`BROBRO_DEPLOY_HOST=144.31.40.52` + `setfacl` для
+www-data — в `dev` деплой прода снова через `$SERVER_HOST` + rsync). **Полный мерж `dev` → `main` не делать** без
+решения Ильи (05.10 он выбрал «только правка»). Порядок для любой правки «в прод и дев сразу»: коммит в `dev` →
+`git worktree add --detach <scratchpad>/sf-main origin/main` → `cherry-pick` (конфликты обычно в
+`LayoutStorefront.tsx` — у `dev` там `hasSidebar`, — и в доках: на `main` доки старее, брать версию `main`) →
+`typecheck` + `eslint` + `build:prod` (node_modules — симлинком из основной копии) → `git push origin HEAD:main`
+→ дождаться бандла на `brobro.casino` (grep характерного класса в `index-*.js`) → `git worktree remove`.
+
+**Грабля: параллельная сессия коммитит чужие незакоммиченные правки.** 05.10 16:46 коммит «Drop the Wheel of
+Fortune…» (`583a691` main / `59816cf` dev) унёс мою недоделанную правку отступа баланса (`pr-px`) на прод — у суммы
+пропал отступ справа без стрелки. Перед своим коммитом — `git log origin/<ветка> -- <файл>` и `git diff`, не
+считать рабочее дерево только своим.
+
+Что сделано (всё на дев и прод):
+- **Мобилка/планшет, страница игры** (`de0d21d` dev / `a308ec3` main): ниже `lg` (1024) на `/games/…` только шапка
+  и iframe во весь экран — без паддингов контейнера, сайдбара (`contents max-lg:hidden`), футера и блока под игрой;
+  высота `100svh − шапка` (3.5rem + safe-area ниже `md`, 4rem на `md…lg`); `body` получает `padding-bottom` под
+  нижнее меню только через `body:has(.mobile-bottom-navigation)` (меню на странице игры не рендерится). Грабля:
+  `max-lg:p-0` не перебивает `sm:p-6 sm:py-8` — паддинги контейнера на странице игры включаются только с `lg:`.
+- **Десктоп, ширина как у bets.io** (`592dbd8` / `368b5a4`): от `lg` шелл до **1526px** = 24 поле + 164 сайдбар +
+  24 gap + **до 1298 контент** + **16 поле справа** (`lg:max-w-[1526px] lg:pr-4`), по центру на широких; шапка и
+  скелетон загрузки той же ширины. Замер bets.io: сайдбар 206 (с 1248px), поле 16, контент max 1298, вся связка
+  1536 по центру.
+- **Кэш** — см. раздел выше; в репо `c8a33e1` / `5d23dd5` (на `main` только `infra/nginx`), потом блок Ильи
+  `no-store…` — правка эталонов и доков **не закоммичена**.
+- **Баланс в шапке** (`d6e66c3` / `4927a31`): сумма и стрелка выбора кошелька — один блок, подсветка на контейнере
+  (`hover:bg-muted active:bg-muted has-[[aria-expanded=true]]:bg-muted`), у ссылки и стрелки своя подсветка
+  выключена (`hover/aria-expanded/dark:hover:bg-transparent`); отступ суммы `px-2 not-last:pr-px` — 1px справа
+  только когда есть стрелка (`WalletSwitcher` возвращает `null` при ≤1 кошельке, тогда отступы 8/8).
+- Удалены комментарии, которые я добавлял в код (Илья: «убери комменты если добавлял»).
+
+Проверка вёрстки: `vite preview --mode dev` на 127.0.0.1:13199 + chrome-devtools `emulate`/`resize_page` и замер
+`getBoundingClientRect`. Грабли: PWA service worker отдаёт старый бандл — снять
+(`navigator.serviceWorker.getRegistrations()` → `unregister`, `caches.delete`); вкладка после мобильной эмуляции
+остаётся в масштабе — открывать новую страницу в новом `isolatedContext`. Баланс в шапке виден только
+залогиненному — проверять его глазами нечем без игрока.
 
 ### Запуск игр и история транзакций (с 2026-08-19)
 

@@ -80,7 +80,7 @@ description: Одежда в «Таверне»: вещи на герое и к�
 | экспорт вещи на герое | `BlenderWork/human_skin_garment_export.py -- <Имя>` |
 | вещи на герое в игре | `Assets/Game/Resources/Clothes/*.fbx` + `*-materials.json` |
 | вещи-объекты мира | `Assets/Game/Resources/Furniture/{jeansFolded,homeFolded,tshirt*Folded,sneakersPair*,slippersPair}.fbx` |
-| иконки | картинки Ильи `~/Documents/Fog/Clothes/*.png` → `Assets/Game/Resources/Icons/<id>.png` |
+| иконки | картинки Ильи `~/Documents/Fog/Clothes/<id>/*.png` (папка на вещь; `OLD_*` — устаревшие) → `Assets/Game/Resources/Icons/<id>.png` |
 | предметы | `Assets/Modules/Grid/Inventory/Items.cs` (`Items.Clothing`) |
 | надевание и визуал | `Assets/Modules/Character/{Equipment,WardrobeVisuals,PlayerModelCatalog}.cs` |
 | UI инвентаря | `Assets/Game/UI/InventoryScreenUI*.cs`, `ClothesDragSource.cs`, `HudUI.BottomBar.cs` |

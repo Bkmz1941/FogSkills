@@ -118,8 +118,12 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 |---|---|---|
 | Ближайшая цель по лучу | `RayPick.Sorted/Down` — хиты от ближнего к дальнему, буфер свой у каждого вызывающего; первый подошедший = ответ | `Grid/RayPick.cs` |
 | Отсечь игрока/монстра в луче | `RayPick.IsPlayer(collider)` | там же |
+| ⭐ Что это за попадание луча (05.10) | `RayPick.Classify(collider)` → `Player / Hidden / Unpickable / PassThrough / Pickable`: игрок и тела, голый триггер, невидимое (вью-гейт `FloorPieceView` вверх по иерархии, рендерер погашен или `ShadowsOnly`, у блока — видимая отделка), `noPick`, `passThrough`. Политика режима — у вызывающего: стройка берёт `PassThrough`/`Unpickable` запасной целью, игра пропускает всегда. Флаги `Def.noPick`/`Def.passThrough` в обход него не читаем (сторож `SourceRulesTests`) | `Grid/RayPick.cs` |
+| Видно ли попадание | `RayPick.Visible(collider)` | там же |
+| ⭐ Этаж точки и «на этом ли этаже» (05.10) | `GridManager.FloorOf(p, cs)` = `LevelY(AboveRelief(p))`, `GridManager.OnFloor(p, floorY, cs)` — полоса `[пол − 0,5; следующий пол)` над рельефом; допуск у пола один — `GridManager.FloorSlack` 0,12. Полосу и сдвиги вручную не пишем (сторож `SourceRulesTests`) | `Grid/GridManager.cs` |
 | Луч камеры сквозь курсор | `GridCursor.CursorRay(cam, mouse)`; методы, которым нужен только луч, принимают ЛУЧ | `GridCursor.cs` |
-| Мир → клетка, привязка к оси/кромке | `GridSnap.Cell/Axis/Edge`; `GridManager.WorldToCell` зовёт их же | `Grid/GridSnap.cs` |
+| Мир → клетка, привязка к оси/кромке | `GridSnap.Cell/Axis/Edge`; `GridManager.WorldToCell` зовёт их же. ⭐ 05.10: формула одна — `ViewState.CellIndex` (сборка View, ниже Grid: её зовут и `GridSnap`, и `ViewState.CellAt/InMyRoom/InAccessible`, дождь, сетка дебага); на границе клетки — вверх; `Round` от начала сетки не пишем (сторож) | `Grid/GridSnap.cs`, `View/ViewState.cs` |
+| Растение, стоящее дерево, дерево вообще | `FurnitureCatalog.IsVegetation/IsStandingTree/IsTreeLike` — префикс `veg_` вручную не пишем (сторож) | `Grid/FurnitureCatalog.Props.cs` |
 | Габариты набора рендереров | `FurnitureModel.Combined` (мир), `InteractiveObject.LocalBoundsIn` (в осях узла) | |
 | Рендереры неподвижного тела (якорь карточки осмотра) | `InteractHighlight.StaticBody(корень, подвижные)` | `Grid/InteractHighlight.cs` |
 | «Вложенный выигрывает у своего хозяина» | `InteractiveObject.NestedBeatsHost(вложенный, хозяин)` | `InteractiveObject.cs` |
@@ -225,6 +229,7 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
   закрывает дорогу собственному содержимому.
 - Продукт доступен только в осмотре ТОГО САМОГО прибора, где лежит, —
   проверка по ПРЯМОМУ хозяину (`NestedBeatsHost`), а не по цепочке.
+- ⭐ 05.10: общие «это не цель» вынесены в `RayPick.Classify` (игрок, невидимое, голый триггер, `noPick`, `passThrough`) — его зовут `Interactor.SkipHit`, `GridCursor.Raycast`, `NearestVisiblePiece`, `PaintRaycast`, прицел `AimFocus` и бросок. В `SkipHit` остались только правила игры (осмотр, контейнеры, прятки, хост без фич).
 - ⭐ Разборов луча ДВА: игровой `Interactor.Raycast` и строительный
   `GridCursor.NearestVisiblePiece` (через `PieceOnRay`, тоже «вложенный
   побеждает хозяина»). Любое «это не цель» — закрытая секция

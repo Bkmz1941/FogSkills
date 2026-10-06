@@ -93,8 +93,11 @@ try {
 }
 
 console.log(`== ${envName}: commission on the player's loss`);
-const rate = await call("PATCH", `/v1/provider/games/${cfg.GAME_ID}`, { token: cabinet, body: { commission_percent: "10" } });
-check("provider sets the stand game commission to 10%", rate.status === 200 && rate.body?.commission_percent === "10.00", String(rate.status));
+const rate = await call("GET", "/v1/provider/games", { token: cabinet });
+const standGame = rate.body?.data?.find((game) => game.id === cfg.GAME_ID);
+check("stand game commission is 10% (set by root: provider page → Games → gear)", rate.status === 200 && standGame?.commission_percent === "10.00", `${rate.status} ${standGame?.commission_percent}`);
+const removed = await call("PATCH", `/v1/provider/games/${cfg.GAME_ID}`, { token: cabinet, body: { commission_percent: "10" } });
+check("provider can no longer set the commission", removed.status === 404, String(removed.status));
 const stamp = Date.now();
 const cases = [
   { name: "lost", stake: "1000", win: "0", expected: "1.00000000" },

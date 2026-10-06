@@ -747,7 +747,7 @@ def step(args):
                     git('update-index', '--add', '--cacheinfo', '%s,%s,%s' % (f['mode'], f['after'], path))
                 else:
                     git('update-index', '--force-remove', path)
-            msg = s['msg'] + '\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+            msg = s['msg'] + '\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
             subprocess.run(['git', 'commit', '-q', '-m', msg], cwd=PROJECT, check=True)
             s['commit'] = git('rev-parse', '--short', 'HEAD')
             save_steps(steps)

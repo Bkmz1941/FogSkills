@@ -235,16 +235,26 @@ else
         if (h < 0.4f || h > 1.5f) continue;
         float topAt = (float)mTopAt.Invoke(gc, new object[] { b.center.x, b.center.z, floorY, io.transform, b.max.y });
         if (UnityEngine.Mathf.Abs(topAt - b.max.y) > 0.06f) continue;
-        targets.Add(new UnityEngine.Vector3(b.center.x, b.max.y + 0.03f, b.center.z));
-        names.Add(host.Def.id + "@" + b.center.x.ToString("F1") + "," + b.center.z.ToString("F1"));
+        foreach (var off in new[] { UnityEngine.Vector2.zero, new UnityEngine.Vector2(0.3f, 0f), new UnityEngine.Vector2(-0.3f, 0f), new UnityEngine.Vector2(0f, 0.3f), new UnityEngine.Vector2(0f, -0.3f) })
+        {
+            float sx = b.center.x + off.x * b.extents.x, sz = b.center.z + off.y * b.extents.z;
+            float st = (float)mTopAt.Invoke(gc, new object[] { sx, sz, floorY, io.transform, b.max.y });
+            if (UnityEngine.Mathf.Abs(st - b.max.y) > 0.06f) continue;
+            targets.Add(new UnityEngine.Vector3(sx, b.max.y + 0.03f, sz));
+            names.Add(host.Def.id + "@" + sx.ToString("F1") + "," + sz.ToString("F1"));
+        }
     }
     for (int i = 1; i < targets.Count; i++)
         for (int j = i; j > 0 && UnityEngine.Vector3.Distance(targets[j], player.transform.position) < UnityEngine.Vector3.Distance(targets[j - 1], player.transform.position); j--)
         { var tt = targets[j]; targets[j] = targets[j - 1]; targets[j - 1] = tt; var nn = names[j]; names[j] = names[j - 1]; names[j - 1] = nn; }
-    if (targets.Count > 3) { targets.RemoveRange(3, targets.Count - 3); names.RemoveRange(3, names.Count - 3); }
+    if (targets.Count > 15) { targets.RemoveRange(15, targets.Count - 15); names.RemoveRange(15, names.Count - 15); }
 }
 if (targets.Count == 0) return mode == "ground" ? "ПРОПУСК: рядом с игроком нет земли и пола" : "ПРОПУСК: в досягаемости нет плоскости (стол, тумба, полка)";
 var tried = new System.Text.StringBuilder();
+var fTrace = tgc.GetField("TracePoses", bf | System.Reflection.BindingFlags.Static);
+var fLast = tgc.GetField("LastPoseTrace", bf | System.Reflection.BindingFlags.Static);
+bool oldTrace = fTrace != null && (bool)fTrace.GetValue(null);
+if (fTrace != null) fTrace.SetValue(null, true);
 try
 {
     for (int k = 0; k < targets.Count; k++)
@@ -265,7 +275,7 @@ try
         cam.transform.rotation = savedCam;
         if (!okPose) { tried.Append(names[k] + ": курсор мимо; "); continue; }
         var pos = (UnityEngine.Vector3)args[6]; float yaw = (float)args[7]; bool blocked = (bool)args[8];
-        if (blocked) { tried.Append(names[k] + ": красный; "); continue; }
+        if (blocked) { tried.Append(names[k] + ": красный [" + (fLast != null ? fLast.GetValue(null) : "") + "]; "); continue; }
         if (mode == "surface" && pos.y < floorY + 0.3f) { tried.Append(names[k] + ": поза ушла на пол; "); continue; }
         anchor.SetPositionAndRotation(pos, UnityEngine.Quaternion.Euler(0f, yaw, 0f));
         mRelease.Invoke(gc, null);
@@ -275,7 +285,7 @@ try
         return "положен|" + names[k] + "|" + pos.x.ToString("R") + "|" + pos.y.ToString("R") + "|" + pos.z.ToString("R") + "|" + floorY.ToString("R");
     }
 }
-finally { cam.transform.rotation = savedCam; }
+finally { cam.transform.rotation = savedCam; if (fTrace != null) fTrace.SetValue(null, oldTrace); }
 return "КРАСНОЕ: некуда положить (" + tried + ")";
 '''
 

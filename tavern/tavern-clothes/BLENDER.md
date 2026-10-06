@@ -583,7 +583,7 @@ json cotton/rib_cotton в sRGB. Объект «как лежит» — `tshirt_f
 (кит сгиба, масштаб 2.4, только ворот дугой) через `build_kit.py --
 tshirt_folded` → `Furniture/tshirtFolded.fbx` 5 364 тр., `Library/
 tshirtFolded.blend`. В игре: `Items.TShirt` (id `tshirt`, 2×2, слот Body,
-картинка `Icons/tshirt.png` из `Fog/Clothes/white T-shirt(man).png`,
+картинка `Icons/tshirt.png` из `Fog/Clothes/tshirt/OLD_white T-shirt(man).png`,
 `iconPicture`), `WardrobeVisuals.GarmentResource` → `Clothes/TShirtM`,
 `FurnitureCatalog.TShirtFolded` (id `tshirt_folded`, pickupItemId `tshirt`),
 бар «Одежда» → «Футболка (сложенная)», переводы в `en.json`. Проба поз на
@@ -646,7 +646,7 @@ human_skin_cut as m; m.make_shoes(zone, arm_c, m.params()); m.dress_twins(parts)
 |---|---|---|---|
 | кроссовки на герое | `Library/humanClothes.blend` ← `make_shoes` в `human_skin_cut.py` (+ `shoe_*`/`sole_*`/`lace_*`/`collar_*` в params) | `blender -b --python human_skin_garment_export.py -- SneakersM` → `Resources/Clothes/SneakersM.fbx` + `-materials.json` (веса с игрового тела, запас 1 мм, бюджет верх 2200 / воротник 700, шнурки не пересаживаются) | `WardrobeVisuals`: слот `EquipSlot.Feet` → узел `Wear_Feet`, `case "sneakers"`; **подъём фигуры на `SoleLift` 0.025** (= `sole_height`), иначе плита под полом |
 | предмет мира «кроссовки (пара)» | корень `SH1` в том же `humanClothes.blend` | `... -- sneakersPair` (режим `ITEMS` того же скрипта) → `Resources/Furniture/sneakersPair.fbx` + json, бюджет верх 1800 / накладка 900 / воротник 500 на стопу, итог 13 788 тр. (< 15 000), `scale=1.2` — предмет на 20 % крупнее натуры | `FurnitureCatalog.Props.SneakersPair()` id `sneakers_pair`, `Categories.Clothing`, материал «ткань», `pickupItemId = "sneakers"`; `HudUI.BottomBar` группа «Одежда» |
-| иконка | картинки Ильи `~/Documents/Fog/Clothes/white sneakers(man).png`, `gray sneakers(man).png` | `Resources/Icons/sneakers.png`, `sneakers_grey.png` (guid новые; подключила ilya-f2 05.09) | `Items.Sneakers` / `Items.SneakersGrey` с `iconPicture: true` |
+| иконка | картинки Ильи `~/Documents/Fog/Clothes/sneakers/OLD_white sneakers(man).png`, `gray sneakers(man).png` | `Resources/Icons/sneakers.png`, `sneakers_grey.png` (guid новые; подключила ilya-f2 05.09) | `Items.Sneakers` / `Items.SneakersGrey` с `iconPicture: true` |
 | предмет инвентаря | `Inventory/Items.cs` | — | `ItemDef` 2×2, `slot = EquipSlot.Feet` (новый слот: `ItemDef.EquipSlot`, `Equipment.feet`, строка «Обувь» в `InventoryScreenUI`), вес 0.8, категория «одежда», в `Items.Clothing` |
 
 Проверено в play: `Wear_Feet` с 5 скинненными частями, цвета из json (белый 0.96, подошва 0.91, шнурки 0.19), `Visual.localPosition.y` −1.000 → −0.975 при надевании; предмет `sneakers_pair` 0.35 × 0.19 × 0.40 м стоит низом на полу.

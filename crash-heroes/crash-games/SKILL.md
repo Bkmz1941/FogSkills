@@ -1849,3 +1849,42 @@ Aviatrix): **каждая ставка закрывается ровно одн�
       `Round tick` на `DEBUG` каждые 50 мс. Ротация проблему прячет, но не решает.
 - [ ] `game_crash_bets` на проде — всего 31.6 тыс строк при 12.5 млн раундов.
       Проверить, ожидаемо ли это (похоже, да: играют мало), или ставки теряются.
+
+## Журнал: 2026-10-05 — RNG «Crash Hockey» к игре на проде
+
+- Прод крашей: движок RNG 0.1.12 уже стоял (с 28.09), настоящий фронт «Crash Hockey» перенесён с дева с заменой
+  хоста (детали — скил `game-engine-rng`, журнал 05.10). Игра id 19 `crash_hockey`, проект 2 «Lucky server» с
+  прод-URL Lucky.
+- **Админка**: `origin/main` уже содержит весь `dev` (последний мерж 28.09) — релиза не требовалось.
+- **api-core**: `develop` впереди `main` только на Donkey Rush (коммиты kvaggone 26–27.09: тип `donkey-rush`,
+  миграция `2026_09_26_120000_register_donkey_rush_game` создаёт игру с `link ''` и `settings.mode classic`,
+  `/api/external/lucky/*`, `game_sessions.is_demo`). **На прод не катили намеренно**: движка Donkey Rush на
+  проде нет, а игра с `mode classic` попала бы в `/api/external/games` и синк Lucky prod подтянул бы
+  неработающую игру. Релизить вместе с движком Donkey Rush, по решению Ильи.
+- В рабочем дереве api-core чужая незакоммиченная работа: `GameRngBet`, миграция
+  `2026_09_28_100001_create_game_rng_bets_and_add_state_to_rng_games` — движок 0.1.12 её не использует, не трогали.
+
+## Журнал: 2026-10-05 (вечер) — Donkey Rush на проде
+
+- **api-core**: `develop` → `main` мержем через отдельный worktree (`bccd034`, только 7 коммитов Donkey Rush), CI
+  выкатил на прод ~14:34 UTC: миграции `2026_09_26_120000_register_donkey_rush_game` и
+  `2026_09_26_130000_add_demo_to_game_sessions` — batch 10. Чужое незакоммиченное в рабочем дереве api-core
+  (`GameRngBet`, миграция `2026_09_28_100001_…`) не тронуто.
+- **Движок**: репо `crash-heroes/backend/donkey-rush`, код в ветке `mcdx/donkey-rush-engine` (`6633d6d`; в `main`
+  репо только Initial commit). На прод скопирован `git archive` в `/home/admin/crashgames/donkey-rush`, собран и
+  поднят `SHARED_ENV_FILE=/home/admin/crashgames/crash-engine-rng/.env DONKEY_RUSH_IMAGE=donkey-rush:prod-6633d6d
+  docker compose -f docker-compose.server.yml up -d --build` → контейнер `donkey-rush-1`, `127.0.0.1:3200`, кости
+  из прод-сервиса `wss://dicestream.crash-heroes.com` (из общего env RNG-движка).
+- **nginx** `server.crash-heroes.com.conf`: `location /ce60c59a-bfd9-4213-bd43-356c7afaf3b3` → `:3200` с rewrite и
+  `Content-Security-Policy: frame-ancestors 'self' https://brobro.casino https://www.brobro.casino` (без него
+  iframe Lucky упирается в `X-Frame-Options SAMEORIGIN`). Бэкап — `~/deploy-backups/server.crash-heroes.com.conf.20261005-143612`.
+- **Игра** id 20 `donkey_rush`: `link` и `engine_url` = `https://server.crash-heroes.com/ce60c59a-…/`.
+- **Связка с Lucky прод**: провайдер Lucky `donkey-rush` (`b5cdc0a4-…`, игры/запуск → `api.crash-heroes.com/api/external/lucky/{games,game/url}`),
+  проект крашей **4 «Lucky Server Donkey Rush»** с прод-колбэками Lucky; пара ключей выпущена Lucky и передана
+  трубой между серверами без вывода. Проект 2 не трогали. В BroBro игра добавлена (провайдер 12, игра 1,
+  `brobro.casino/games/12/1`), комиссия 0%. Гостевое демо — 200. smoke прод: всё зелёное, кроме старых
+  6 рестартов ScaryClown (с 28.09, не связано).
+- Обложки игр для оператора — `storage/app/public/games/covers/<slug>-site.png` api-core (`https://api.crash-heroes.com/storage/games/covers/…`);
+  05.10 добавлена `crash-hockey-site.png` (прод и дев). Все 13 прежних обложек отвечают 200.
+- Итог 05.10: Crash Hockey (id 19) играется из BroBro — `https://brobro.casino/games/1/17`; адреса прода — скил
+  `game-engine-rng`, журнал 05.10.

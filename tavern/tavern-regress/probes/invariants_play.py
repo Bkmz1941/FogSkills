@@ -823,7 +823,7 @@ int farHidden = 0, farInView = 0;
             if (fh) bad.Append("скрыт радиусом, но в кадре: " + io.Def.id + " @ " + io.transform.position.ToString("F1") + "; ");
         }
         var fd = io.transform.position - fp; fd.y = 0f;
-        if (Cozy.Grid.FarRadius.Enabled && fd.magnitude > Cozy.Grid.FarRadius.HideBeyond + 3f && !fh && UnityEngine.Time.frameCount > 30)
+        if (Cozy.Grid.FarRadius.Enabled && !Cozy.Grid.FarRadius.SpotOn && fd.magnitude > Cozy.Grid.FarRadius.HideBeyond + 3f && !fh && UnityEngine.Time.frameCount > 30)
             bad.Append("дальше радиуса, но не скрыт: " + io.Def.id + " @ " + io.transform.position.ToString("F1") + "; ");
         var ftw = io.GetComponent<Cozy.Grid.TreeWind>();
         if (fh && ftw != null && ftw.enabled) bad.Append("скрыт радиусом, но ветер не спит: " + io.Def.id + "; ");
@@ -1259,6 +1259,9 @@ foreach (var zl in UnityEngine.Object.FindObjectsByType<UnityEngine.Light>(Unity
     uint zwant = zio.Def.outdoorOnly ? Cozy.Grid.LightZones.Outdoor : Cozy.Grid.LightZones.ZoneAt(zio.transform.position);
     uint zhas = unchecked((uint)zl.renderingLayerMask);
     if ((zhas & zwant) == 0) bad.Append("источник не светит в своё место: " + zio.Def.id + " маска " + zhas + " место " + zwant + "; ");
+    // P928: комнатный свет — по этажам; лампа несёт бит СВОЕГО этажа и не несёт соседних.
+    if (zwant == Cozy.Grid.LightZones.Indoor && (zhas & Cozy.Grid.LightZones.Storeys) != Cozy.Grid.LightZones.StoreyOf(zl.transform.position.y))
+        bad.Append("лампа светит не своему этажу: " + zio.Def.id + " маска " + zhas + "; ");
     var zdata = zl.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
     if (zdata != null && zdata.renderingLayers != zhas) bad.Append("у источника разошлись маски Light и URP: " + zio.Def.id + "; ");
 }

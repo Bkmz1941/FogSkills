@@ -1333,3 +1333,37 @@ Lucky считает комиссию провайдера с проигрыша
 логируются, ретраи — общий `retryDue`. Коммиты `c6d3423` + `0009037 Release 0.1.12` в `dev`, образ
 `arcanegaming/crash-engine-rng:0.1.12` выкачен на dev (`ENGINE_VERSION` в `.env`). До выката на деве крутился
 0.1.11 — «win с 0 не пришёл» объяснялось именно этим: **CI у репо нет, коммит ≠ выкат**.
+
+## 2026-10-05 — настоящий фронт «Crash Hockey» на проде, подготовка к Lucky prod
+
+Команда Ильи: «перенести на прод движок rng, обновить краши админку и апи, подготовить всё, чтобы на проде крашей
+и Лаки можно было играть в новый движок, разрешаю всё».
+
+- **Движок на проде уже был актуален**: 0.1.12 (== `origin/dev`, новых коммитов нет), `healthy`, поток костей
+  `wss://dicestream.crash-heroes.com` живой (бросок 13:50:47 UTC), снаружи `…/<uuid>/health` 200 и WS
+  `Session not found` + 4401. Перевыкатывать было нечего.
+- **Фронт игры**: на деве 05.10 10:16 выложена настоящая сборка «Crash Hockey» (React, 144 файла, 35 МБ;
+  **исходников на машине нет** — только сборка). Хост движка зашит в бандл одной строкой
+  `var qv={host:"dev.server.crash-heroes.com",publicKey:"<games.uuid>"}` (`scripts/index-*.js`); сессию берёт
+  из `?session=` (ровно один параметр). На прод перенесена копией с заменой хоста на `server.crash-heroes.com`
+  (uuid на проде тот же). Старый тестовый UI — `~/deploy-backups/crashhockey-testui.20261005-135031.tgz` на проде.
+  Проверено: `games.crash-heroes.com/crashhockey/` + JS/CSS/шрифты → 200.
+  **Новую сборку с дева на прод переносить так же** (или попросить у авторов сборку с прод-хостом).
+- api-core прода == `main` по файлам запуска (`GameLaunchService` для `crash-rng` отдаёт `link?session=<uuid>`).
+- В Lucky prod игру 19 через синк не получить (`settings []` → нет в `/api/external/games`); заводится root'ом
+  `POST /v1/root/games` (external_id `19`, slug `crash-games-crash-hockey`, category `crash`) и добавляется в
+  BroBro. Синк провайдера ручные игры не отключает. Запись на прод Lucky классификатор не дал — скрипт
+  `lucky-prod-add-crash-hockey.sh` (scratchpad сессии 05.10) запускает Илья.
+- **Итог 05.10 (вечер): игра доступна в BroBro на проде** — `https://brobro.casino/games/1/17`, плитка первой в
+  «Crash Games» главной и на `/crashgames` (детали Lucky — скил `lucky-back`, «История» 05.10).
+- **Адреса прода «Crash Hockey»:** фронт `https://games.crash-heroes.com/crashhockey/` (оператор получает
+  `…/crashhockey?session=<uuid>` из `POST https://api.crash-heroes.com/api/external/game/url`, `game_id` = `19` или
+  uuid); WS `wss://server.crash-heroes.com/a2c69d5c-074d-4574-9262-58fce37fba72/v1?session=…`; health
+  `https://server.crash-heroes.com/a2c69d5c-…/health`; `engine_url` `http://127.0.0.1:3100`; кости
+  `wss://dicestream.crash-heroes.com/ws/events`. **`games.id` 19 и uuid одинаковые на деве и проде.**
+- **Обложка** `crash-hockey-site.png` (600×600, скругление 38 px, как у соседних `*-site.png`): собрана из ассетов
+  сборки (`assets/ui/loading-background.webp`, кроп y 430–1180, синий градиент снизу, «CRASH HOCKEY» шрифтом
+  Inter 900 из `assets/fonts`), лежит в `storage/app/public/games/covers/` api-core **на проде и деве** →
+  `https://api.crash-heroes.com/storage/games/covers/crash-hockey-site.png`. Своей обложки у авторов игры нет —
+  если пришлют, просто заменить файл.
+- Полную игру с реальными деньгами на проде ещё никто не проходил.

@@ -67,56 +67,9 @@
 
 ## T-FPS — кадр
 
-Сборка свободна (500–1500 FPS на стоящем игроке), поэтому цели по кадру —
-про СЦЕНАРИИ, которые сборка на спавне не видит, и про редактор, где Илья играет.
-
-- ✅ **Клубы тумана мимо SRP-батчера** — закрыто в редакторе 16.09: инстансинг
-  `FogClip`, кадр стычки 3.3 → 2.7 мс, SetPass 300 → 59, картинка та же. В сборке —
-  вопрос Илье (`OPEN.md`, «Инстансинг тумана и в сборке?»).
-- **Тени ~650 отбрасывателей** (10.09): снять тени с мелких предметов — вопрос
-  Илье (`OPEN.md`).
-- **`FarRadius`: 800 объектов в кадр ради одной позиции** (0.33 мс на лесу) и
-  общий «плоский срез мира» — архитектура, решать с Ильёй (журнал 13.09).
-- Сценарии без замера: стычка в сборке (ключа нет), готовка и открытые экраны
-  (ARCHITECTURE «Мусор на кадр»). Панель дебага меряет `debug_panel_probe.py fps`.
-- ⭐ 27.09 (ilya-58) **сделано шагами 15–16, ждут живой проверки после перезахода**:
-  `SinkPile.Collect` через кэш кандидатов по `InteractiveObject.AllRevision`
-  (до: `Collect` 0.855 мс при 9630 объектах, груда `[plate, coffee_cup_red]`);
-  `CellVolumeView` — один `SyncAll` из `WorldTick.LateUpdate` с `transform.hasChanged`
-  вместо 1648 `LateUpdate` (до: 1.016 мс self). Сверить после перезахода: тот же
-  сниппет `Collect` (члены и порядок), `gc_probe.py profile 300`, туман в реестре
-  клеток (`FogView.Covers` у игрока), перенос тумана в стройке пересаживает клетку.
-- **level1: плинтус «внутри мебели» 4** (28.09; было 18 — 14 из них растительность, проба её больше не считает) —
-  прежнее состояние, не от шагов 18–22.
-  Фикус `home_plant_8` в углу у лестницы стоит на плинтусе — поставлен до правила отступа.
-- **`PlankSkin.LateUpdate` — по экземпляру** (402 вызова на night_build_b, 0.13 мс) — кандидат в общий
-  цикл, как `CellVolumeView` 27.09.
-- **`TemperatureSim.LateUpdate`: `WorldBounds` у 112 проводящих каждый кадр** —
-  0.279 мс из 0.32 (27.09, level1, 19 тепловых объёмов). Без смены поведения не
-  снять: кэш коробки нагрева по неподвижности корня пропустит открытую крышку.
-  Решать вместе с владельцем температуры.
-- Грязные от соседей 27.09 и потому не взяты: `FloorPieceView.TickAll` (0.35 мс
-  `PieceViewTicker`), `Soiling.Update` (0.18 мс на 13), `LightDust.LateUpdate` —
-  `GetComponent` с пустым ответом, 6 КБ мусора в редакторе (`FlashlightDust.cs`).
-- ⭐ **`SinkPile.Update` — самый дорогой игровой скрипт на level1** (24.09,
-  ilya-09): `gc_probe.py profile 250` — 0.666 мс self за кадр одним вызовом при
-  6.0 мс кадра редактора; следом `FarRadius` 0.34, остальное < 0.1. Разбор
-  живым замером (мойка пустая, членов 0): `Collect` = 0.286 мс, из них поиск
-  слота `SlotFor` по строковому `def.id` у всех 3291 `InteractiveObject.All` —
-  0.26 мс; `box.Contains` доходит лишь до прошедших слот. У КАЖДОГО объекта свой
-  экземпляр `ObjectDef` (3291 дефа на 3291 объект), поэтому ключ по ссылке на
-  деф даёт только 0.26 → 0.10. Правка по сути: кэш кандидатов груды (объекты,
-  чей деф берёт мойка), пересчёт при смене состава реестра — нужна ревизия
-  `InteractiveObject.All` (регистрация/снятие) или счётчик. Защита: `sink`-пробы
-  `tavern-cooking/SINK_PILE.md`, `kitchen_rules_probe.py`, замер `Collect` до/после
-  тем же сниппетом (членов и порядок сверить на мойке с посудой). НЕ взято 24.09:
-  `SinkPile.cs` грязный от соседа (сигнатуры `NextPose`/`SeesInside`), реестр
-  `InteractiveObject` — общий файл.
-  ⭐ 25.09 (ilya-a8): **Илья попросил взять в туду** («запиши в туду в рефакторинг
-  SinkPile.Update»). Замер того утра на level1: 1.108 мс self за кадр при 24.4 мс
-  кадра — но редактор тогда рендерил на Intel (P568), число завышено. Перед
-  правкой перемерить `gc_probe.py profile 300` на NVIDIA и снять `Collect` тем же
-  сниппетом, что 24.09.
+С 06.10 очередь кадра, карта по системам и сделанное — скил **`tavern-fps`**
+(«Очередь»). Здесь не дублируем; прежний текст раздела перенесён туда (открытое)
+и в `history/refactor-log.md` (закрытое: SinkPile, CellVolumeView 27.09, туман 16.09).
 
 ## T2 — длинные методы (>100 строк: 10)
 
@@ -425,3 +378,28 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
   моста; после неё мост рвётся на минуту-две. Утренняя база 03.10 11:25 её прошла. Резать вкладку на
   подблоки в пробе (как 29.09 разрезали весь снимок на вкладки) — до этого `verify` краснеет по панели
   не по вине шага.
+
+## T-PLAN-0510 — план вечера 05.10 (ilya-7c, только чтение; Илья: «рефакторинг, структура, дубли, грабли, не ломать, регресс»)
+
+Код: 128,7k строк; HudUI 17,5k (44 партиала), GridCursor 14,5k (37), PhoneUI.cs 4581 в одном файле.
+Закрыто 06.10 (ilya-5d, журнал в `refactor-log.md`): №1 `FindNode`, №3 `HourIn`.
+Принцип: «одна точка правды + сторож в `SourceRulesTests`» (как `RayPick.Classify`, `Targeting.Hidden`).
+Покадровые области (FloorPieceView, FarRadius/ViewSensor, туман, PhoneUI, WardrobeVisuals, DoorPiece, CurtainDrape) — после FPS-агента того же вечера.
+
+| # | Цель | Места | Защита сейчас / написать ДО | Риск |
+|---|---|---|---|---|
+| 2 | «Рендерер нарисован» → `FloorPieceView.Drawn` (класс P719/P849/P870) | HudUI.Ignite:187, RayPick:88 `Shown`, CameraFollow:531, GridCursor.Dig:126. Не брать DebugGrid:155, PlayerModelCatalog:400 | invariants 7/11, hover/build_pick/crow_glow/examine пробы; сторож на `ShadowsOnly` | низкий |
+| 4 | `RaycastNonAlloc` в обход `RayPick` (инвариант 294, класс P667/P674/P763), ~25 мест | не горячие: BugBrush, DeathScreenUI, StunStars, WaterSource, EdgeGuard, CrowFlight.Targets:59, PostureFeature:182, CrowAttack:674/1572, HudUI.Ignite:158, GridCursor.Dig:123, VisionArea:134/147; горячие последними: GridCursor.PlaceQueries/Support/Terrain. CameraFollow SphereCast — в белый список | пробы доменов (zone_brush, encounter, sink_wash, bird_flight, posture, transfer…) + сторож | низко-средний |
+| 5 | Длинные методы F1 | HudUI.ObjectsTab 123 (DebugPlayer:482), PoisonBlock 94, MonstersTab 92, SkinTab 84. НЕ «Попапы» | `debug_panel_probe.py snap` | низкий |
+| 6 | `GridCursor.BuildObjectSelection` 228 строк (ObjectMove:21) | → FillDoor/FillWindow/FillLamp/FillBird/FillColors | НЕТ; написать `selection_probe.cs` (рефлексия, все поля по всем объектам) | низкий с пробой |
+| 7 | «ЧЧ:ММ» из часов ×3 → `GameClock.Split` | HudUI:364, EventLogUI:45, PhoneUI:3657 (после FPS); отдельно HudUI.DebugMonsters:492 `Clock` = ZoneCondition.Clock | EditMode-перебор | низкий |
+| 8 | Каркас дебаг-окон ×4 (T-FOUND-0110) → к `ToolWindow` | HudUI.Debug, MainMenuUI.Debug, StatsScreenUI, ToolWindow | проба геометрии 4 окон; днём с Ильёй | средний |
+| 9 | Поповеры панели выбора ×3 → `Popover(name)` | HudUI.Selection:223/817/1264 | дописать в selection_probe | низкий |
+| 10 | Механика доз ×3 (отравление/головная боль/боль) → `DoseTrack` | PlayerExposure:297-387, 542-567 | НЕТ; `dose_probe.cs` (finally, без DebugTune.Save — P415) | средний |
+| 11 | Редактор зон: EventCard 178, RouteCard 125, OpenZoneEditor 128 | HudUI.ZoneEvents, HudUI.Zones | снимок дерева UI ToolWindow | средний |
+| 12 | Дефы каталога BathDecor/RoomDecor/WallShelf* | FurnitureCatalog.Plumbing/Home | md5 JSON дефов + CatalogTests; только когда файлы чистые | низкий |
+| 13 | PhoneUI.cs → партиалы (контакты/СМС, звонки, будильник, карта, блокировка) | после FPS | компиляция + вкладка phone в debug_panel_probe; проверить статические инициализаторы | средний |
+
+Не брать: `On(io)`/`Of(io)`, `ById` ×7, `Flat(Vector3)`, отсев игрока в луче (разный смысл), проходы рендера `Enqueue`, `FindOffer`, `UpdateMoveObject`/`RestoreLevel`/`Snapshot` (только при Илье), процедурные модели, таблица DebugTune, `Monster.Replan`, `MenuTab`, классы не в своих файлах (новые файлы — Илья), HudUI/GridCursor целиком.
+
+Похоже на баги (в OPEN.md, не рефакторинг): номер телефона — `LlmBridge.Last10` считает «8 919…» = «+7 919…», `PhoneUI.Digits` (поиск контакта) — нет; `HudUI.DebugWeather.HourText` `% 60` без переноса (7,999 ч → «07:00»); `FloorPieceView.Drawn`/`RayPick.Visible` не смотрят `forceRenderingOff`, `PlayerModelCatalog.Shown` смотрит.

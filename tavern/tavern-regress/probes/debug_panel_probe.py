@@ -26,7 +26,7 @@ OUT = pathlib.Path.home() / '.cache/tavern-probes'
 # Запасной список — на случай, если игра не ответила. Живой список проба берёт
 # из самой игры (`HudUI.DebugTabs`): зашитый уже отставал на три вкладки
 # (zones, sudden, ranged — ночь 17→18.09), и их правки шли мимо отпечатка.
-FALLBACK_TABS = ['general', 'view', 'zones', 'light', 'map', 'seethrough', 'weather', 'player', 'character', 'hud', 'objects', 'inventory', 'recipes', 'effects', 'sudden', 'ranged', 'events', 'monsters', 'census', 'system', 'ui']
+FALLBACK_TABS = ['general', 'view', 'zones', 'light', 'seethrough', 'weather', 'traps', 'player', 'character', 'people', 'hud', 'objects', 'study', 'recipes', 'effects', 'medicine', 'cooking', 'products', 'sudden', 'ranged', 'events', 'logs', 'quests', 'phone', 'monsters', 'neutral', 'census', 'system', 'graphics', 'leveldefaults', 'ui', 'popups', 'tutorial']
 
 TABS_CODE = r'''
 var hud = UnityEngine.Object.FindFirstObjectByType<Tavern.UI.HudUI>();
@@ -82,6 +82,27 @@ var keepOpen = new System.Collections.Generic.List<string>(open);
 var sb = new System.Text.StringBuilder();
 var inv = System.Globalization.CultureInfo.InvariantCulture;
 string[] tabs = TABS;
+int onlyBlock = BLOCK;
+var skipHeads = new System.Collections.Generic.HashSet<string>();
+System.Func<UnityEngine.Transform, string> headSig = h =>
+{
+    var parts = new System.Collections.Generic.List<string>();
+    foreach (var tx in h.GetComponentsInChildren<TMPro.TMP_Text>(true)) parts.Add(tx.text);
+    return string.Join("|", parts.ToArray());
+};
+System.Func<System.Collections.Generic.List<UnityEngine.Transform>> topHeads = () =>
+{
+    var found = new System.Collections.Generic.List<UnityEngine.Transform>();
+    var stack = new System.Collections.Generic.Stack<UnityEngine.Transform>();
+    stack.Push(row);
+    while (stack.Count > 0)
+    {
+        var t = stack.Pop();
+        for (int i = t.childCount - 1; i >= 0; i--) stack.Push(t.GetChild(i));
+        if (t.name == "SkinBlockHead" && t.Find("Icon_plus") != null && t.GetComponent<UnityEngine.UI.Button>() != null) found.Add(t);
+    }
+    return found;
+};
 System.Func<UnityEngine.UI.Button> findClosed = () =>
 {
     var stack = new System.Collections.Generic.Stack<UnityEngine.Transform>();
@@ -92,6 +113,7 @@ System.Func<UnityEngine.UI.Button> findClosed = () =>
         for (int i = t.childCount - 1; i >= 0; i--) stack.Push(t.GetChild(i));
         if (t.name != "SkinSubHead" && t.name != "SkinBlockHead") continue;
         if (t.Find("Icon_plus") == null) continue;
+        if (skipHeads.Count > 0 && t.name == "SkinBlockHead" && skipHeads.Contains(headSig(t))) continue;
         var b = t.GetComponent<UnityEngine.UI.Button>();
         if (b != null) return b;
     }
@@ -105,6 +127,17 @@ try
         open.Clear();
         rebuild.Invoke(hud, null);
         int clicks = 0;
+        if (onlyBlock >= 0)
+        {
+            var tops = topHeads();
+            if (onlyBlock >= tops.Count && !(onlyBlock == 0 && tops.Count == 0)) return "end " + tops.Count;
+            for (int i = 0; i < tops.Count; i++) if (i != onlyBlock) skipHeads.Add(headSig(tops[i]));
+            if (onlyBlock < tops.Count)
+            {
+                tops[onlyBlock].GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                clicks++;
+            }
+        }
         for (; clicks < 3000; clicks++)
         {
             var closed = findClosed();
@@ -118,7 +151,7 @@ try
             var key = kv.GetType().GetProperty("Key").GetValue(kv, null) as UnityEngine.Object;
             if (key != null) live.Add(key.GetInstanceID());
         }
-        sb.Append("=== ").Append(tab).Append(" раскрыто=").Append(clicks).Append(" живых=").Append(lines.Count).Append('\n');
+        sb.Append("=== ").Append(tab).Append(onlyBlock >= 0 ? " блок " + onlyBlock : "").Append(" раскрыто=").Append(clicks).Append(" живых=").Append(lines.Count).Append('\n');
         foreach (var root in new[] { head, row })
         {
             var stack = new System.Collections.Generic.Stack<System.Collections.Generic.KeyValuePair<UnityEngine.Transform, int>>();
@@ -177,6 +210,11 @@ def run(code):
         return 'НЕ РАЗОБРАЛОСЬ: ' + out.stdout[-600:]
 
 
+def tab_code(tab, block, piece):
+    return (CODE.replace('TABS', 'new[] { "%s" }' % tab).replace('BLOCK', str(block))
+            .replace('PATH', json.dumps(str(piece))))
+
+
 def path_of(label):
     return OUT / ('debug_panel_%s.txt' % label)
 
@@ -189,13 +227,23 @@ def snap(label):
     parts = []
     for tab in TABS:
         piece = OUT / ('debug_panel_%s.%s.part' % (label, tab))
-        code = CODE.replace('TABS', 'new[] { "%s" }' % tab).replace('PATH', json.dumps(str(piece)))
-        res = run(code)
-        if not res.startswith('ok'):
-            print('проба не прошла на вкладке %s: %s' % (tab, res))
-            return 1
-        parts.append(piece.read_text(encoding='utf-8'))
-        piece.unlink()
+        # По верхнему блоку за вызов, вкладку целиком не раскрываем НИКОГДА:
+        # каждый щелчок пересобирает вкладку, а Destroy отложен до конца кадра,
+        # и на «Попапах» за один кадр копились десятки тысяч объектов —
+        # редактор раздувался до 10 ГБ, мост отваливался на 20 с, 05.10 встал
+        # весь компьютер (P925).
+        block = 0
+        while True:
+            res = run(tab_code(tab, block, piece))
+            if res.startswith('end'):
+                break
+            if not res.startswith('ok'):
+                print('проба не прошла на вкладке %s, блок %d: %s' % (tab, block, res))
+                return 1
+            parts.append(piece.read_text(encoding='utf-8'))
+            piece.unlink()
+            block += 1
+        print('  %s: %d вызовов' % (tab, block), flush=True)
     target.write_text(''.join(parts), encoding='utf-8')
     text = target.read_text(encoding='utf-8')
     heads = [l for l in text.splitlines() if l.startswith('=== ')]

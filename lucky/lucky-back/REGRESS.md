@@ -7,6 +7,7 @@
 |---|---|---|
 | `game-provider-regress.mjs` | деньги: `user/info`, `bet`, `win` (в том числе с `cancel`), `rollback` | ключи провайдера + живой launch-токен |
 | `provider-catalog-regress.mjs` | каталог и модерация: загрузка, гейт, approve/decline, revoke, удаление рутом | ключи провайдера + Bearer рут-админа |
+| `games-launch-regress.mjs <env> "<провайдер>"…` | живые игры провайдеров: привязывает их к проекту `Regress` скрытыми, по каждой — запуск игроком, демо, ссылка открывается (200). Демо 30/мин — проба ждёт на 429 | стенд `<env>.env`; рут один раз открывает проекту доступ к провайдеру (`POST /v1/root/game-providers/:id/projects`, только добавляет) |
 
 **Контракт сменился 2026-09-11, дважды.** Первой правкой `player/info` и
 отдельный `cancel` удалены, появились `user/info`, `win` с флагом `cancel` и
@@ -317,6 +318,8 @@ tar -C dist-deploy -cf - . | ssh lucky-prod-legacy "set -e; A=lucky-admin; rm -r
   регресс гоняется без третьей строки (провайдерская половина, 18 проверок).
 
 ## Последние зелёные прогоны
+
+- 2026-10-05, **прод**, `games-launch-regress.mjs prod "Red Eagle" "Donkey Rush"` — **104/104** (103 Red Eagle + Donkey Rush): запуск игроком, демо, ссылка 200. Проекту `Regress` открыт доступ к обоим провайдерам, игры привязаны с `is_active = false`.
 
 - 2026-09-14, дев, крашевый `25d9a68` — деньги **29/29** на игроке
   `regress-1789…@agg.one` (проект BroBro Casino / `storefront-luckyserver-pro`,
