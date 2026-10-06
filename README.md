@@ -30,6 +30,8 @@ claude-skills/
   personal/        shinobi-council/  формат ответов «Совет шиноби»
   tools/           scripts/          наши шелл-скрипты (dps) и их раскатка
                    image-gen/        генерация картинок локально (ig: ComfyUI + FLUX.2 klein)
+                   img3d/            3D-модель по картинке локально (img3d: TRELLIS.2)
+                   sfx-gen/          звуки локально (sfx: Stable Audio 3 small-sfx)
 ```
 
 ### ⚠️ Почему симлинки всё равно ПЛОСКИЕ
