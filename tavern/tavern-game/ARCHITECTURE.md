@@ -168,6 +168,37 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 - **`HudUI`** — ядро-композитор плюс партиалы панелей; вынесенные контроллеры
   (`PlayerStatHud`, `FpsHud`, `TimeBarHud`, `DebugOverlayHud`, `ViewModeHud`)
   живут отдельными файлами.
+- **`AiConsole`** (08.10 вечер, `Assets/Game/UI/AiConsole.cs`, статический класс
+  без UI) — пульт модели для существ: чат, часовой тик, события чувств, разбор
+  JSON-ответа, `spawn/remove/plan`, системный промпт и снимок уровня, три ленты
+  (`Chat`, `Journal` «Действия монстров», `RulesLog` «Проверка правил»).
+  `HudUI.Ai.cs` — только вкладка «ИИ»: виджеты и подписка `AiConsole.Shown`.
+  Направление связи: `Cozy.Monsters` ссылается на `Tavern.UI` (исторически ради
+  `GameEvents`), поэтому `CreaturePlan`/`LifeRules` зовут `AiConsole` напрямую,
+  а обратно — хуки `AiConsole.RunPlan/DescribePlan/RulesCheck/RulesRunNow/
+  RulesApplied`, выставляемые в `[RuntimeInitializeOnLoadMethod]`. Тип шага
+  плана — `Tavern.UI.PlanStep` (поля = JSON модели). Общее про существ лежит
+  ниже: `ZoneEvent.CreatureKind/FreeName`, `CrowZoneSpawn.Place/FailureText/
+  RemoveCreature/InZone/AtMark`, `CreaturePlan.FindObject/ZoneBy`, `Weather.Clock`.
+- **`CreaturePlan`** (Monsters, 08.10 вечер): ядро — стек планов, `Begin/Act`,
+  `Run/Describe`; `.Nav` — путь по сетке, спрямление, ходьба, бродяжничество;
+  `.Senses` — чувства и события (`Sense/ScanObjects/Emit`); `.Actions` —
+  переключатели, двери, взять/положить.
+- **`LifeRules`** (Monsters, статический): `LifeRules.cs` — исполнение
+  (`Tick/Hourly/Once/Applied/OnEvent/Fire*`, `Count`, `Check/Describe`);
+  `.Parse` — разбор строк и групп, таблицы синонимов, словарь видов, локации.
+- **`PhoneUI`** (09.10, было 4573 строки в одном файле): ядро `PhoneUI.cs` —
+  поля, вид, данные контактов, `LateUpdate`, тряска/призрак; `.Screens` —
+  `Rebuild`, галерея и фото, домашний экран, боковые кнопки, питание; `.Calls` —
+  вкладки звонков, недавние, сюжетные звонки (`StoryTick/SeedStory/PlayStory`),
+  входящий и разговор; `.Maps`; `.Contacts` — новый контакт, набор номера,
+  доставка; `.Messages` — треды, пузыри, ввод, баннер; `.Alarm`; `.Shell` — звуки
+  звонка, подложка, шапка, «телефон в руке»; `.Lock` — экран блокировки, код,
+  лицо; `.Shade` — шторка, текстовые помощники, `RefreshLive`. Фотоаппарат —
+  отдельный класс `CameraUI.cs` (раньше жил в `PhoneUI.cs`).
+- **`CrowZoneSpawn`** (09.10) — свой файл `Combat/CrowZoneSpawn.cs` (раньше в
+  `CrowAttack.cs`): появление существ в зоне, `Place` с откатом ветка → земля,
+  `FailureText`, `RemoveCreature`, `InZone`, `AtMark`, насесты и земля.
 - **`FogVolume`** (ядро 115): `.Layout` — файл раскладки и прореживание;
   `.Shape` — форма клетки (кромка, посадка у стен, коробка среза); `.Spawn` —
   постановка клубов по раскладке. Компонент анимации — `FogAnim.cs`, дебаг-слой

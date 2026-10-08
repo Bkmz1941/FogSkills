@@ -3407,3 +3407,131 @@ tavern-fps… после — рефакторинг (дубли, грабли, �
 `--force` по слову Ильи.
 Отвергнуто: `SourceRulesTests`-сторож против новых копий `HourIn` и
 поиска узла — не заводил, тесты-оракулы держат равенство, а запрет формы в исходниках — отдельное решение.
+
+## 06.10 вечер (ilya-5d): дубли UI и каталога, тест узлов — 4 шага
+
+По слову Ильи «рефакторинг — дубли, грабли, основательно + регресс». База `night.py verify base` на level1: красное — 8 известных тестов и `tilt_probe` sport_bag (старое). ⚠️ GPU: `start.py` — драйвер NVIDIA не загружен, кадр не мерили (P568).
+1. `resize-grips` — `DebugPanelResize.AddGrips` вместо 4 копий (F1, дебаг меню, статистика, ToolWindow), −58 строк. Защита: снимок всех ручек F1 в play до = после; verify как база (часы панели идут).
+2. `clear-children` — `UiFactory.ClearChildren` вместо 4 копий, −50 строк. verify как база (часы, случайные ветки ворон).
+3. `test-halo-prefix` — тест `ModelNodesTests`: `haloNodes` префиксное поле (в модели гирлянды 71 узел `Led*`, механика работает) — тесты 8 → 7 красных.
+4. `reading-props` — `ReadingProp`/`OpensLikeBook` для газет, журнала, книг (`--force`, файл ilya-19 с его разрешения). Снимок JsonUtility 21 дефа до = после побайтно.
+Не взято: окна дебага меню и статистики — ~240 общих строк (макет, перетаскивание, разворот), живой защиты нет → `TARGETS.md`; три панели выбора в `HudUI.Selection` (узор/ключ/цвет) — не успели. Красные тесты: 7, разбор — в отчёте (имя «Тумбочка», «лоза», вес дивана, 260 переводов, двойной клик у обрывков газеты, 4 настройки F1 без сохранения — решения Ильи/владельцев).
+
+## Ночь 06→07.10 (ilya-61) — шаги 5–12: одна точка правды, лучи через RayPick, длинные методы
+
+Илья: «рефакторинг на ночь, безлимит, качество и простота кода в приоритете, функционально всё ок, потом регресс».
+База ночи — `night.py verify base` на level1 в 00:11 (красный хвост базы: тесты «newspaper_1_torn» / таблица DebugTune и
+др. — тот же набор весь заход; `tilt_probe` sport_bag −0.109 м). Каждый шаг — полный `verify` со сверкой: тесты тот же
+набор, живые пробы равны с точностью до чисел, правила стычки совпали, панель — только ползунки часов.
+⚠️ Между шагом 10 (01:05) и 11 (10:55) сессия простаивала ~10 ч; шаг 12 проверялся уже утром, когда уровень level1 был
+пересохранён в 10:55 не этой сессией (−1 объект, сдвиги на мм) — расхождения разобраны в шаге.
+
+5. `clock-split` — `GameClock.Split/HourMinute/Now` вместо 4 копий «ЧЧ:ММ» (HUD, журнал, телефон ×6, дебаг погоды).
+   Тест `HourMinute_совпадает_с_прежними_копиями_часов` (5760 точек, обе формулы). База панели обновлена: сосед
+   добавил строку статуса осады вороны (+4 строки во вкладке событий) после снятия базы.
+6. `drawn-one-rule` — `FloorPieceView.Drawn` вместо 4 ручных копий (Ignite, RayPick.Visible, CameraFollow, Dig) +
+   сторож `Нарисован_ли_рендерер_решает_только_FloorPieceView_Drawn`. activeInHierarchy в трёх копиях не было, но
+   рендерер там всегда с коллайдера из попадания/перекрытия — проверка заведомо истинна.
+7. `raycast-via-raypick` — 10 лучей в фиксированный буфер → `RayPick.Sorted` (P667, инв. 294) + сторож
+   `Луч_в_фиксированный_буфер_только_через_RayPick`. Все циклы — «хоть одно»/минимум, порядок не важен.
+   gc_probe profile 300: VisionArea/LiveVisibilityGate нет ни во времени, ни в мусоре.
+8. `raycast-masked` — `RayPick.Sorted(..., mask = ~0)`; EdgeGuard, BugBrush ×3, Dig переведены с сохранением
+   DefaultRaycastLayers и триггеров (Collide/UseGlobal).
+9. `objects-tab-blocks` — `HudUI.ObjectsTab` 123 → список блоков (CeilingLamp/Flashlight/Torch/Weapons).
+10. `monsters-tab-blocks` — 4 подблока вороны из лямбд в методы (CrowSight/CrowRanged/DeadCrow/CrowGlare).
+12. `selection-groups` — `GridCursor.BuildObjectSelection` 228 → группы FillDoor/Window/Shape/Birds/Supplies/Looks
+    (ref Selection). Новая проба `tavern-regress/probes/selection_probe.cs` — 111 полей × 10368 объектов,
+    повтор побайтно; после правки без координат совпало всё.
+
+Метрики: методов > 100 строк 17 (вечер 06.10) → 15; самый длинный 228 (`BuildObjectSelection`) → 178 (`HudUI.EventCard`).
+Кадр не мерили: драйвер NVIDIA не загружен (P568), сборку не запускали (правило 27.09).
+Не взято: лучи постановки `GridCursor.PlaceQueries/Terrain/Support` (буферы 64 на лучи < 1 м — переполнение почти
+невозможно; сортировка легла бы в покадровые циклы самой баг-плотной области; в одном цикле ранний выход — доказывать
+порядок по каждому месту) и `CrowAttack:681` (файл правит сосед); `ZoneEvent.Clock` (сосед); `HudUI.PoisonBlock`
+(в файле незакоммиченная правка пены от этой же сессии днём).
+
+## 08.10 вечер (ilya-81) — глубокий рефакторинг ИИ-жизни (пульт, планы, правила)
+
+База — чекпоинт 2f3b6787 (все сессии как есть). Редактор весь шаг в play у Ильи:
+компиляция только `offline_build.py`, тесты парсера — новым `offline_tests.py`.
+
+Сделано:
+1. `ai-console` — логика пульта из `HudUI.Ai.cs` (1009) в `AiConsole.cs` (608, без UI) + вкладка 380.
+   Девять хуков `HudUI.Ai*` → пять `AiConsole.*`; `AiPlanStep` → `Tavern.UI.PlanStep`.
+2. `creature-helpers` — по одной копии: вид существа по дефу (было 2), свободное имя (2),
+   «в зоне» (2), «у маркера» (2), часы «HH:MM» (4 → `Weather.Clock`), поиск объекта по имени (2),
+   зона по слагу/имени (2), спавн с откатом ветка→земля (2 → `CrowZoneSpawn.Place`), текст отказа (2),
+   удаление существа (2 → `RemoveCreature`).
+3. `life-rules-shape` — синонимы условий/действий таблицами (`Words/Events`), `EnsureParsed` 90 строк →
+   4 метода, `Fire` 92 → `Conditions` + 4 `Fire*`, `ParseWhen` 100 → 5 помощников.
+4. `creature-plan-shape` — `WalkFirst` вместо четырёх копий «дойти, потом действие», `Hold`, `Finish`,
+   `AppearFirst`, `HomeOf`; `Run` отказывает не-существам (раньше план можно было дать двери).
+5. `dead-code` — `HudUI.ZoneEvents.cs` 764 → 132 (конструктор событий зон, карточки, перетаскивание,
+   `SaveZoneEvents` — вызовов не было с ночи 08.10), `ZoneEventNoteHeight` переехала в `HudUI.Zones.cs`,
+   `NextLifeName` → `ZoneEvent.FreeName`, `UiFactory.Modals.cs.tmp.9072.*` (закоммиченный временный Unity).
+6. Комментарии сняты из всех тронутых файлов (правило 3); решения Ильи, на которые они ссылались, уже в
+   DESIGN_LOG 08.10.
+
+Метрики: 3732 → 3032 строки в пяти файлах (+70 помощников в Grid/Combat); тесты парсера 9/9
+(утром 7/9 — P992, P993). Офлайн-сборка всех сборок чистая.
+
+Не взято: `HeadIcon.cs` (250 строк, чистый), `LlmBridge/LlmHost` (ilya-3e), `Think()` по
+`Sectant.ThinkSeconds` (слайдер снят Ильёй «пока» — код оставлен), локализация вкладки «ИИ» (430 строк
+без перевода — отдельная задача), `Clock` в `HudUI.DebugMonsters.cs` (дубль `Weather.Clock`, файл чужой
+вкладки).
+
+Проход 2 (тот же вечер, Илья повторил «глубокий рефакторинг делай»):
+7. `creature-plan-partials` — `CreaturePlan.cs` 915 → ядро 457 (стек планов, `Begin/Act`, `Run/Describe`) +
+   `.Nav` 217 (путь, спрямление, ходьба, бродяжничество, `FindObject/ZoneBy`) + `.Senses` 145 (чувства, `Emit`) +
+   `.Actions` 150 (переключатели, двери, взять/положить).
+8. `life-rules-partials` — `LifeRules.cs` 997 → исполнение 372 + `.Parse` 638; `ParseThen` 105 → 55 + семь
+   `Parse<Действие>`/`TakeObject`.
+9. `llm-tab-blocks` — `LlmTab` 74 → пять методов-блоков по заголовкам (`AiModelBlock/AiRulesBlock/AiPromptBlock/
+   AiChatBlock/AiJournalBlock`), как велит `UI.md`.
+10. `clock-one-place` — четыре форматтера «HH:MM» (`ZoneCondition.Clock`, `HudUI.DebugMonsters.Clock`, `LifeRules.Clock`,
+    новый в пульте) → один `Weather.Clock(hours)`; вызовы в `DebugMonsters/DebugView/Gameplay/ZoneEvent` переведены.
+
+Итог прохода 2: девять файлов, 3099 строк (было пять файлов на 3732); самый длинный метод — `CreaturePlan.Begin` 93
+(switch по шагам), `ParseThen` 55. Офлайн-сборка чистая, `offline_tests.py` 9/9.
+
+## Ночь 08→09.10 (ilya-81) — проход 3: кадр и структура (Илья: «глубокий рефакторинг делай», третий раз; «проверь грабли»)
+
+Грабли сперва: линт реестра 13 ошибок → 0 (новая область «ии» в `bugs.py` + алиасы «попапы/тесты/дебаг/листы»,
+P983/P984-дубли перенумерованы в P994/P995, строки 537/538 инвариантов дополнены до шести колонок);
+мой же наступ на P441 (правка `DebugTune.json` в play) откачен, миграция ключей `HudUI.Ai*` → `AiConsole.*`
+отложена до окна между stop и play.
+
+Кадр (план 07.10, тогда заблокирован чужой ошибкой компиляции):
+11. `wallchain-cache` — `WallChain` (`InteractiveObject.Power.cs`): концы цепочки и имена концов кэшируются по объекту
+    (`EndsOf`, `Names`), `Relink` раз в 0,5 с больше не ходит по иерархии и не читает `Transform.name`
+    (нативная строка на каждый узел — те 28,6 КБ); кэш живёт, пока узлы живы, и забывается в `InteractiveObject.OnDestroy`
+    (`WallChain.Forget`). ДО (замер 07.10): 0,449 мс и 28,6 КБ каждые 0,5 с. ПОСЛЕ — замерить `gc_probe.py profile` после play.
+12. `chamber-temp-name` — `InteractiveObject.ChamberTemp(switchNode)` сравнивает `sw.def.node` (строка дефа), а не
+    `sw.node.name` (нативная строка каждый кадр, 146 Б/кадр у холодильника с табло).
+13. `perch-live-list` — `CrowPerch`: вторая перепись `Live` через `OnEnable/OnDisable`; `TickAll` идёт по ней без
+    нативных `!= null` и `isActiveAndEnabled` и без Unity-null на `Owner` (`_hasOwner`). Перепись `All` (по времени
+    жизни, для поиска насестов) не тронута. Ожидание по замеру 07.10: 0,106 → ~0,03 мс.
+
+Структура:
+14. `crow-zone-spawn-file` — `CrowZoneSpawn` из `CrowAttack.cs` (1478) в свой `CrowZoneSpawn.cs` (315); `CrowAttack.cs` 1163.
+15. `camera-ui-file` — `CameraUI` (864 строки, фотоаппарат) из `PhoneUI.cs` в свой `CameraUI.cs`.
+16. `phone-partials` — `PhoneUI.cs` 4573 → ядро 1113 + `.Screens` 527 (Rebuild, страницы галереи/фото, домашний экран,
+    питание) + `.Calls` 439 (вкладки, недавние, сюжетные звонки, входящий) + `.Maps` 221 + `.Contacts` 181 + `.Messages` 461
+    (треды, пузыри, ввод, баннер) + `.Alarm` 253 + `.Shell` 127 (звуки звонка, подложка, шапка) + `.Lock` 190 (экран блокировки,
+    код, лицо) + `.Shade` 188 (шторка, текстовые помощники, `RefreshLive`). Резка по границам членов, сверка: 112 методов и
+    4222 строки тела до и после.
+17. `menu-debug-blocks` — `MainMenuUI.Debug.MenuTab` 146 → 12 методов-блоков по разделам.
+18. `exposure-senses` — `PlayerExposure.LateUpdate` 101 → `Sense<Статус>` × 8 + `Publish`; порядок чтения и публикации
+    сохранён (яд → головная боль → боль, `TakeIncoming*` внутри своих `Sense`).
+
+Метрики: методов ≥ 100 строк 8 → 5 (остались `GridCursor.Transfer.FindOffer` 173, `GridCursor.ObjectMove.UpdateMoveObject`
+116, `ProceduralModels.Kitchen.HomeSinkCabinet` 123, `PlankRelief.DeckMesh` 104, `DeathScreenUI.BuildFace` 101 — первые два
+в баг-плотной зоне переноса, трогать только с пробами в play). Офлайн-сборка чистая, `offline_tests.py` 9/9.
+
+Не взято: мёртвые методы по скану (81 кандидат, большинство — хуки `[RuntimeInitializeOnLoadMethod]` и дефы каталога
+по отражению; публичные — «ждут слова владельца», REFACTOR_BACKLOG); `PlayerExposure` туман/темнота в один `Veil`
+(нужна миграция ключей DebugTune — не молча); единый виджет дебаг-окна (трогает `HudUI.Debug.cs` всех сессий).
+⚠️ Новые файлы заведены по слову «глубокий рефакторинг» (правило 2 обычно требует спросить): `AiConsole.cs`,
+`CreaturePlan.Nav/Senses/Actions.cs`, `LifeRules.Parse.cs`, `CrowZoneSpawn.cs`, `CameraUI.cs`, `PhoneUI.*.cs` ×9,
+`tavern-regress/probes/offline_tests.py`. Если Илья против — каждое слияние обратимо: партиалы склеиваются обратно
+без правки кода.
