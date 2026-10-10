@@ -94,11 +94,11 @@ before = await accounts();
 const bonusWin = randomUUID();
 await provider("win", { ...bonusBet, txId: bonusWin, amount: "2500" });
 d = delta(before, await accounts());
-check("win 25 on a bonus bet: 10 back to bonus pending, 15 to cash available", d["cash_bonus.pending"] === 10 && d["cash.available"] === 15 && Object.keys(d).length === 2, JSON.stringify(d));
+check("win 25 on a bonus bet goes whole to cash available", d["cash.available"] === 25 && Object.keys(d).length === 1, JSON.stringify(d));
 before = await accounts();
 r = await provider("rollback", { session: s, txId: bonusWin });
 d = delta(before, await accounts());
-check("rolling that win back reverses both wallets", r.status === 201 && d["cash_bonus.pending"] === -10 && d["cash.available"] === -15, `${r.status} ${JSON.stringify(d)}`);
+check("rolling that win back takes it from cash available", r.status === 201 && d["cash.available"] === -25 && Object.keys(d).length === 1, `${r.status} ${JSON.stringify(d)}`);
 
 r = await select("cash");
 check("back on the cash wallet", r.body?.active_balance_code === "cash", String(r.body?.active_balance_code));

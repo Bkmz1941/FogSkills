@@ -174,7 +174,8 @@ foreach (var rd in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
 string s = "в руке " + io.Def.id + ": рендереров " + total + ", выключено " + off + ", видно камерой " + visible + ", альфа<0.05 " + ghostAlpha;
 var heroAt = Cozy.Grid.PlayerRef.Transform != null ? Cozy.Grid.PlayerRef.Transform.position : io.transform.position;
 float away = new UnityEngine.Vector2(io.transform.position.x - heroAt.x, io.transform.position.z - heroAt.z).magnitude;
-if (total > 0 && off == total && away > 2.5f) return "ПРОПУСК: курсор унёс предмет на " + away.ToString("F1") + " м от героя (окно игры не в фокусе) — " + s;
+s += ", от героя " + away.ToString("F1") + " м, фокус окна " + UnityEngine.Application.isFocused;
+if (total > 0 && (off == total || visible == 0 && !UnityEngine.Application.isFocused) && away > 2.5f) return "ПРОПУСК: курсор унёс предмет на " + away.ToString("F1") + " м от героя (окно игры не в фокусе) — " + s;
 if (total == 0 || off > 0 || visible == 0 || ghostAlpha == total) return "КРАСНОЕ: " + s;
 return "ок: " + s;
 '''

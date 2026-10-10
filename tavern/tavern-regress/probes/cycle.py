@@ -94,6 +94,10 @@ def cmd_stop():
 
 
 def cmd_compile():
+    p, _, _, _ = state()
+    if p is None or p:
+        print('компиляция: ОТКАЗ — ' + ('мост не отвечает' if p is None else 'редактор в play: принудительная компиляция выводит из play и теряет несохранённое (P983), сначала stop'))
+        return False
     mcp('refresh_unity', {"mode": "force", "scope": "all", "compile": "request", "wait_for_ready": True})
     ok = wait_state(play=False, compiling=False, seconds=240)
     errs = mcp('read_console', {"action": "get", "types": ["error"], "count": 20})
@@ -156,7 +160,9 @@ def resume():
     Прогон тестов оставляет редактор на паузе, и живая проба в таком мире
     молча меряет замерший кадр: числа выглядят как регрессия правки (P405).
     """
-    run('UnityEditor.EditorApplication.isPaused = false; return "снял";')
+    # runInBackground: без фокуса окна редактор не крутит кадры play (ночь 08.10:
+    # frame=1 за 96 с, мир пустой) — живые пробы мерили бы замерший мир.
+    run('UnityEditor.EditorApplication.isPaused = false; UnityEngine.Application.runInBackground = true; return "снял";')
     first = run('return Time.frameCount;')
     time.sleep(1)
     second = run('return Time.frameCount;')

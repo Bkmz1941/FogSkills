@@ -52,6 +52,7 @@ EXPECT = {
     'bathPaperHolder': {'Plate': 'wall', 'RodTip': 'room', 'Roll': 'room'},
     'bathShelf': {'Rail': 'wall', 'BracketL': 'wall'},
     'bathMop': {'Grip': 'wall'},
+    'bathConsole': {'Back': 'wall', 'Leg3': 'wall', 'Leg4': 'wall', 'Leg1': 'room', 'Leg2': 'room'},
     # эталоны, на которых правило и выведено: они в игре стоят верно
     'homeWallCabinet': {'Back': 'wall', 'DoorL': 'room', 'DoorR': 'room'},
     'hallwayRack': {'Mount_Hook0': 'wall', 'DoorL': 'room', 'DoorR': 'room'},

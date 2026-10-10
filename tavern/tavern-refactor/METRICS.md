@@ -42,6 +42,11 @@
 | 2026-10-03 | ilya-8c | 446 | 120510 | 89 | 16 | GridCursor.BuildObjectSelection 217 | 3 | после 03.10 день-2 |
 | 2026-10-05 | ilya-7c-fps | 451 | 129208 | 98 | 16 | GridCursor.BuildObjectSelection 228 | 3 | база tavern-fps 05.10 |
 | 2026-10-06 | ilya-5d | 451 | 129186 | 98 | 16 | GridCursor.BuildObjectSelection 228 | 3 | после 06.10 (шаги 3–6) |
+| 2026-10-07 | ilya-61 | 456 | 132007 | 94 | 15 | HudUI.EventCard 178 | 1 | после ночи 06→07.10 (ilya-61) |
+| 2026-10-08 | ilya-f7 | 463 | 135310 | 99 | 15 | HudUI.EventCard 178 | 1 | после ночи 08.10 (правила кодом) |
+| 2026-10-09 | ilya-81 | 480 | 136101 | 89 | 11 | GridCursor.FindOffer 173 | 1 | база ночи 09.10 |
+| 2026-10-09 | ilya-81 | 479 | 135925 | 85 | 9 | GridCursor.FindOffer 173 | 1 | после ночи 09.10 |
+| 2026-10-09 | ilya-81 | 480 | 136184 | 83 | 8 | GridCursor.FindOffer 173 | 1 | день 09.10 |
 
 ## Кадр в сборке
 

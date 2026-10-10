@@ -158,6 +158,23 @@ GitLab и добавили личный ключ руками.
 
 ## Журнал
 
+- 2026-10-06 — **GeoIP в nginx API (дев 178.104.243.232 и прод 178.105.17.213).** Поставлен
+  `libnginx-mod-http-geoip2`, база DB-IP Country Lite `/var/lib/GeoIP/dbip-country-lite.mmdb` (каталог должен быть
+  `0755`: umask хоста делает `0750`, и воркеры не перечитают файл), обновление `/usr/local/sbin/geoip-country-update`
+  → симлинк в `/etc/cron.monthly`, `/etc/nginx/conf.d/geoip2-country.conf` (`$geoip2_country_code country iso_code;`,
+  **без `default=`** — модуль 3.4 его не принимает, nginx -t падает), в API-локации
+  `proxy_set_header X-Country-Code $geoip2_country_code;`. Исходники — lucky-api `others/infra/{nginx,scripts}`.
+  Бэкапы вхоста — `~/deploy-backups/nginx-*`. На проде заголовок прописали в 09:19, но **забыли reload** — страна
+  была `null` до `sudo nginx -t && sudo systemctl reload nginx`. Проверка, что страна доходит: временно
+  `add_header X-Debug-Country $geoip2_country_code always;` и убрать. Грабля скрипта: `nginx -t | tail` глотает код
+  выхода — reload шёл после упавшей проверки (nginx остался на старом конфиге, не упал).
+- 2026-10-06 — ручной выкат API незакоммиченного кода (`api-6e734c7-geo2`, `api-775620a-log`): образ из worktree
+  HEAD + `git diff --binary`, `docker save | gzip | ssh … docker load`, тег `api-rollback-20261006a/b`, `.env` с
+  бэкапом. Auto-режим Claude то блокирует, то пропускает прод-выкат — после явного «обнови» от Ильи прошло. Пуш в
+  `dev` запускает CI дева, и он **перерисовывает `.env`** из шаблона (ручные правки `.env` слетают) — переменные
+  держать в ansible `group_vars`. CI прод из `master`: 3–5 мин, сразу после старта контейнера health может 1–2 с
+  отдавать 502.
+
 - 2026-08-21 — 144.31.40.52 поднят, базовый провижн из AGG/servers, инцидент
   с потерей SSH-доступа и восстановление; read-only осмотр.
 - 2026-08-21 (день) — решения Ильи: деплой только через CI, теги `legacy-last`

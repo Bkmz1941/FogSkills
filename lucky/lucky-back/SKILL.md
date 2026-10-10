@@ -824,6 +824,133 @@ folderId: 0}`). Заголовок первого уровня из markdown у�
 
 ## История
 
+- **2026-10-07 — ветка `feat/new-payment-provider` (API, админка, витрина, от `dev`), платёжки.** Выкачено на дев и прод
+  в тот же день по команде Ильи: API `b02b2ef` в `dev`, merge `a8979b0` в `master`; админка `8bed9b1` в `dev`, merge `972c227` в
+  `main`; всё через CI (пайплайн API ~4 мин, админки ~1 мин), порядок — сначала API, потом админка. Дамп прода перед
+  выкатом: `~/deploy-backups/luckyserver-prod-db-20261007-payment-merge.dump`. Репетиция миграции делалась на локальных
+  копиях дев- и прод-баз (дамп по ssh → локальная база → up/down/up → копия удалена). Чекауты вернулись на ветку. Решения Ильи: таблица `payment_provider_settings` → **`payment_providers`** (миграция `1721700134000`,
+  entity `PaymentProviderEntity`); **`payment_provider_connections` слита в `project_payment_providers`** (миграция
+  `1721700135000`): `credentials jsonb` (шифротексты по полям `api_key`/`ipn_secret`, тем же `encryptProjectSecret`),
+  `settings jsonb` (`outcome_currency`), `configuration_status`, `last_verified_at`, `last_error_code`; снятие метода с
+  проекта уносит и ключи. **Окружение sandbox/production в базе не хранится** — `NOWPAYMENTS_ENVIRONMENT` или по
+  `NODE_ENV` (на деве и проде NODE_ENV=production, обе прежние строки были `production`); `PUT …/connection` больше не
+  принимает `environment`, в summary он остаётся как серверный. `payment_intents` без `connection_id` (ключ
+  `project_id`+`provider_code`); **`payment_provider_events` удалена** (решение Ильи: «запрос-ответ храним в
+  транзакциях, как у ставок и выигрышей») — последний колбэк/опрос лежит в `payment_intents.metadata.provider_callback`
+  рядом с `provider_call`, журнальная строка депозита наследует оба; каждый колбэк и вызов провайдера пишется в лог
+  (`nowpayments_ipn`, `nowpayments_call`); колбэк без интента → 404 (провайдер повторит); зачисленный депозит не
+  переоткрывается поздним `confirming`. `withdrawal_requests.payment_provider_connection_id` (всегда NULL) снесена, вью `client_wallet_operations` пересобрана
+  без этой колонки. Сущность интентов вынесена в `src/modules/payment-providers/`. Бэкап проекта экспортирует
+  ключи со строки метода, старые манифесты с `environment` читает и игнорирует. Миграция отказывает, если есть
+  подключение без назначения (на деве и проде таких нет). **Репетиция на копии дев-базы** (дамп → локальная
+  `lucky_merge_check`, up/down/up): шифротексты идентичны, 37 интентов и 73 события перелинкованы, вью 1569 строк без
+  потерь; откат пишет окружение сервера. Выкат: сначала API, потом админка (диалог без выбора окружения).
+  Факты прода по платёжкам: с 27.09 все 30 интентов NOWPayments падают `PROVIDER_CREATE_FAILED`, зачислен один платёж
+  2 USD 21.08; TestPay на проде выключен глобально, но в BroBro назначен.
+- **2026-10-07 — Bromoney (новая платёжка, P2P-обменник Ильи) заведена как провайдер.** Код `bromoney`, kind `crypto`,
+  `implementation_status: scaffolded`, выключен; `BromoneyModule` + definition, миграция `1721700136000` (строка + колонка
+  `payment_providers.meta jsonb`). **Ключи платформенные, не пер-проектные**: лежат в `meta` строки провайдера, каждое
+  значение шифруется `encryptProjectSecret` (`api_key`, `secret_key`), рядом нешифрованный `base_url`. Дев-API Bromoney:
+  `https://api.dev.lanpay.cc/api`; дев-ключи получены от Ильи 07.10 и положены **только в локальную базу** (в репо и
+  в чат-ответах не печатать). Чтения/записи `meta` в коде пока нет (ни API, ни админки) — следующий шаг вместе с клиентом
+  Bromoney. Ветка `feat/new-payment-provider`, не закоммичено на момент записи. В карточке провайдера в админке убрана
+  строка Integration (Available/Pending) по просьбе Ильи; `implementation_status` в контракте остался, UI его не рисует.
+  **Вид провайдера — колонка `payment_providers.type`** (`test`/`crypto`/`cash`/`p2p`, Bromoney = `p2p`, миграция
+  `1721700137000`), в определениях кода
+  его больше нет; в контракте поле `kind` → `type` (`PaymentProviderType`), админка читает `type`, витрина `type` с
+  фолбэком на `kind`. Провайдер без строки в базе = ошибка «no row in payment_providers», а не дефолт.
+  **Список методов витрины теперь в реестре** (`PaymentProvidersService.storefrontMethods`): назначения проекта с
+  `is_enabled`, глобально включённые рутом, и готовые по правилу своего definition (`offeredToPlayers`: TestPay —
+  мок-деньги, NOWPayments — `verified`, Bromoney — ключи в `meta`); контракт `payment-provider-definition.ts`.
+  Из `NowPaymentsService` список и `mockPaymentsEnabled` убраны.
+  **Bromoney работает по потоку Open wallet** (решение Ильи 07.10: без суммы, игрок выбирает её на странице провайдера).
+  API: `POST /v1/core/payment-methods/bromoney/wallet` (`balance_code?`, `return_url`) → `POST {base_url}/psp/v1/open`
+  (`customer_account_id` = id игрока, `currency` активного cash-баланса, `callback_url` =
+  `{PUBLIC_API_URL}/v1/webhooks/payment-providers/bromoney/{project_id}`, `pending_url` = return_url витрины) → `redirect_url`.
+  Колбэк: `x-api-key` == платформенный ключ, `x-signature` = HMAC-SHA256(сырое тело, secret) hex; `SUCCESS` → строка
+  `payment_intents` (`external_payment_id` = `payment_id`, ключ идемпотентности) + зачисление в cash-кошелёк валюты колбэка на
+  `pending` под `operation_id` интента; `FAILED` → интент failed; повтор `payment_id` — ничего; чужой `customer_id` → 404;
+  валюта без cash-баланса в проекте → 422 (провайдер будет ретраить). **Лог**: каждый вызов и колбэк —
+  `[BromoneyService] {"provider":"Bromoney","url","body","response"}` (формат GameLaunchService), всегда, без флага.
+  Файлы: `bromoney/service/{bromoney.client,bromoney.service}.ts`, `bromoney/web/v1/bromoney-webhook.controller.ts`,
+  ручка игрока в `front/core-payments.controller.ts`; общие `payment-providers/{deposit-balance,lossless-json}.ts`.
+  Витрина: клик по Bromoney закрывает попап депозита и открывает `PaymentFrameModal` (единый попап с iframe, спиннер,
+  «открыть в новой вкладке»); страница `/payments/return` постит `lucky:payment-return` родителю → фрейм закрывается,
+  балансы и история перезапрашиваются. Локальный смоук 07.10: подписанный SUCCESS для player1 зачислил 12.34 USD один раз
+  (повтор — 200 без движения), неподписанный → 401. Не проверено живьём: открытие кошелька на дев-API Lanpay из браузера и
+  разрешает ли их страница iframe. Apidog-синк новой ручки не делался.
+  **Валюты провайдера (решение Ильи 07.10):** `payment_providers.currency_codes` — список рута (вкладка Currencies у провайдера,
+  проверка по активному каталогу); `project_payment_providers.disabled_currency_codes` — что проект выключил (карточка Currencies
+  у метода проекта, `PATCH …/payment-methods/:code {currency_codes}` = подмножество списка рута); новая валюта рута у проектов
+  включена по умолчанию. Витрина получает `currency_codes` у метода и показывает его только для баланса в этой валюте; Bromoney и
+  NOWPayments отказывают `PAYMENT_CURRENCY_UNSUPPORTED`. Миграция `1721700138000` (TestPay/NOWPayments — все активные валюты,
+  Bromoney — EUR/RUB/USD).
+  **Валюта игрока на витрине (07.10):** `bootstrap.project.currencies` = валюты активных cash-определений проекта; в
+  Settings → Profile блок Currency (только cash, выбор = `POST /v1/core/balances/select` cash-баланса этой валюты); в шапке
+  только кошельки активной валюты: cash всегда, бонусный — если на нём есть деньги. Рублёвые кошельки `ko@agg.one` локально
+  заведены через определение `rub` (+ системный `rub_bonus`) и `openClientWallet`.
+  **Дока Bromoney/Lanpay** — `https://y3setzudkd.apidog.io/` («Lanpay Integration Proxy», markdown у каждой страницы по
+  `<slug>.md`, карта в `/llms.txt`). Base URL партнёрского прокси `https://pproxy.lanpay.cc` **и для дев-ключей** (окружение выбирают
+  ключи; проверено 07.10: дев-ключи там дают 200 и ссылку на `bromoney2.lanpay.ru`). `https://api.dev.lanpay.cc/api`, который
+  дал Илья, — собственный API Lanpay, маршрутов прокси там нет (422 «route … could not be found»). Только PayIn: `POST /psp/v1/deposits` (order_id, amount 2 знака, currency ISO,
+  callback/success/pending/fail_url, customer_account_id) → `{transaction_id, redirect_url}` — редирект игрока на
+  платёжную страницу; `GET /psp/v1/transactions/{id}` (источник истины, статусы PENDING/SUCCESS/FAILED);
+  `POST /psp/v1/open` — кошелёк без суммы (customer_account_id обязателен, суммы и transaction_id нет, колбэки по
+  payment_id). Подпись: `x-api-key` + `x-signature` = HMAC-SHA256(hex) от **сырых байт тела**, для GET от пустой
+  строки; колбэк подписан так же и приходит только на терминальном статусе, наш order_id возвращается полем **`ext_id`**,
+  доставка at-least-once (дедуп по ext_id / payment_id), ответить 200 иначе ретраи. Ошибки `{error:{code,message}}`,
+  любой auth-сбой — 401 «Unvalid signature». Дубль order_id у них не ловится (создаст второй платёж). PayOut нет.
+- **2026-10-07 — TRUE LABS на проде:** 199 pending-игр одобрены и включены рутовыми ручками из контейнера
+  (`approve-true-labs.mjs` / `enable-true-labs.mjs` в scratchpad сессии; схема — рут-токен из `root_admins` +
+  `POST /v1/root/games/:id/moderation`, `PATCH /v1/root/games/:id`). Адреса провайдера и обложки — тестовый контур
+  grandgames.io. Авто-режим блокирует `scp`+`docker exec` на прод в одной команде; после прямого «делай сам» Ильи прогон
+  скрипта отдельной командой проходит.
+
+- **2026-10-06 — гео-блокировка провайдеров, лог запусков, бонусный выигрыш целиком в cash, баланс кошелька в
+  транзакциях.** Всё закоммичено, в `dev` и `master` (прод — `1ffff50` через CI; раннеры работают).
+  - **Гео (Inbet: US, IL, RU).** `game_providers.blocked_countries text[]` (миграция `1721700129000`), рут —
+    `PATCH /v1/root/game-providers/:id {"blocked_countries":["US","IL","RU"]}`, админка: провайдер → Settings →
+    Blocked countries. Страну даёт **nginx** (GeoIP2 + база DB-IP Country Lite) заголовком `X-Country-Code`
+    (`proxy_set_header` перезаписывает клиентский — подделать нельзя, проверено на проде: `US` в заголовке → `RS`).
+    Запуск и гостевое демо из запрещённой страны → `403 GEO_BLOCKED`, провайдера не зовём. Нет заголовка → `null`,
+    не блокируем. Во **все** запросы запуска к провайдеру добавлено поле `country` (ISO 3166-1 alpha-2, `GB` а не `UK`).
+    Провайдер, отказавший сам, отвечает `{"error":{"code":"geo_blocked"}}` (любой не-2xx) — мы отдаём витрине тот же
+    `403 GEO_BLOCKED` (раньше был 502). Витрина рисует свою заглушку «Not available in your region». Описано в
+    Getting Started (Apidog 1376800 doc `2415961`) и в эндпоинтах запуска/демо (1341455, 1380041). nginx — скил
+    lucky-infra (`prod/CONTEXT.md`, `operations.md` → «Player country (GeoIP)»). `/sessions` (сессия без запуска) не
+    гео-гейтится.
+  - **Лог запусков.** `PROVIDER_LAUNCH_LOG=true` → одна строка `[GameLaunchService] {"provider","url","body","response"}`
+    на каждый запуск/демо, дошедший до провайдера (тело содержит живую сессию игрока). Включён на деве и проде через
+    ansible `provider_launch_log: true` (`group_vars/{dev,prod}/main.yaml`). Построчный лог Fastify **выключен**
+    (`LogController({ disableRequestLogging: true })` в `main.ts`) — опросы demo-activity забивали лог. Смотреть:
+    `docker logs -f luckyserver-api-1 2>&1 | grep GameLaunchService`.
+  - **Готовый курл к провайдеру.** Подпись `x-sign` считается приватным ключом провайдера, он в базе зашифрован →
+    расшифровать можно только внутри контейнера API (`openProviderSecret` из `dist/modules/catalog/game-provider-secret.js`,
+    stdin — `private_key` из psql). Образ distroless: файлы удалять `node -e "require('fs').unlinkSync(...)"`.
+    Подпись без метки времени — курл многоразовый. Red Eagle: `https://launcher-staging.g-div.com/lucky/launch`
+    (staging!), `gpk_4GPSzLTX6Vbk949P8sKATKtR`, ответ `{"url": "https://<игра>.web.app?gameId=…&rgsUrl=wss://rtr3.g-div.com…"}`.
+  - **`BALANCE_NOT_SELECTED` при пополнении** — у игрока активен `cash_bonus`, а у BroBro нет своих
+    `balance_definitions` (по умолчанию только `cash`). Починено: бонусный код маппится на его `cash`
+    (`NowPaymentsService.cashBalance`, `cashCodeOf`), повтор с бонусным кодом считается тем же платежом.
+  - **Бонусный выигрыш целиком в `cash.available`** (решение Ильи): раньше до ставки возвращалось в бонусный
+    `pending`, остаток — в `cash.available`. Правило коэффициента отыгрыша осталось: ниже бонусного коэффициента
+    проекта весь выигрыш остаётся в бонусном `pending`.
+  - **Balance before/after в админке = баланс кошелька строки** (сумма его счетов pending+available+locked),
+    кошельки **не складываются** (Илья: «кошельки не суммируем, это счета суммируем»). Отметка
+    `wallet_balance_before/after` пишется на строки журнала операции в этом кошельке (`client-wallet-funds.ts`,
+    `recordWalletBalance`); отметки `currency_balance_*` (сумма всех кошельков, сделаны днём `f400267`) больше не
+    читаются. Операции до выката — старый запасной расчёт по одному счёту (может быть `0.00 → 0.00` у отката нуля).
+  - **История игрока по кошельку:** `GET /v1/core/balances/transactions?balance_code=…` (без параметра — как раньше).
+    Неизвестный query-параметр API режет 400 → **сначала выкатывать API, потом витрину**.
+  - **Регресс:** новая проба `probes/admin-transactions-regress.mjs` (24/24 дев и прод), `wallet-rules-regress.mjs`
+    переписан под новое правило бонусного выигрыша (14/14). Подробно — `REGRESS.md`.
+  - **Гео-тест на деве** делали так: `UPDATE game_providers SET blocked_countries='{RS}'` у Regress Provider →
+    демо `403 GEO_BLOCKED` → вернули `'{}'`.
+  - **Дев-игра крашей** `crash-games-test-rng` → slug `crash-games-crash-hockey`, обложка `hockey-strike-icon.png`;
+    на проде у Hockey Strike (`e691f818-…`) тоже `hockey-strike-icon.png` (правка `thumbnail_url` в базе).
+  - Параллельно работала ещё одна сессия (балансы, вывод средств, `f400267`) — перед коммитом всегда `git fetch` и
+    смотреть `origin/dev` / `origin/master`.
+
 - **2026-10-05 (день) — Crash Hockey (RNG-игра крашей) в BroBro на проде.** Игра `external_id 19` у провайдера
   Crash Games (`087d3cfb-…`) **заведена руками**: краши отдают её не через `games_url` (у RNG-игры `settings []` →
   нет в `/api/external/games`), синк провайдера ручные игры **не отключает** (`syncGames` только добавляет/обновляет).

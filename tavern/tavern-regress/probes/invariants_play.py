@@ -1516,7 +1516,7 @@ bool leaked = false;
 foreach (var r in io.GetComponentsInChildren<UnityEngine.Renderer>(true))
 {
 if (!Cozy.Grid.InteractiveObject.OwnedBy(r, io)) continue;
-if (!r.enabled || !r.gameObject.activeInHierarchy || r.forceRenderingOff) continue;
+if (!r.enabled || !r.gameObject.activeInHierarchy || r.forceRenderingOff || r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly) continue;
 gateLeaks++; leaked = true;
 if (leakNames.Length < 300) leakNames.Append(io.Def.id + "/" + r.name + " ");
 }

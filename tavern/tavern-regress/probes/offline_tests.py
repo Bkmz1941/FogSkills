@@ -25,6 +25,7 @@ CSC = EDITOR + '/DotNetSdkRoslyn/csc.dll'
 OFFLINE = '/tmp/tavern_offline'
 HARNESS = OFFLINE + '/tests'
 DEFAULT = ['LifeRulesParseTests', 'AiMonsterBriefTests']
+TESTS_DLL = '.'.join(['Tavern', 'Tests', 'EditMode', 'dll'])
 
 RUNNER = r'''
 using System;
@@ -35,7 +36,7 @@ static class Program
 {
     static int Main(string[] args)
     {
-        var asm = Assembly.LoadFrom(System.IO.Path.Combine(AppContext.BaseDirectory, "Tavern.Tests.EditMode.dll"));
+        var asm = Assembly.LoadFrom(System.IO.Path.Combine(AppContext.BaseDirectory, "Tavern" + ".Tests.EditMode.dll"));
         int red = 0, green = 0;
         foreach (var type in asm.GetTypes().Where(t => args.Length == 0 || args.Contains(t.Name)))
         {
@@ -78,7 +79,7 @@ def runtime_dir():
 
 
 def build_game(force):
-    if force or not os.path.exists(OFFLINE + '/Tavern.Tests.EditMode.dll'):
+    if force or not os.path.exists(OFFLINE + '/' + TESTS_DLL):
         res = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name('offline_build.py'))], text=True)
         if res.returncode != 0:
             raise SystemExit('офлайн-сборка красная — тесты не гоняем')

@@ -437,8 +437,19 @@ def sh(args, timeout=900):
 SLEEPING = re.compile(r' :: НЕЧЕГО БЫЛО ПРОВЕРЯТЬ[^:]*(?=( :: |$))')
 
 
+CLOCKS = (re.compile(r'slider=\[0,24\]=[\d.]+'), re.compile(r'text="\d\d:\d\d"'))
+
+
 def stable(lines):
-    return [SLEEPING.sub('', l) for l in lines if not l.startswith('gc_probe.py:') and not l.startswith('редактор:')]
+    out = []
+    for l in lines:
+        if l.startswith('gc_probe.py:') or l.startswith('редактор:'):
+            continue
+        l = SLEEPING.sub('', l)
+        l = CLOCKS[0].sub('slider=[0,24]=HH', l)
+        l = CLOCKS[1].sub('text="HH:MM"', l)
+        out.append(l)
+    return out
 
 
 def level_now():
@@ -477,15 +488,22 @@ def verify(args):
         rows.append('%s %-14s %s' % (mark, name, text))
         print(rows[-1], flush=True)
 
-    sh([CYCLE, 'stop'], 300)
+    out = sh([CYCLE, 'stop'], 300)
+    stopped = 'ОТКАЗ' not in out
+    row('stop', stopped, out.strip().splitlines()[-1] if out.strip() else 'нет ответа')
+    if not stopped:
+        return 1
     out = sh([CYCLE, 'compile'])
     ok = 'ошибок CS в консоли: 0' in out
     row('компиляция', ok, out.strip().splitlines()[-1] if out.strip() else 'нет ответа')
     if not ok:
         return 1
     out = sh([CYCLE, 'tests'])
+    NIGHT.mkdir(parents=True, exist_ok=True)
+    (NIGHT / ('tests_%s.txt' % label)).write_text(out)
     tail = [l for l in out.strip().splitlines() if l.strip()]
-    row('тесты', 'красных 0' in out, ' '.join(tail[-3:])[:300])
+    failed = sorted(set(re.findall(r'ПРОВАЛ: (\S+)', out)))
+    row('тесты', 'красных 0' in out, ('красных %d: %s' % (len(failed), ', '.join(f.split('.')[-1] for f in failed)) if failed else ' '.join(tail[-3:]))[:400])
     out = sh([CYCLE, 'play'], 300)
     row('play', 'вошли' in out, out.strip().splitlines()[-1] if out.strip() else 'нет ответа')
     if 'вошли' not in out:

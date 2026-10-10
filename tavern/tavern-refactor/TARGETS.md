@@ -382,7 +382,7 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
 ## T-PLAN-0510 — план вечера 05.10 (ilya-7c, только чтение; Илья: «рефакторинг, структура, дубли, грабли, не ломать, регресс»)
 
 Код: 128,7k строк; HudUI 17,5k (44 партиала), GridCursor 14,5k (37), PhoneUI.cs 4581 в одном файле.
-Закрыто 06.10 (ilya-5d, журнал в `refactor-log.md`): №1 `FindNode`, №3 `HourIn`.
+Закрыто 06.10 (ilya-5d, журнал в `refactor-log.md`): №1 `FindNode`, №3 `HourIn`. Ночь 06→07.10 (ilya-61): №2 `Drawn`, №4 кроме горячих лучей постановки и `CrowAttack:681`, №5 `ObjectsTab` и `MonstersTab`, №6 `BuildObjectSelection`, №7 `GameClock.Split` (кроме `ZoneEvent.Clock`).
 Принцип: «одна точка правды + сторож в `SourceRulesTests`» (как `RayPick.Classify`, `Targeting.Hidden`).
 Покадровые области (FloorPieceView, FarRadius/ViewSensor, туман, PhoneUI, WardrobeVisuals, DoorPiece, CurtainDrape) — после FPS-агента того же вечера.
 
@@ -394,12 +394,31 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
 | 6 | `GridCursor.BuildObjectSelection` 228 строк (ObjectMove:21) | → FillDoor/FillWindow/FillLamp/FillBird/FillColors | НЕТ; написать `selection_probe.cs` (рефлексия, все поля по всем объектам) | низкий с пробой |
 | 7 | «ЧЧ:ММ» из часов ×3 → `GameClock.Split` | HudUI:364, EventLogUI:45, PhoneUI:3657 (после FPS); отдельно HudUI.DebugMonsters:492 `Clock` = ZoneCondition.Clock | EditMode-перебор | низкий |
 | 8 | Каркас дебаг-окон ×4 (T-FOUND-0110) → к `ToolWindow` | HudUI.Debug, MainMenuUI.Debug, StatsScreenUI, ToolWindow | проба геометрии 4 окон; днём с Ильёй | средний |
-| 9 | Поповеры панели выбора ×3 → `Popover(name)` | HudUI.Selection:223/817/1264 | дописать в selection_probe | низкий |
-| 10 | Механика доз ×3 (отравление/головная боль/боль) → `DoseTrack` | PlayerExposure:297-387, 542-567 | НЕТ; `dose_probe.cs` (finally, без DebugTune.Save — P415) | средний |
-| 11 | Редактор зон: EventCard 178, RouteCard 125, OpenZoneEditor 128 | HudUI.ZoneEvents, HudUI.Zones | снимок дерева UI ToolWindow | средний |
+| 9 | ✅ 09.10 (ilya-81): `PickerPanel` ×4 (см. T-UI-ДУБЛИ) | HudUI.Selection | сделано | — |
+| 10 | ✅ 09.10 (ilya-81) Механика доз ×3 → `DoseTrack` в `PlayerExposure`; защита `dose_probe.py` 20/20 ДО и ПОСЛЕ | PlayerExposure | сделано | — |
+| 11 | ✅ 09.10 (ilya-81): EventCard/RouteCard удалены вместе с конструктором событий (08.10), OpenZoneEditor → ZoneDraft/ZoneFields/ZoneFooter; защита `zone_editor_probe.cs` (отпечаток ДО = ПОСЛЕ) | HudUI.Zones | сделано | — |
 | 12 | Дефы каталога BathDecor/RoomDecor/WallShelf* | FurnitureCatalog.Plumbing/Home | md5 JSON дефов + CatalogTests; только когда файлы чистые | низкий |
-| 13 | PhoneUI.cs → партиалы (контакты/СМС, звонки, будильник, карта, блокировка) | после FPS | компиляция + вкладка phone в debug_panel_probe; проверить статические инициализаторы | средний |
+| 13 | ✅ 09.10 (ilya-81): PhoneUI → ядро + 9 партиалов, CameraUI.cs; сверка 112 методов и 4222 строки тела | — | сделано | — |
 
 Не брать: `On(io)`/`Of(io)`, `ById` ×7, `Flat(Vector3)`, отсев игрока в луче (разный смысл), проходы рендера `Enqueue`, `FindOffer`, `UpdateMoveObject`/`RestoreLevel`/`Snapshot` (только при Илье), процедурные модели, таблица DebugTune, `Monster.Replan`, `MenuTab`, классы не в своих файлах (новые файлы — Илья), HudUI/GridCursor целиком.
 
 Похоже на баги (в OPEN.md, не рефакторинг): номер телефона — `LlmBridge.Last10` считает «8 919…» = «+7 919…», `PhoneUI.Digits` (поиск контакта) — нет; `HudUI.DebugWeather.HourText` `% 60` без переноса (7,999 ч → «07:00»); `FloorPieceView.Drawn`/`RayPick.Visible` не смотрят `forceRenderingOff`, `PlayerModelCatalog.Shown` смотрит.
+
+## T-UI-ДУБЛИ (06.10, ilya-5d)
+
+- ✅ 09.10 (ilya-81): панели выбора в `HudUI.Selection` ×4 → `PickerPanel`; защита — `selection_pickers_probe.cs` (отпечаток ДО = ПОСЛЕ).
+- **Окна дебага `MainMenuUI.Debug` и `StatsScreenUI`** — ~240 общих строк (макет `LayoutDebugWindow`, перетаскивание, разворот, заголовок); у `HudUI.Debug` свой вариант. Свести в один класс окна можно, но живой защиты нет (оба окна не открываются пробой) — сначала проба-отпечаток окна. Ключи `DebugTune` (`DebugShiftX/Y`, `DebugWidth/Height`) у каждого класса свои — не трогать.
+- **`HudUI.Selection`: панели выбора узора, ключа, цвета** — одинаковый каркас (панель в правом нижнем углу, `DockBottom`, `GridLayoutGroup` с отступами) ×3 → помощник `PickerPanel(name, cell)`. Защита: снимок `RectTransform`/`GridLayoutGroup` трёх панелей в play (строятся лениво — вызвать `Build*Picker`).
+
+## T-FOUND-0710 — остаток ночи 06→07.10 (ilya-61)
+
+✅ 09.10 (ilya-81): `ZoneEvent.Clock`+`HudUI.DebugMonsters.Clock` → `Weather.Clock`; `PoisonBlock` и `SkinTab` — блоками (отпечаток панели совпал). Открытым остаётся только первый пункт (лучи постановки) и `CrowAttack` маршрут удара.
+
+- **Лучи постановки мимо `RayPick`** (`GridCursor.PlaceQueries` ×4, `Terrain`, `Support` ×3) — в белом списке
+  сторожа `Луч_в_фиксированный_буфер_только_через_RayPick`. Буферы 64 на лучи < 1 м; сортировка — в покадровых циклах;
+  в `GroundUnder` (PlaceQueries:251) ранний выход на первом не-земляном блоке — порядок не важен, но доказывать по
+  каждому месту. Брать днём с `transfer_probe` и `gc_probe profile` до/после.
+- **`CrowAttack:681` (маршрут удара)** — тот же перевод, когда сосед закончит осаду вороны; убрать из белого списка.
+- **`ZoneEvent.Clock` и `HudUI.DebugMonsters.Clock`** — две одинаковые функции «часы с округлением» (вторая —
+  копия первой); свести, когда `ZoneEvent.cs` освободится.
+- **`HudUI.PoisonBlock` (94), `SkinTab` (84)** — тот же приём, что у `ObjectsTab`/`MonstersTab`.

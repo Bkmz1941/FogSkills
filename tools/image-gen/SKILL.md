@@ -42,6 +42,13 @@ description: Генерация картинок локально на виде�
   `the whole item fully visible and centered with generous empty margin around it, three-quarter view from the front-left and slightly from above (about 30 degrees)`
   + для одежды на тело `shown in 3D as if worn by an invisible mannequin`.
 
+⚠️ **Память общая с редактором Unity (06.10, OOM).** ComfyUI при загрузке модели
+берёт ~7 ГБ ОЗУ. 06.10 в 16:04 генерация шла, пока редактор «Таверны» грузил
+уровень в play, — ядро убило Unity (`Out of memory: Killed process … (Unity)` в
+`journalctl -k`), у всех сессий пропал мост. Перед `ig` при запущенном редакторе:
+`free -g` — нужно ≥ 10 ГБ доступных; play не запускать, пока идёт генерация;
+после — сразу `ig --stop`.
+
 ## Команды
 
 ```
@@ -130,6 +137,8 @@ Unity и соседями память и своп кончаются: 05.10 з�
 а после выбора прогонять `packs/outline_only.py <png…>` — стирает все линии, не касающиеся внешнего
 фона (заливка от края по прозрачному, связные компоненты линии; печатает «erased px»). Так 06.10
 почищены `effect-water` (волна) и `effect-slots` (карман).
+
+- 06.10 «Мокрый» (Илья: «замени иконку мокрый — перегенери»): 4 идеи × 2 (`fx_wet_{drops,shirt,hair,splash}`, seed 7301/7302), выбрана `shirt_7302` — футболка с каплями снизу (капли отдельно путаются с `effect-water`) → `Icons/effect-wet.png`; код: `PlayerExposure` (эффект «Мокрый») и дебаг `SkinBlockHeader` — `effect-wet` вместо `cloud-rain`.
 
 1. Пак `packs/effect_icons.sh`: модель рисует ЧЁРНЫЙ контур на белом, по 4 идеи на значок × 2 зерна
    (`--seed 7301`, `-n 2`), без `--cut`. Каркас промпта (держать дословно):

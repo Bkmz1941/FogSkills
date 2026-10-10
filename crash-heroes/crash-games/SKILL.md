@@ -1888,3 +1888,15 @@ Aviatrix): **каждая ставка закрывается ровно одн�
   05.10 добавлена `crash-hockey-site.png` (прод и дев). Все 13 прежних обложек отвечают 200.
 - Итог 05.10: Crash Hockey (id 19) играется из BroBro — `https://brobro.casino/games/1/17`; адреса прода — скил
   `game-engine-rng`, журнал 05.10.
+
+## Журнал: 2026-10-06 — обложка Hockey Strike
+
+- Обложки лежат в `/home/admin/crashgames/minigames-admin-back/storage/app/public/games/covers/` (не в `app/` —
+  `find` по `*/storage/...` находит симлинк), на проде 78.141.216.99 и деве 167.233.24.119.
+- Новая обложка Hockey Strike — присланный Ильёй файл как есть (1254×1254, 2,7 МБ): `hockey-strike-icon.png`
+  (+ копией `hockey-strike-site.png`). Старая сгенерированная `crash-hockey-site.png` удалена (ни Lucky, ни базы
+  крашей на неё не ссылались — проверено), бэкапы в `~/deploy-backups/`. Новое имя файла — чтобы не ловить кэш
+  браузеров. В Lucky прод и дев у игры `thumbnail_url` → `…/covers/hockey-strike-icon.png`.
+- В Lucky дев игра `crash-games-test-rng` переименована в `crash-games-crash-hockey` (правка slug в базе).
+- Илья: обложку надо было ставить **именно присланным файлом**, без ресайза и скругления.
+
