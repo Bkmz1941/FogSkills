@@ -416,3 +416,10 @@ Spawn/Remove`, журнал «Действия монстров» (`HudUI.AiNote
 - Проба `ai_plan_probe.py` переведена на `AiConsole.RunPlan`/`PlanStep`;
   стенды ilya-6b (`ai_trial.py` и др.) — рефлексия по старым именам, сосед
   предупреждён (`AiConsole.Journal/Chat/Busy`, `AiConsole.Tick(string)`).
+
+## 2026-10-10 — Шаг `[sectant_point_hand Ns]` «указать на игрока»
+
+Илья: «это не сценарий, а поведение, будет в правилах использоваться "указать на игрока",
+[sectant_point_hand 3s] только у сектанта, с таймером, и только если видит игрока, если не видит
+сбрасывает — убирает сразу руку плавно». Новый шаг правил; парсер `LifeRules.Parse` (`PointRx`,
+`OnlySectant`), исполнитель `CreaturePlan.BeginPoint`, тело `SectantPoint`. Подробно — `LIFE.md` §0.

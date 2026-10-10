@@ -1,0 +1,2007 @@
+<title>Округа Лихова</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&display=swap">
+<style>
+/* layout: the map fills the window; a white icon tray docks at the bottom */
+:root {
+  --ground: #38543B;
+  --ink: #EDE6D6;
+  --ink-dim: #CFC6B2;
+  --panel: rgba(20, 33, 26, 0.86);
+  --tray: #FFFFFF;
+  --tray-ink: #1F2A22;
+  --tray-dim: #5D665F;
+  --tray-line: #E3E0D8;
+  --accent: #F2C74D;
+  --danger: #B3402F;
+  --display: 'PT Serif', Georgia, 'Times New Roman', serif;
+  --body: 'PT Sans', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#map { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#map.panning { cursor: grabbing; }
+#map.over-mark { cursor: move; }
+#map.over-cross { cursor: pointer; }
+#map.roadmode { cursor: crosshair; }
+.sample.on { border-color: #2F5A3A; box-shadow: 0 0 0 2px #2F5A3A inset; }
+
+.tray {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: var(--tray); color: var(--tray-ink);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.25);
+}
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--tray-line); }
+.tab {
+  background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  padding: 8px 14px; min-height: 40px; font: 600 14px var(--body); color: var(--tray-dim); cursor: pointer;
+}
+.tab:hover { color: var(--tray-ink); }
+.tab[aria-selected="true"] { color: var(--tray-ink); border-bottom-color: #2F5A3A; }
+.tab:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 6px; }
+.empty { height: 72px; display: flex; align-items: center; font-size: 14px; color: var(--tray-dim); }
+.samples { display: flex; gap: 12px; }
+.sample {
+  width: 72px; height: 72px; padding: 0; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--tray-line); border-radius: 10px; background: #FBFAF6;
+  cursor: grab; user-select: none; touch-action: none;
+}
+.sample:hover { border-color: #B9B3A5; }
+.sample:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.brushbar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; min-height: 72px; }
+.brushprev { width: 52px; height: 52px; border-radius: 10px; background: var(--ground); display: flex; align-items: center; justify-content: center; flex: none; }
+.brushprev span { display: block; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
+.brushsize { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--tray-ink); }
+.brushsize label { font-weight: 600; }
+.brushsize input { width: 180px; accent-color: #2F5A3A; }
+.brushsize output { width: 96px; font-variant-numeric: tabular-nums; color: var(--tray-dim); }
+.palette { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatch { width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.2); cursor: pointer; padding: 0; }
+.swatch[aria-checked="true"] { outline: 3px solid #1F2A22; outline-offset: 2px; }
+.swatch:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#map.brush { cursor: none; }
+.zoombar {
+  position: fixed; right: 16px; top: 50%; transform: translateY(-60%);
+  background: #141814; border-radius: 22px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+.zoombar button {
+  width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #8E978F;
+  font: 700 13px var(--body); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative;
+}
+.zoombar button::before { content: ""; position: absolute; left: 50%; top: -6px; width: 2px; height: 6px; background: #3A423B; transform: translateX(-50%); }
+.zoombar button:first-child::before { display: none; }
+.zoombar button:hover { color: #EDE6D6; }
+.zoombar button[aria-current="true"] { background: #EDE6D6; color: #141814; }
+.zoombar button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.toolpick { display: flex; border: 1px solid var(--tray-line); border-radius: 10px; overflow: hidden; }
+.toolbtn { min-height: 40px; padding: 0 14px; border: none; background: #FBFAF6; font: 600 14px var(--body); color: var(--tray-dim); cursor: pointer; }
+.toolbtn + .toolbtn { border-left: 1px solid var(--tray-line); }
+.toolbtn[aria-checked="true"], .toolbtn[aria-pressed="true"] { background: #2F5A3A; color: #FFFFFF; }
+.toolbtn:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.palette.off { opacity: 0.45; }
+.brushprev span.erase { background: transparent !important; border: 2px dashed #EDE6D6; box-shadow: none; }
+.tsep { width: 1px; align-self: stretch; background: var(--tray-line); }
+.ghost { position: fixed; pointer-events: none; z-index: 10; transform: translate(-50%, -50%); }
+.namebox { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--tray-ink); }
+.namebox label { font-weight: 600; }
+.namebox input[type="text"] { width: 180px; min-height: 36px; padding: 0 10px; border: 1px solid var(--tray-line); border-radius: 8px; font: 14px var(--body); color: var(--tray-ink); background: #FBFAF6; }
+.namebox input[type="text"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+#map.areamode { cursor: crosshair; }
+#map.over-vertex { cursor: pointer; }
+
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="stage"><canvas id="map" aria-label="Карта окрестностей коттеджа «Сосны»"></canvas></div>
+
+
+
+<nav class="zoombar" aria-label="Приближение" id="zoombar"></nav>
+
+<div class="tray" aria-label="Иконки">
+  <div class="tabs" role="tablist" aria-label="Группы иконок" id="tabs"></div>
+  <div class="samples" id="samples" role="tabpanel"></div>
+  <span class="status" id="status" aria-live="polite"></span>
+</div>
+
+<script>
+(function () {
+  var KINDS = {
+    tree:   { name: 'Лиственное дерево', size: 0.18 },
+    fir:    { name: 'Ель', size: 0.2 },
+    cottage: { name: 'Двухэтажный коттедж', size: 0.24 },
+    hill: { name: 'Холм', size: 0.66 },
+    lake: { name: 'Озеро', size: 0.6, flat: true },
+    bridge1: { name: 'Каменный арочный мост', size: 0.5 },
+    bridge2: { name: 'Деревянный мост на сваях', size: 0.5 },
+    bridge3: { name: 'Стальной ферменный мост', size: 0.5 },
+    bridge4: { name: 'Висячий мост', size: 0.5 },
+    bridge5: { name: 'Бетонный мост на опорах', size: 0.5 },
+    izba: { name: 'Деревенская изба', size: 0.17 },
+    townhouse: { name: 'Двухэтажка посёлка', size: 0.3 },
+    church: { name: 'Храм', size: 0.34 },
+    sawmill: { name: 'Сгоревшая лесопилка', size: 0.42 },
+    busstop: { name: 'Остановка', size: 0.12 },
+    tower: { name: 'Вышка связи', size: 0.36 },
+    cross: { name: 'Поклонный крест', size: 0.1 },
+    pier: { name: 'Мостки', size: 0.24 }
+  };
+  var BRIDGES = ['bridge1', 'bridge2', 'bridge3', 'bridge4', 'bridge5'];
+  var STRUCT_MARKS = BRIDGES.concat(['busstop', 'tower', 'cross', 'pier']);
+  var ORDER = ['tree', 'fir'];
+  var images = {};
+
+  var canvas = document.getElementById('map');
+  var ctx = canvas.getContext('2d');
+  var dpr = 1, W = 0, H = 0;
+  var view = { x: 0, y: 0, k: 190 };
+  var marks = [];
+  var sel = {};
+  var history = [], replaying = false;
+  function record(undo) { if (!replaying) { history.push(undo); if (history.length > 200) history.shift(); } }
+  function undoLast() {
+    var u = history.pop(); if (!u) { setStatus('Нечего отменять'); return; }
+    replaying = true; try { u(); } finally { replaying = false; }
+    sel = {}; refresh(); setStatus('Отменено');
+  }
+  function markDoc(m) { var d = { kind: m.kind, x: Math.round(m.x * 1000) / 1000, y: Math.round(m.y * 1000) / 1000 }; if (m.rot) d.rot = m.rot; return d; }
+  function putMark(m) { marks.push(m); if (col) col.doc(m.id).set(markDoc(m)).catch(function () {}); }
+  function dropMark(m) { marks = marks.filter(function (o) { return o.id !== m.id; }); delete sel[m.id]; if (col) col.doc(m.id).delete().catch(function () {}); }
+  function putRoad(r) { roads.push(r); if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0 || null, ws: r.ws || null, kind: r.kind || 'road', t: r.t || Date.now() }).catch(function () {}); }
+  function dropRoad(r) { roads = roads.filter(function (o) { return o.id !== r.id; }); delete sel[r.id]; if (roadsCol) roadsCol.doc(r.id).delete().catch(function () {}); }
+  function isSel(m) { return !!sel[m.id]; }
+  function selCount() { return Object.keys(sel).length; }
+  var col = null;
+  var statusEl = document.getElementById('status');
+  
+  function setStatus(t) { statusEl.textContent = t; }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    var r = canvas.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    draw();
+  }
+  function sx(x) { return W / 2 + (x - view.x) * view.k; }
+  function sy(y) { return H / 2 - (y - view.y) * view.k; }
+  function wx(px) { return view.x + (px - W / 2) / view.k; }
+  function wy(py) { return view.y - (py - H / 2) / view.k; }
+
+
+
+  var EDGE = 'rgba(16,28,21,0.55)';
+  function solid(c, shapes) {
+    c.lineWidth = 2; c.lineJoin = 'round'; c.strokeStyle = EDGE;
+    shapes.forEach(function (sh) { sh[0](); c.stroke(); });
+    shapes.forEach(function (sh) { sh[0](); c.fillStyle = sh[1]; c.fill(); });
+  }
+
+
+  function iconPx(kind) { return Math.max(28, KINDS[kind].size * view.k); }
+
+
+  var COS = Math.cos(Math.PI / 6);
+  function shade(hex, f) {
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    function m(v) { return Math.max(0, Math.min(255, Math.round(f >= 0 ? v + (255 - v) * f : v * (1 + f)))); }
+    return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+  }
+  // rot (degrees) turns the model around its vertical axis. The model is mirrored on X and/or Y so that its
+  // +X and +Y faces stay the ones facing the viewer; this is exact for shapes symmetric on both axes (bridges).
+  // With exact = true the model is only turned, never mirrored; draw it with rbox/rgable, which pick the faces that look at the viewer.
+  function Iso(c, ox, oy, u, rot, exact) {
+    var cs = 1, sn = 0, fx = 1, fy = 1;
+    if (rot) { var a = rot * Math.PI / 180; cs = Math.cos(a); sn = Math.sin(a); if (!exact) { fx = cs + sn < 0 ? -1 : 1; fy = cs - sn < 0 ? -1 : 1; } }
+    var P = function (X, Y, Z) {
+      X *= fx; Y *= fy; var Xr = X * cs - Y * sn, Yr = X * sn + Y * cs;
+      return [ox + (Xr - Yr) * COS * u, oy + (Xr + Yr) * 0.5 * u - Z * u];
+    };
+    var api = {
+      P: P,
+      poly: function (pts) { return function () { c.beginPath(); pts.forEach(function (p, i) { var q = P(p[0], p[1], p[2]); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.closePath(); }; },
+      box: function (x0, y0, z0, w, d, h, col) {
+        var x1 = x0 + w, y1 = y0 + d, z1 = z0 + h;
+        return [
+          [api.poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]), shade(col, 0.08)],
+          [api.poly([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]), shade(col, -0.22)],
+          [api.poly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), shade(col, 0.22)]
+        ];
+      },
+      gable: function (x0, y0, w, d, z, rh, ov, col, wall) {
+        var x1 = x0 + w, y1 = y0 + d, ym = y0 + d / 2, xa = x0 - ov, xb = x1 + ov, ya = y0 - ov, yb = y1 + ov;
+        return [
+          [api.poly([[xa, ya, z], [xb, ya, z], [xb, ym, z + rh], [xa, ym, z + rh]]), shade(col, -0.05)],
+          [api.poly([[x1, y0, z], [x1, y1, z], [x1, ym, z + rh]]), shade(wall, -0.22)],
+          [api.poly([[xa, yb, z], [xb, yb, z], [xb, ym, z + rh], [xa, ym, z + rh]]), shade(col, 0.12)]
+        ];
+      },
+      quad: function (pts, col) { var f = api.poly(pts); f(); c.fillStyle = col; c.fill(); },
+      framed: function (pts, col) {
+        var f = api.poly(pts); f(); c.fillStyle = col; c.fill();
+        c.lineWidth = Math.max(1, u * 0.06); c.strokeStyle = '#3A2E26'; c.lineJoin = 'miter'; f(); c.stroke();
+      },
+      winL: function (yFace, xa, xb, za, zb) { api.framed([[xa, yFace, za], [xb, yFace, za], [xb, yFace, zb], [xa, yFace, zb]], '#8E979B'); },
+      winR: function (xFace, ya, yb, za, zb) { api.framed([[xFace, ya, za], [xFace, yb, za], [xFace, yb, zb], [xFace, ya, zb]], '#6F777B'); },
+      door: function (yFace, xa, xb, za, zb) { api.framed([[xa, yFace, za], [xb, yFace, za], [xb, yFace, zb], [xa, yFace, zb]], '#5A3E2A'); },
+      // The viewer looks along (-1,-1,-1): a face is seen when its turned normal points toward (1,1,1).
+      turn: function (nx, ny) { return [nx * fx * cs - ny * fy * sn, nx * fx * sn + ny * fy * cs]; },
+      facing: function (nx, ny, nz) { var t = api.turn(nx, ny); return t[0] + t[1] + (nz || 0); },
+      sideShade: function (col, nx, ny) { var t = api.turn(nx, ny), k = (t[0] - t[1]) / Math.SQRT2; return shade(col, 0.08 - 0.15 * (k + 1)); },
+      rbox: function (x0, y0, z0, w, d, h, col) {
+        var x1 = x0 + w, y1 = y0 + d, z1 = z0 + h, out = [];
+        [[0, 1, [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]], [1, 0, [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]],
+         [0, -1, [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]]], [-1, 0, [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]]]]
+          .forEach(function (f) { if (api.facing(f[0], f[1]) > 0.03) out.push([api.poly(f[2]), api.sideShade(col, f[0], f[1])]); });
+        out.push([api.poly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), shade(col, 0.22)]);
+        return out;
+      },
+      // part: 'gables' (the wall triangles) or 'slopes' (the roof); both when omitted.
+      // th > 0 gives the roof a thickness: dark boards along the eaves and the gable verges.
+      rgable: function (x0, y0, w, d, z, rh, ov, col, wall, part, th) {
+        var x1 = x0 + w, y1 = y0 + d, ym = y0 + d / 2, xa = x0 - ov, xb = x1 + ov, ya = y0 - ov, yb = y1 + ov, out = [];
+        [[-1, [[x0, y0, z], [x0, y1, z], [x0, ym, z + rh]]], [1, [[x1, y0, z], [x1, y1, z], [x1, ym, z + rh]]]].forEach(function (g) {
+          if (part !== 'slopes' && api.facing(g[0], 0) > 0.03) out.push([api.poly(g[1]), api.sideShade(wall, g[0], 0)]);
+        });
+        var run = ym - ya, slopes = [
+          [-1, [[xa, ya, z], [xb, ya, z], [xb, ym, z + rh], [xa, ym, z + rh]]],
+          [1, [[xa, yb, z], [xb, yb, z], [xb, ym, z + rh], [xa, ym, z + rh]]]
+        ].map(function (sl) { var t = api.turn(0, sl[0]); return { f: api.facing(0, sl[0] * rh, run), near: t[0] + t[1], pts: sl[1], sy: sl[0] }; });
+        if (part === 'gables') return out;
+        var t = th || 0, edge = shade(col, -0.35);
+        if (t) {
+          // the slopes sit on top of their boards, so the boards go first
+          [[-1, ya], [1, yb]].forEach(function (e) {
+            if (api.facing(0, e[0]) > 0.03) out.push([api.poly([[xa, e[1], z], [xb, e[1], z], [xb, e[1], z - t], [xa, e[1], z - t]]), edge]);
+          });
+          [[-1, xa], [1, xb]].forEach(function (e) {
+            if (api.facing(e[0], 0) <= 0.03) return;
+            out.push([api.poly([[e[1], ya, z], [e[1], ym, z + rh], [e[1], ym, z + rh - t], [e[1], ya, z - t]]), edge]);
+            out.push([api.poly([[e[1], yb, z], [e[1], ym, z + rh], [e[1], ym, z + rh - t], [e[1], yb, z - t]]), edge]);
+          });
+        }
+        slopes.sort(function (a, b) { return a.near - b.near; }).forEach(function (sl) {
+          if (sl.f <= 0.03) return;
+          var k = (api.turn(0, sl.sy)[0] - api.turn(0, sl.sy)[1]) / Math.SQRT2;
+          out.push([api.poly(sl.pts), shade(col, 0.15 - 0.15 * (k + 1))]);
+        });
+        return out;
+      }
+    };
+    return api;
+  }
+  var noShadow = false;
+  function isoShadow(c, x, y, rx, ry) {
+    if (noShadow) return; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(10, 18, 12, 0.35)'; c.fill(); }
+  var RX = Math.SQRT2 * COS, RY = Math.SQRT2 * 0.5;
+  function cylinder(I, c, u, r, z0, z1, col) {
+    var b = I.P(0, 0, z0), t = I.P(0, 0, z1), rx = r * u * RX, ry = r * u * RY;
+    var body = function () {
+      c.beginPath();
+      c.moveTo(t[0] - rx, t[1]); c.lineTo(b[0] - rx, b[1]);
+      c.ellipse(b[0], b[1], rx, ry, 0, Math.PI, 0, true);
+      c.lineTo(t[0] + rx, t[1]);
+      c.ellipse(t[0], t[1], rx, ry, 0, 0, Math.PI, true);
+      c.closePath();
+    };
+    var top = function () { c.beginPath(); c.ellipse(t[0], t[1], rx, ry, 0, 0, Math.PI * 2); };
+    return { shapes: [[body, shade(col, -0.08)], [top, shade(col, 0.16)]], body: body, cx: t[0] };
+  }
+  function cone(I, c, u, r, z0, h, col) {
+    var b = I.P(0, 0, z0), a = I.P(0, 0, z0 + h), rx = r * u * RX, ry = r * u * RY;
+    var f = function () {
+      c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0] - rx, b[1]);
+      c.ellipse(b[0], b[1], rx, ry, 0, Math.PI, 0, true);
+      c.closePath();
+    };
+    return { shapes: [[f, shade(col, 0.06)]], body: f, cx: b[0] };
+  }
+  function layered(c, base, parts, s) {
+    var all = base.slice(); parts.forEach(function (p) { all = all.concat(p.shapes); });
+    c.lineWidth = 2; c.lineJoin = 'round'; c.strokeStyle = EDGE;
+    all.forEach(function (sh) { sh[0](); c.stroke(); });
+    base.forEach(function (sh) { sh[0](); c.fillStyle = sh[1]; c.fill(); });
+    parts.forEach(function (p) {
+      p.shapes[0][0](); c.fillStyle = p.shapes[0][1]; c.fill();
+      c.save(); p.body(); c.clip(); c.fillStyle = 'rgba(10, 25, 12, 0.24)'; c.fillRect(p.cx + s * 0.02, -1e4, 2e4, 2e4); c.restore();
+      for (var i = 1; i < p.shapes.length; i++) { p.shapes[i][0](); c.fillStyle = p.shapes[i][1]; c.fill(); }
+    });
+  }
+  function isoTree(c, x, y, s) {
+    isoShadow(c, x + s * 0.07, y + s * 0.4, s * 0.3, s * 0.12);
+    var u = s * 0.4, I = Iso(c, x, y + s * 0.4, u);
+    var top = I.P(0, 0, 0.95), cx = top[0], cy = top[1], r = s * 0.3;
+    var bumps = [[-0.9, 0.09, 0.35], [2.6, 0.06, 0.4]];
+    var ball = function () {
+      c.beginPath();
+      for (var i = 0; i <= 120; i++) {
+        var a = i / 120 * Math.PI * 2, k = 1;
+        bumps.forEach(function (b) { var d = Math.atan2(Math.sin(a - b[0]), Math.cos(a - b[0])); k += b[1] * Math.exp(-(d * d) / (2 * b[2] * b[2])); });
+        var px = cx + Math.cos(a) * r * 0.92 * k, py = cy + Math.sin(a) * r * 1.05 * k;
+        i ? c.lineTo(px, py) : c.moveTo(px, py);
+      }
+      c.closePath();
+    };
+    var trunkShapes = I.box(-0.07, -0.07, 0, 0.14, 0.14, 0.7, '#5A3E2A');
+    c.lineWidth = 2; c.lineJoin = 'round'; c.strokeStyle = EDGE;
+    trunkShapes.forEach(function (sh) { sh[0](); c.stroke(); });
+    ball(); c.stroke();
+    trunkShapes.forEach(function (sh) { sh[0](); c.fillStyle = sh[1]; c.fill(); });
+    ball(); c.fillStyle = '#6E8F45'; c.fill();
+    c.save(); ball(); c.clip();
+    c.beginPath(); c.ellipse(cx + r * 0.62, cy + r * 0.55, r * 0.95, r * 0.9, 0, 0, Math.PI * 2); c.fillStyle = '#58763A'; c.fill();
+    c.beginPath(); c.ellipse(cx - r * 0.32, cy - r * 0.42, r * 0.34, r * 0.24, -0.5, 0, Math.PI * 2); c.fillStyle = '#86A85A'; c.fill();
+    c.restore();
+  }
+  function isoFir(c, x, y, s) {
+    isoShadow(c, x + s * 0.07, y + s * 0.42, s * 0.26, s * 0.1);
+    var u = s * 0.42, I = Iso(c, x, y + s * 0.42, u), col = '#2F5A3A';
+    var t1 = cone(I, c, u, 0.46, 0.25, 0.75, col), t2 = cone(I, c, u, 0.36, 0.62, 0.7, col), t3 = cone(I, c, u, 0.26, 0.98, 0.62, col);
+    layered(c, I.box(-0.06, -0.06, 0, 0.12, 0.12, 0.35, '#4A3424'), [t1, t2, t3], s);
+  }
+  // Cottage: stone plinth, board-clad walls, plain framed windows in two even rows, a door with a step,
+  // a plain black gable roof with a ridge cap. Walls and their details go first, the roof covers them.
+  // Turns exactly with markRot.
+  function isoCottage(c, x, y, s) {
+    var u = s * 0.32, I = Iso(c, x, y + s * 0.24, u, markRot, true);
+    isoShadow(c, x + s * 0.04, y + s * 0.27, s * 0.44, s * 0.16);
+    var w = 1.5, d = 1.1, h = 1.2, rh = 0.6, ov = 0.18, x0 = -w / 2, y0 = -d / 2, x1 = x0 + w, y1 = y0 + d, ym = y0 + d / 2;
+    var wall = '#C99A62', roof = '#2B2B2E', stone = '#8A847A', trim = '#151517', lw = Math.max(0.8, u * 0.035);
+    var shapes = I.rbox(x0 - 0.25, y0 - 0.1, 0, w + 0.55, d + 0.4, 0.05, '#7E6A4E')
+      .concat(I.rbox(x0 - 0.04, y0 - 0.04, 0, w + 0.08, d + 0.08, 0.16, stone))
+      .concat(I.rbox(x0, y0, 0.16, w, d, h - 0.16, wall))
+      .concat(I.rgable(x0, y0, w, d, h, rh, ov, roof, wall, 'gables'));
+    solid(c, shapes);
+    var faces = { py: I.facing(0, 1) > 0.3, px: I.facing(1, 0) > 0.3, ny: I.facing(0, -1) > 0.3, nx: I.facing(-1, 0) > 0.3 };
+    function on(side, a, z) { return side === 'py' ? [a, y1, z] : side === 'ny' ? [a, y0, z] : side === 'px' ? [x1, a, z] : [x0, a, z]; }
+    function line(pts, col, width) { isoLine(c, I, pts, col, width); }
+    // boards: thin horizontal lines on the walls that face the viewer
+    var siding = shade(wall, -0.14);
+    ['py', 'ny', 'px', 'nx'].forEach(function (side) {
+      if (!faces[side]) return;
+      var a0 = side === 'py' || side === 'ny' ? x0 : y0, a1 = side === 'py' || side === 'ny' ? x1 : y1;
+      for (var z = 0.3; z < h - 0.02; z += 0.13) line([on(side, a0, z), on(side, a1, z)], siding, lw * 0.8);
+    });
+    function win(side, a, b, za, zb) {
+      var f = I.poly([on(side, a, za), on(side, b, za), on(side, b, zb), on(side, a, zb)]);
+      f(); c.fillStyle = '#7E8C93'; c.fill();
+      c.lineWidth = lw * 1.1; c.strokeStyle = trim; c.lineJoin = 'miter'; f(); c.stroke();
+    }
+    // Two window rows with the same top and bottom on every wall; upper windows sit right above the lower ones.
+    var r1a = 0.4, r1b = 0.66, r2a = 0.82, r2b = 1.08, z1 = r1b;
+    var ca = [x0 + w * 0.12, x0 + w * 0.3], cb = [x0 + w * 0.56, x0 + w * 0.74], cs = [y0 + d * 0.36, y0 + d * 0.64];
+    if (faces.py) {
+      win('py', ca[0], ca[1], r1a, r1b); win('py', ca[0], ca[1], r2a, r2b); win('py', cb[0], cb[1], r2a, r2b);
+      var door = I.poly([on('py', cb[0], 0.16), on('py', cb[1], 0.16), on('py', cb[1], r1b), on('py', cb[0], r1b)]);
+      door(); c.fillStyle = '#5A3E2A'; c.fill(); c.lineWidth = lw * 1.1; c.strokeStyle = trim; c.lineJoin = 'miter'; door(); c.stroke();
+      var knob = I.P(cb[1] - 0.05, y1, 0.4); c.beginPath(); c.arc(knob[0], knob[1], Math.max(1.2, lw * 1.5), 0, Math.PI * 2); c.fillStyle = '#E2C044'; c.fill();
+    }
+    if (faces.ny) [ca, cb].forEach(function (col) { win('ny', col[0], col[1], r1a, r1b); win('ny', col[0], col[1], r2a, r2b); });
+    if (faces.px) { win('px', cs[0], cs[1], r1a, r1b); win('px', cs[0], cs[1], r2a, r2b); }
+    if (faces.nx) { win('nx', cs[0], cs[1], r1a, r1b); win('nx', cs[0], cs[1], r2a, r2b); }
+    solid(c, I.rgable(x0, y0, w, d, h, rh, ov, roof, wall, 'slopes', 0.09));
+    line([[x0 - ov, ym, h + rh], [x1 + ov, ym, h + rh]], '#111113', lw * 3);
+    // step in front of the door, without an outline, only when the door side faces the viewer
+    if (faces.py) {
+      var pa = cb[0] - 0.06, pb = cb[1] + 0.06;
+      I.rbox(pa, y1, 0, pb - pa, 0.22, 0.08, stone).forEach(function (sh) { sh[0](); c.fillStyle = sh[1]; c.fill(); });
+    }
+  }
+  function isoHill(c, x, y, s) {
+    isoShadow(c, x + s * 0.05, y + s * 0.12, s * 0.49, s * 0.13);
+    var L = x - s * 0.48, R = x + s * 0.48, base = y + s * 0.08, top = y - s * 0.17;
+    var dome = function () {
+      c.beginPath();
+      c.moveTo(L, base);
+      c.bezierCurveTo(L + s * 0.12, base - s * 0.14, x - s * 0.28, top, x - s * 0.04, top);
+      c.bezierCurveTo(x + s * 0.22, top, R - s * 0.14, base - s * 0.16, R, base);
+      c.ellipse(x, base, s * 0.48, s * 0.12, 0, 0, Math.PI, false);
+      c.closePath();
+    };
+    c.lineWidth = 2; c.lineJoin = 'round'; c.strokeStyle = EDGE;
+    dome(); c.stroke();
+    dome(); c.fillStyle = '#7C9550'; c.fill();
+    c.save(); dome(); c.clip();
+    c.beginPath(); c.ellipse(x + s * 0.38, y + s * 0.02, s * 0.42, s * 0.3, 0, 0, Math.PI * 2); c.fillStyle = '#647D40'; c.fill();
+    c.beginPath(); c.ellipse(x - s * 0.18, y - s * 0.1, s * 0.18, s * 0.06, -0.2, 0, Math.PI * 2); c.fillStyle = '#93AC63'; c.fill();
+    c.restore();
+    [[-0.22, 0.02, 0.04], [0.12, -0.04, 0.03], [0.28, 0.05, 0.025]].forEach(function (r) {
+      c.beginPath(); c.ellipse(x + r[0] * s, y + r[1] * s, r[2] * s, r[2] * s * 0.7, 0, 0, Math.PI * 2);
+      c.fillStyle = '#8F8C82'; c.fill(); c.lineWidth = 1; c.strokeStyle = 'rgba(16,28,21,0.45)'; c.stroke();
+    });
+  }
+  // Bridges: the span runs along the iso X axis (down-right), 3 units long, the deck 0.7–0.8 wide.
+  // Parts are painted back to front: supports, back side, deck, front side.
+  function bridgeIso(c, x, y, s) {
+    var I = Iso(c, x, y + s * 0.06, s * 0.27, markRot);
+    if (!noShadow) {
+      var a = I.P(-1.6, 0, 0), b = I.P(1.6, 0, 0), cx = (a[0] + b[0]) / 2 + s * 0.03, cy = (a[1] + b[1]) / 2 + s * 0.04;
+      c.beginPath(); c.ellipse(cx, cy, Math.hypot(b[0] - a[0], b[1] - a[1]) / 2, s * 0.13, Math.atan2(b[1] - a[1], b[0] - a[0]), 0, Math.PI * 2);
+      c.fillStyle = 'rgba(10, 18, 12, 0.35)'; c.fill();
+    }
+    return I;
+  }
+  function isoLine(c, I, pts, col, w) {
+    c.beginPath(); pts.forEach(function (p, i) { var q = I.P(p[0], p[1], p[2]); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); });
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = col; c.lineWidth = w; c.stroke();
+  }
+  function roadTop(I, x0, x1, ya, yb, z, col) { I.quad([[x0, ya, z], [x1, ya, z], [x1, yb, z], [x0, yb, z]], col); }
+  function isoBridgeStone(c, x, y, s) {
+    var I = bridgeIso(c, x, y, s), u = s * 0.27, stone = '#A89E8A';
+    solid(c, I.box(-1.5, -0.35, 0, 3, 0.7, 0.55, stone).concat(I.box(-1.5, -0.35, 0.55, 3, 0.08, 0.16, '#978E7C')));
+    roadTop(I, -1.5, 1.5, -0.27, 0.27, 0.55, '#8F8A80');
+    [[-0.95, 0.32, 0.3], [0, 0.42, 0.4], [0.95, 0.32, 0.3]].forEach(function (a) {
+      var pts = [[a[0] - a[1], 0.35, 0]];
+      for (var i = 0; i <= 16; i++) { var t = Math.PI - i / 16 * Math.PI; pts.push([a[0] + Math.cos(t) * a[1], 0.35, Math.sin(t) * a[2]]); }
+      var f = I.poly(pts); f(); c.fillStyle = '#2F4A57'; c.fill(); c.lineWidth = Math.max(1, u * 0.05); c.strokeStyle = shade(stone, -0.35); c.stroke();
+    });
+    for (var k = -1.25; k < 1.5; k += 0.5) isoLine(c, I, [[k, 0.35, 0.47], [k, 0.35, 0.53]], shade(stone, -0.25), Math.max(1, u * 0.03));
+    solid(c, I.box(-1.5, 0.27, 0.55, 3, 0.08, 0.16, '#978E7C'));
+  }
+  function isoBridgeWood(c, x, y, s) {
+    var I = bridgeIso(c, x, y, s), u = s * 0.27, wood = '#9C7448', dark = '#5A3E2A';
+    var piles = [];
+    [-0.3, 0.3].forEach(function (py) { [-1.2, -0.4, 0.4, 1.2].forEach(function (px) { piles = piles.concat(I.box(px - 0.05, py - 0.05, 0, 0.1, 0.1, 0.45, dark)); }); });
+    solid(c, piles);
+    solid(c, I.box(-1.5, -0.38, 0.45, 3, 0.76, 0.08, wood));
+    for (var k = -1.35; k < 1.5; k += 0.15) isoLine(c, I, [[k, -0.38, 0.53], [k, 0.38, 0.53]], shade(wood, -0.25), Math.max(0.8, u * 0.025));
+    function rail(py) {
+      var posts = []; for (var px = -1.45; px <= 1.46; px += 0.5) posts = posts.concat(I.box(px, py - 0.03, 0.53, 0.06, 0.06, 0.26, dark));
+      solid(c, posts); isoLine(c, I, [[-1.45, py, 0.77], [1.5, py, 0.77]], dark, Math.max(1.2, u * 0.06));
+    }
+    rail(-0.35); rail(0.35);
+  }
+  function isoBridgeTruss(c, x, y, s) {
+    var I = bridgeIso(c, x, y, s), u = s * 0.27, steel = '#A2412F', lw = Math.max(1.4, u * 0.07);
+    solid(c, I.box(-0.85, -0.25, 0, 0.2, 0.5, 0.3, '#9E9A92').concat(I.box(0.65, -0.25, 0, 0.2, 0.5, 0.3, '#9E9A92')));
+    function truss(py) {
+      var top = 1.15, low = 0.4, xs = [-1.2, -0.6, 0, 0.6, 1.2];
+      isoLine(c, I, [[-1.5, py, low], [-1.2, py, top], [1.2, py, top], [1.5, py, low]], steel, lw);
+      xs.forEach(function (px) { isoLine(c, I, [[px, py, low], [px, py, top]], steel, lw * 0.8); });
+      for (var i = 0; i + 1 < xs.length; i++) isoLine(c, I, i < 2 ? [[xs[i], py, top], [xs[i + 1], py, low]] : [[xs[i], py, low], [xs[i + 1], py, top]], steel, lw * 0.8);
+    }
+    truss(-0.38);
+    solid(c, I.box(-1.5, -0.38, 0.3, 3, 0.76, 0.1, '#7D8288'));
+    roadTop(I, -1.5, 1.5, -0.3, 0.3, 0.4, '#6B6A66');
+    [-1.2, -0.6, 0, 0.6, 1.2].forEach(function (px) { isoLine(c, I, [[px, -0.38, 1.15], [px, 0.38, 1.15]], steel, lw * 0.7); });
+    truss(0.38);
+  }
+  function isoBridgeSuspension(c, x, y, s) {
+    var I = bridgeIso(c, x, y, s), u = s * 0.27, tower = '#B9B2A4', cable = '#3A3F44', lw = Math.max(1.2, u * 0.05);
+    function cableAt(px) { var a = Math.abs(px); return a >= 0.9 ? 1.5 - (a - 0.9) / 0.6 * 1.02 : 0.6 + 0.9 * (px / 0.9) * (px / 0.9); }
+    function side(py) {
+      var pts = []; for (var i = 0; i <= 30; i++) { var px = -1.5 + i * 0.1; pts.push([px, py, cableAt(px)]); }
+      for (var h = -0.7; h <= 0.71; h += 0.2) isoLine(c, I, [[h, py, cableAt(h)], [h, py, 0.43]], cable, lw * 0.6);
+      isoLine(c, I, pts, cable, lw);
+    }
+    function posts(py) { solid(c, I.box(-0.96, py - 0.06, 0, 0.12, 0.12, 1.55, tower).concat(I.box(0.84, py - 0.06, 0, 0.12, 0.12, 1.55, tower))); }
+    posts(-0.41); side(-0.41);
+    solid(c, I.box(-1.5, -0.35, 0.35, 3, 0.7, 0.08, '#8C8478'));
+    roadTop(I, -1.5, 1.5, -0.28, 0.28, 0.43, '#7A766E');
+    posts(0.41);
+    solid(c, I.box(-0.96, -0.47, 1.35, 0.12, 0.94, 0.12, '#A7A094').concat(I.box(0.84, -0.47, 1.35, 0.12, 0.94, 0.12, '#A7A094')));
+    side(0.41);
+  }
+  function isoBridgeGirder(c, x, y, s) {
+    var I = bridgeIso(c, x, y, s), u = s * 0.27, conc = '#B4B0A8';
+    solid(c, I.box(-0.87, -0.22, 0, 0.24, 0.44, 0.4, '#A5A29B').concat(I.box(0.63, -0.22, 0, 0.24, 0.44, 0.4, '#A5A29B')));
+    solid(c, I.box(-1.5, -0.4, 0.4, 3, 0.8, 0.18, conc));
+    roadTop(I, -1.5, 1.5, -0.32, 0.32, 0.58, '#5E5D5A');
+    for (var k = -1.4; k < 1.4; k += 0.3) isoLine(c, I, [[k, 0, 0.58], [k + 0.15, 0, 0.58]], '#ECE6D6', Math.max(1, u * 0.04));
+    solid(c, I.box(-1.5, -0.4, 0.58, 3, 0.06, 0.07, '#D8D4CC'));
+    solid(c, I.box(-1.5, 0.34, 0.58, 3, 0.06, 0.07, '#D8D4CC'));
+  }
+  // Objects of the Likhovo area. All of them are built from rbox/rgable, so they turn exactly with markRot.
+  function wallWin(c, I, side, b, a0, a1, za, zb, fill, frame, lw) {
+    function on(a, z) { return side === 'py' ? [a, b.y1, z] : side === 'ny' ? [a, b.y0, z] : side === 'px' ? [b.x1, a, z] : [b.x0, a, z]; }
+    var f = I.poly([on(a0, za), on(a1, za), on(a1, zb), on(a0, zb)]);
+    f(); c.fillStyle = fill; c.fill(); if (frame) { c.lineWidth = lw; c.strokeStyle = frame; c.lineJoin = 'miter'; f(); c.stroke(); }
+  }
+  function seenSides(I, t) { return { py: I.facing(0, 1) > t, ny: I.facing(0, -1) > t, px: I.facing(1, 0) > t, nx: I.facing(-1, 0) > t }; }
+  function fillOnly(c, shapes) { shapes.forEach(function (sh) { sh[0](); c.fillStyle = sh[1]; c.fill(); }); }
+  function isoIzba(c, x, y, s) {
+    var u = s * 0.3, I = Iso(c, x, y + s * 0.2, u, markRot, true), lw = Math.max(0.7, u * 0.04);
+    isoShadow(c, x + s * 0.03, y + s * 0.24, s * 0.42, s * 0.15);
+    var w = 1.3, d = 0.95, h = 0.78, rh = 0.55, ov = 0.14, x0 = -w / 2, y0 = -d / 2, b = { x0: x0, x1: x0 + w, y0: y0, y1: y0 + d };
+    var log = '#8B5A36', roof = '#5D6B60';
+    solid(c, I.rbox(x0 - 0.06, y0 - 0.06, 0, w + 0.12, d + 0.12, 0.1, '#6E655B').concat(I.rbox(x0, y0, 0.1, w, d, h - 0.1, log)).concat(I.rgable(x0, y0, w, d, h, rh, ov, roof, log, 'gables')));
+    var sd = seenSides(I, 0.3);
+    ['py', 'ny', 'px', 'nx'].forEach(function (sd2) {
+      if (!sd[sd2]) return;
+      var a0 = sd2 === 'py' || sd2 === 'ny' ? b.x0 : b.y0, a1 = sd2 === 'py' || sd2 === 'ny' ? b.x1 : b.y1;
+      for (var z = 0.2; z < h - 0.02; z += 0.09) { var on = function (a) { return sd2 === 'py' ? [a, b.y1, z] : sd2 === 'ny' ? [a, b.y0, z] : sd2 === 'px' ? [b.x1, a, z] : [b.x0, a, z]; }; isoLine(c, I, [on(a0), on(a1)], '#6A4227', lw * 0.8); }
+    });
+    if (sd.py) { [[x0 + 0.18, x0 + 0.42], [x0 + 0.86, x0 + 1.1]].forEach(function (q) { wallWin(c, I, 'py', b, q[0], q[1], 0.3, 0.6, '#6F7E86', '#F1ECE0', lw * 2); }); }
+    if (sd.ny) wallWin(c, I, 'ny', b, x0 + 0.5, x0 + 0.8, 0.3, 0.6, '#6F7E86', '#F1ECE0', lw * 2);
+    if (sd.px) wallWin(c, I, 'px', b, y0 + 0.33, y0 + 0.62, 0.3, 0.6, '#6F7E86', '#F1ECE0', lw * 2);
+    if (sd.nx) wallWin(c, I, 'nx', b, y0 + 0.33, y0 + 0.62, 0.3, 0.6, '#6F7E86', '#F1ECE0', lw * 2);
+    solid(c, I.rgable(x0, y0, w, d, h, rh, ov, roof, log, 'slopes', 0.06));
+    isoLine(c, I, [[x0 - ov, 0, h + rh], [b.x1 + ov, 0, h + rh]], '#3B4440', lw * 2.5);
+  }
+  function isoTownhouse(c, x, y, s) {
+    var u = s * 0.25, I = Iso(c, x, y + s * 0.2, u, markRot, true), lw = Math.max(0.7, u * 0.035);
+    isoShadow(c, x + s * 0.03, y + s * 0.25, s * 0.45, s * 0.16);
+    var w = 2.0, d = 1.2, h = 1.45, x0 = -w / 2, y0 = -d / 2, b = { x0: x0, x1: x0 + w, y0: y0, y1: y0 + d }, brick = '#B0644A';
+    solid(c, I.rbox(x0 - 0.05, y0 - 0.05, 0, w + 0.1, d + 0.1, 0.12, '#8A847A').concat(I.rbox(x0, y0, 0.12, w, d, h - 0.12, brick)));
+    var sd = seenSides(I, 0.3);
+    function rows(side, a0, a1, n) {
+      for (var k = 0; k < n; k++) {
+        var aa = a0 + (a1 - a0) * (k + 0.25) / n, ab = a0 + (a1 - a0) * (k + 0.75) / n;
+        wallWin(c, I, side, b, aa, ab, 0.32, 0.68, '#7E8C93', '#EDE3CF', lw * 1.4);
+        wallWin(c, I, side, b, aa, ab, 0.9, 1.26, '#7E8C93', '#EDE3CF', lw * 1.4);
+      }
+    }
+    if (sd.py) rows('py', b.x0, b.x1, 5);
+    if (sd.ny) rows('ny', b.x0, b.x1, 5);
+    if (sd.px) rows('px', b.y0, b.y1, 3);
+    if (sd.nx) rows('nx', b.y0, b.y1, 3);
+    solid(c, I.rbox(x0 - 0.04, y0 - 0.04, h, w + 0.08, d + 0.08, 0.1, '#77706A'));
+    fillOnly(c, I.rbox(x0 + 0.06, y0 + 0.06, h + 0.1, w - 0.12, d - 0.12, 0.001, '#5C5752'));
+  }
+  function isoChurch(c, x, y, s) {
+    var u = s * 0.22, I = Iso(c, x, y + s * 0.26, u, markRot, true), lw = Math.max(0.7, u * 0.04);
+    isoShadow(c, x + s * 0.03, y + s * 0.3, s * 0.46, s * 0.15);
+    var white = '#E9E4D8', roof = '#3F6B4E', gold = '#C9A23A';
+    var w = 1.9, d = 1.1, h = 1.2, rh = 0.6, x0 = -1.2, y0 = -d / 2, nave = { x0: x0, x1: x0 + w, y0: y0, y1: y0 + d };
+    var tw = 0.75, tx0 = x0 + w, ty0 = -tw / 2, th = 2.3, tower = { x0: tx0, x1: tx0 + tw, y0: ty0, y1: ty0 + tw };
+    var behindTower = I.facing(1, 0) < 0;
+    function naveParts() {
+      solid(c, I.rbox(x0, y0, 0, w, d, h, white).concat(I.rgable(x0, y0, w, d, h, rh, 0.08, roof, white, 'gables')));
+      var sd = seenSides(I, 0.3);
+      [0.25, 0.6, 0.95, 1.3, 1.6].forEach(function (a) {
+        if (sd.py) wallWin(c, I, 'py', nave, x0 + a, x0 + a + 0.16, 0.45, 0.95, '#3A3632', '#B9A98A', lw);
+        if (sd.ny) wallWin(c, I, 'ny', nave, x0 + a, x0 + a + 0.16, 0.45, 0.95, '#3A3632', '#B9A98A', lw);
+      });
+      solid(c, I.rgable(x0, y0, w, d, h, rh, 0.08, roof, white, 'slopes', 0.06));
+    }
+    function towerParts() {
+      solid(c, I.rbox(tx0, ty0, 0, tw, tw, th, white).concat(I.rbox(tx0 - 0.05, ty0 - 0.05, th, tw + 0.1, tw + 0.1, 0.08, roof)));
+      var sd = seenSides(I, 0.3);
+      ['py', 'ny', 'px', 'nx'].forEach(function (side) {
+        if (!sd[side]) return;
+        var a0 = side === 'py' || side === 'ny' ? tx0 + 0.24 : ty0 + 0.24;
+        wallWin(c, I, side, tower, a0, a0 + 0.27, th - 0.7, th - 0.2, '#2B2724', '#B9A98A', lw);
+        if (side === 'py' || side === 'px') wallWin(c, I, side, tower, a0 + 0.02, a0 + 0.25, 0.1, 0.75, '#5A3E2A', '#B9A98A', lw);
+      });
+      var cx = tx0 + tw / 2, top = I.P(cx, 0, th + 0.08), r = 0.3 * u;
+      solid(c, I.rbox(cx - 0.2, -0.2, th + 0.08, 0.4, 0.4, 0.25, white));
+      var base = I.P(cx, 0, th + 0.33), bx = base[0], by = base[1];
+      var dome = function () { c.beginPath(); c.moveTo(bx - r, by); c.bezierCurveTo(bx - r * 1.5, by - r * 1.2, bx - r * 0.2, by - r * 1.6, bx, by - r * 2.3); c.bezierCurveTo(bx + r * 0.2, by - r * 1.6, bx + r * 1.5, by - r * 1.2, bx + r, by); c.closePath(); };
+      c.lineWidth = 2; c.strokeStyle = EDGE; dome(); c.stroke(); c.fillStyle = gold; dome(); c.fill();
+      c.beginPath(); c.ellipse(bx - r * 0.35, by - r * 0.9, r * 0.18, r * 0.45, -0.3, 0, Math.PI * 2); c.fillStyle = '#E6C766'; c.fill();
+      var ct = by - r * 2.3; c.lineWidth = Math.max(1, lw * 1.2); c.strokeStyle = gold;
+      c.beginPath(); c.moveTo(bx, ct); c.lineTo(bx, ct - r * 1.1); c.moveTo(bx - r * 0.35, ct - r * 0.75); c.lineTo(bx + r * 0.35, ct - r * 0.75); c.stroke();
+    }
+    if (behindTower) { towerParts(); naveParts(); } else { naveParts(); towerParts(); }
+  }
+  function isoSawmill(c, x, y, s) {
+    var u = s * 0.2, I = Iso(c, x, y + s * 0.12, u, markRot, true), lw = Math.max(0.7, u * 0.04);
+    isoShadow(c, x + s * 0.03, y + s * 0.16, s * 0.46, s * 0.15);
+    var burnt = '#4A4541', soot = '#2E2B29', w = 2.6, d = 1.2, h = 0.8, x0 = -1.5, y0 = -0.7;
+    var logs = [];
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 3 - (i > 1 ? 1 : 0); j++) logs = logs.concat(I.rbox(-1.5 + j * 0.02, 0.75 + i * 0.12, j * 0.12, 1.4, 0.11, 0.11, '#9A6A3E'));
+    solid(c, I.rbox(-1.75, -1, 0, 3.4, 2.3, 0.04, '#6F6250'));
+    var shed = I.rbox(x0, y0, 0, w, d, h, burnt).concat(I.rgable(x0, y0, w * 0.55, d, h, 0.5, 0.06, soot, burnt));
+    if (I.facing(0, 1) > 0) { solid(c, shed); solid(c, logs); } else { solid(c, logs); solid(c, shed); }
+    var sd = seenSides(I, 0.3), b = { x0: x0, x1: x0 + w, y0: y0, y1: y0 + d };
+    if (sd.py) [0.3, 1.1, 1.9].forEach(function (a) { wallWin(c, I, 'py', b, x0 + a, x0 + a + 0.4, 0.2, 0.6, '#1E1C1B', null, lw); });
+    if (sd.ny) [0.3, 1.1, 1.9].forEach(function (a) { wallWin(c, I, 'ny', b, x0 + a, x0 + a + 0.4, 0.2, 0.6, '#1E1C1B', null, lw); });
+    [[x0 + w * 0.62, y0 + 0.1], [x0 + w * 0.8, y0 + 0.5], [x0 + w * 0.7, y0 + 0.95]].forEach(function (q) { isoLine(c, I, [[q[0], q[1], h], [q[0] + 0.12, q[1], h + 0.35]], soot, lw * 2.5); });
+  }
+  function isoBusStop(c, x, y, s) {
+    var u = s * 0.55, I = Iso(c, x, y + s * 0.18, u, markRot, true), lw = Math.max(0.7, u * 0.04);
+    isoShadow(c, x, y + s * 0.2, s * 0.4, s * 0.12);
+    solid(c, I.rbox(-0.75, -0.35, 0, 1.5, 0.7, 0.05, '#8A8780'));
+    solid(c, I.rbox(-0.6, -0.3, 0.05, 1.2, 0.06, 0.7, '#6F8FA0').concat(I.rbox(-0.6, -0.3, 0.05, 0.06, 0.5, 0.7, '#6F8FA0')).concat(I.rbox(0.54, -0.3, 0.05, 0.06, 0.5, 0.7, '#6F8FA0')));
+    solid(c, I.rbox(-0.45, -0.2, 0.05, 0.9, 0.18, 0.22, '#7A5638'));
+    solid(c, I.rbox(-0.68, -0.38, 0.75, 1.36, 0.66, 0.06, '#4E6E5A'));
+    isoLine(c, I, [[0.68, 0.3, 0.05], [0.68, 0.3, 1.0]], '#3A3F44', lw * 1.5);
+    var sg = I.P(0.68, 0.3, 1.05); c.beginPath(); c.arc(sg[0], sg[1], Math.max(2, u * 0.1), 0, Math.PI * 2); c.fillStyle = '#E2C044'; c.fill(); c.lineWidth = 1; c.strokeStyle = EDGE; c.stroke();
+  }
+  function isoTower(c, x, y, s) {
+    var u = s * 0.28, I = Iso(c, x, y + s * 0.4, u), lw = Math.max(1, u * 0.05);
+    isoShadow(c, x + s * 0.05, y + s * 0.4, s * 0.2, s * 0.07);
+    solid(c, I.rbox(-0.45, -0.45, 0, 0.9, 0.9, 0.08, '#8A8780'));
+    var H = 3.0, legs = [[-0.35, -0.35], [0.35, -0.35], [0.35, 0.35], [-0.35, 0.35]];
+    function at(q, z) { var k = 1 - 0.7 * z / H; return [q[0] * k, q[1] * k, z]; }
+    for (var seg = 0; seg < 6; seg++) {
+      var z0 = 0.08 + seg * (H - 0.08) / 6, z1 = z0 + (H - 0.08) / 6, col = seg % 2 ? '#F2EFE6' : '#C0392B';
+      legs.forEach(function (q, i) { var q2 = legs[(i + 1) % 4]; isoLine(c, I, [at(q, z0), at(q, z1)], col, lw * 1.3); isoLine(c, I, [at(q, z0), at(q2, z1)], col, lw * 0.7); isoLine(c, I, [at(q, z1), at(q2, z1)], col, lw * 0.7); });
+    }
+    solid(c, I.rbox(-0.18, 0.05, H - 0.5, 0.12, 0.25, 0.35, '#D8D4CC').concat(I.rbox(0.06, -0.3, H - 0.8, 0.25, 0.12, 0.35, '#D8D4CC')));
+    var tp = I.P(0, 0, H + 0.2); c.beginPath(); c.arc(tp[0], tp[1], Math.max(1.5, u * 0.07), 0, Math.PI * 2); c.fillStyle = '#E84A3A'; c.fill();
+  }
+  function isoCross(c, x, y, s) {
+    var u = s * 0.5, I = Iso(c, x, y + s * 0.38, u), wood = '#7A5638', lw = Math.max(1.2, u * 0.09);
+    isoShadow(c, x, y + s * 0.38, s * 0.22, s * 0.07);
+    solid(c, I.rbox(-0.12, -0.12, 0, 0.24, 0.24, 1.45, wood));
+    solid(c, I.rbox(-0.45, -0.07, 1.0, 0.9, 0.14, 0.12, wood));
+    solid(c, I.rgable(-0.32, -0.25, 0.64, 0.5, 1.45, 0.22, 0.06, '#4E4A43', wood));
+    isoLine(c, I, [[-0.3, 0.1, 0.55], [0.3, 0.1, 0.75]], '#5A3E2A', lw);
+  }
+  function isoPier(c, x, y, s) {
+    var u = s * 0.3, I = Iso(c, x, y + s * 0.05, u, markRot, true), wood = '#9C7448', lw = Math.max(0.7, u * 0.03);
+    var piles = [];
+    [-1.2, -0.4, 0.4, 1.2].forEach(function (px) { [-0.25, 0.25].forEach(function (py) { piles = piles.concat(I.rbox(px - 0.04, py - 0.04, -0.15, 0.08, 0.08, 0.35, '#5A3E2A')); }); });
+    solid(c, piles);
+    solid(c, I.rbox(-1.5, -0.3, 0.2, 3, 0.6, 0.06, wood));
+    for (var k = -1.35; k < 1.5; k += 0.2) isoLine(c, I, [[k, -0.3, 0.26], [k, 0.3, 0.26]], shade(wood, -0.25), lw);
+    solid(c, I.rbox(1.2, 0.05, 0.26, 0.12, 0.2, 0.18, '#5A3E2A'));
+  }
+  function isoLake(c, x, y, s) {
+    function blob(cx, cy, rx, ry, bumps) {
+      c.beginPath();
+      for (var i = 0; i <= 120; i++) {
+        var a = i / 120 * Math.PI * 2, k = 1;
+        bumps.forEach(function (b) { var d = Math.atan2(Math.sin(a - b[0]), Math.cos(a - b[0])); k += b[1] * Math.exp(-(d * d) / (2 * b[2] * b[2])); });
+        var px = cx + Math.cos(a) * rx * k, py = cy + Math.sin(a) * ry * k;
+        i ? c.lineTo(px, py) : c.moveTo(px, py);
+      }
+      c.closePath();
+    }
+    var bumps = [[-0.5, 0.14, 0.45], [1.9, 0.1, 0.5], [3.4, -0.08, 0.35], [4.6, 0.08, 0.4]];
+    blob(x, y, s * 0.48, s * 0.27, bumps); c.fillStyle = '#3D6A80'; c.fill();
+    blob(x - s * 0.06, y - s * 0.04, s * 0.22, s * 0.09, [[0.6, 0.15, 0.6]]); c.fillStyle = '#5687A0'; c.fill();
+  }
+  var ISO = {
+    tree: isoTree,
+    fir: isoFir,
+    cottage: isoCottage,
+    hill: isoHill,
+    lake: isoLake,
+    bridge1: isoBridgeStone,
+    bridge2: isoBridgeWood,
+    bridge3: isoBridgeTruss,
+    bridge4: isoBridgeSuspension,
+    bridge5: isoBridgeGirder,
+    izba: isoIzba,
+    townhouse: isoTownhouse,
+    church: isoChurch,
+    sawmill: isoSawmill,
+    busstop: isoBusStop,
+    tower: isoTower,
+    cross: isoCross,
+    pier: isoPier
+  };
+
+  var markRot = 0;
+  function drawKind(c, kind, x, y, s, rot) {
+    markRot = rot || 0;
+    var img = images[kind];
+    if (img && img.complete && img.naturalWidth) { c.drawImage(img, x - s / 2, y - s / 2, s, s); return; }
+    if (ISO[kind]) { c.save(); try { ISO[kind](c, x, y, s); } finally { c.restore(); markRot = 0; } }
+  }
+
+  var selCanvas = document.createElement('canvas'), selCtx = selCanvas.getContext('2d');
+  var tintCanvas = document.createElement('canvas'), tintCtx = tintCanvas.getContext('2d');
+  function drawBox() {
+    if (!drag || drag.type !== 'box') return;
+    var l = Math.min(drag.x0, drag.x1), t = Math.min(drag.y0, drag.y1), w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
+    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(l, t, w, h);
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = '#FFFFFF'; ctx.strokeRect(l + 0.5, t + 0.5, w, h); ctx.restore();
+  }
+  function drawOutlined(kind, px, py, s, rot) {
+    var pad = 6, box = Math.ceil(s * 1.3) + pad * 2, half = box / 2;
+    var n = Math.ceil(box * dpr);
+    selCanvas.width = tintCanvas.width = n; selCanvas.height = tintCanvas.height = n;
+    selCtx.setTransform(dpr, 0, 0, dpr, 0, 0); selCtx.clearRect(0, 0, box, box);
+    noShadow = true; drawKind(selCtx, kind, half, half, s, rot); noShadow = false;
+    tintCtx.setTransform(1, 0, 0, 1, 0, 0); tintCtx.clearRect(0, 0, n, n);
+    tintCtx.globalCompositeOperation = 'source-over'; tintCtx.drawImage(selCanvas, 0, 0);
+    selCtx.clearRect(0, 0, box, box); drawKind(selCtx, kind, half, half, s, rot);
+    tintCtx.globalCompositeOperation = 'source-in'; tintCtx.fillStyle = '#FFFFFF'; tintCtx.fillRect(0, 0, n, n);
+    tintCtx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var ox = (px - half) * dpr, oy = (py - half) * dpr, r = 3 * dpr;
+    for (var i = 0; i < 16; i++) { var a = i / 16 * Math.PI * 2; ctx.drawImage(tintCanvas, ox + Math.cos(a) * r, oy + Math.sin(a) * r); }
+    ctx.drawImage(selCanvas, ox, oy);
+    ctx.restore();
+  }
+  var crosses = [];
+  function drawCross(m, px, py, s) {
+    var cx = px + s * 0.42, cy = py - s * 0.42, r = 10;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#B3402F'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#FFFFFF'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 4, cy - 4); ctx.lineTo(cx + 4, cy + 4); ctx.moveTo(cx + 4, cy - 4); ctx.lineTo(cx - 4, cy + 4);
+    ctx.lineCap = 'round'; ctx.lineWidth = 2.2; ctx.stroke();
+    ctx.restore();
+    crosses.push({ m: m, x: cx, y: cy, r: r + 3 });
+  }
+  function crossAt(px, py) {
+    for (var i = crosses.length - 1; i >= 0; i--) { var c = crosses[i]; if ((px - c.x) * (px - c.x) + (py - c.y) * (py - c.y) <= c.r * c.r) return c.m; }
+    return null;
+  }
+  function removeMark(m) {
+    if (m.area) { removeArea(m); return; }
+    if (m.pts) { removeRoad(m); return; }
+    record(function () { putMark(m); });
+    delete sel[m.id];
+    marks = marks.filter(function (o) { return o !== m; }); refresh();
+    if (col) col.doc(m.id).delete().then(function () { setStatus('Удалено'); }).catch(function () { setStatus('Не удалилось — попробуйте ещё раз'); });
+  }
+  function drawMarks() {
+    crosses = [];
+    var sorted = marks.slice().sort(function (a, b) { var fa = KINDS[a.kind] && KINDS[a.kind].flat ? 0 : 1, fb = KINDS[b.kind] && KINDS[b.kind].flat ? 0 : 1; return fa - fb || b.y - a.y; });
+    sorted.forEach(function (m) {
+      if (!KINDS[m.kind]) return;
+      var s = iconPx(m.kind), px = sx(m.x), py = sy(m.y);
+      if (px < -s || py < -s || px > W + s || py > H + s) return;
+      if (isSel(m)) drawOutlined(m.kind, px, py, s, m.rot);
+      else drawKind(ctx, m.kind, px, py, s, m.rot);
+    });
+    if (!drag || drag.type !== 'move') sorted.forEach(function (m) { if (isSel(m)) drawCross(m, sx(m.x), sy(m.y), iconPx(m.kind)); });
+  }
+
+
+  // Zones (вкладка «Зоны»): polygons drawn point by point, as in the Rokugan map editor.
+  // Stored in the "areas" collection: pts (flat contour), name, color, t.
+  var AREA_COLORS = [
+    ['Красный', '#C0392B'], ['Оранжевый', '#D98E2B'], ['Жёлтый', '#E2C044'], ['Зелёный', '#4F9B5E'], ['Голубой', '#4A90C2'],
+    ['Синий', '#3B5BA5'], ['Фиолетовый', '#8E5AA8'], ['Розовый', '#C76A9A'], ['Серый', '#9A9A9A'], ['Белый', '#F2EFE6']
+  ];
+  var areas = [], areasCol = null, areaTool = false, areaDraft = null, areaHandles = [], areaHover = null;
+  var areaColor = AREA_COLORS[0][1];
+  var areasShown = true;
+  try { areasShown = localStorage.getItem('sosnyMapAreasShown') !== '0'; } catch (e) {}
+  function setAreasShown(v) {
+    areasShown = v; try { localStorage.setItem('sosnyMapAreasShown', v ? '1' : '0'); } catch (e) {}
+    if (!v) { areaTool = false; areaDraft = null; areaHover = null; areas.forEach(function (a) { delete sel[a.id]; }); }
+    renderSamples(); draw(); setStatus(v ? (areaTool ? 'Зоны показаны, рисуйте новую' : 'Зоны показаны') : 'Зоны скрыты');
+  }
+  try { var savedAC = localStorage.getItem('sosnyMapAreaColor'); if (/^#[0-9A-Fa-f]{6}$/.test(savedAC || '')) areaColor = savedAC; } catch (e) {}
+  function keepAreaColor() { try { localStorage.setItem('sosnyMapAreaColor', areaColor); } catch (e) {} }
+  function zonesTab() { return tab === 'zones'; }
+  function areaing() { return zonesTab() && areaTool; }
+  function polyArea(pts) { var a = 0; for (var i = 0, n = pts.length; i < n; i += 2) { var j = (i + 2) % n; a += pts[i] * pts[j + 1] - pts[j] * pts[i + 1]; } return a / 2; }
+  function polyCentroid(pts) {
+    var a = polyArea(pts), cx = 0, cy = 0, n = pts.length, i, j;
+    if (Math.abs(a) < 1e-9) { for (i = 0; i < n; i += 2) { cx += pts[i]; cy += pts[i + 1]; } return [cx / (n / 2), cy / (n / 2)]; }
+    for (i = 0; i < n; i += 2) { j = (i + 2) % n; var f = pts[i] * pts[j + 1] - pts[j] * pts[i + 1]; cx += (pts[i] + pts[j]) * f; cy += (pts[i + 1] + pts[j + 1]) * f; }
+    return [cx / (6 * a), cy / (6 * a)];
+  }
+  function polyBox(pts) { var b = [Infinity, Infinity, -Infinity, -Infinity]; for (var i = 0; i < pts.length; i += 2) { b[0] = Math.min(b[0], pts[i]); b[1] = Math.min(b[1], pts[i + 1]); b[2] = Math.max(b[2], pts[i]); b[3] = Math.max(b[3], pts[i + 1]); } return b; }
+  function inPoly(pts, x, y) {
+    var inside = false;
+    for (var i = 0, n = pts.length, j = n - 2; i < n; j = i, i += 2) {
+      var xi = pts[i], yi = pts[i + 1], xj = pts[j], yj = pts[j + 1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function areaAt(px, py) {
+    if (!areasShown) return null;
+    var x = wx(px), y = wy(py);
+    var sorted = areas.slice().sort(function (a, b) { return Math.abs(polyArea(a.pts)) - Math.abs(polyArea(b.pts)); });
+    for (var i = 0; i < sorted.length; i++) if (inPoly(sorted[i].pts, x, y)) return sorted[i];
+    return null;
+  }
+  function areaPath(g, pts, extra) {
+    g.beginPath(); g.moveTo(sx(pts[0]), sy(pts[1]));
+    for (var i = 2; i < pts.length; i += 2) g.lineTo(sx(pts[i]), sy(pts[i + 1]));
+    if (extra) g.lineTo(extra[0], extra[1]);
+  }
+  function areaHandleAt(px, py) {
+    for (var i = areaHandles.length - 1; i >= 0; i--) { var h = areaHandles[i]; if ((px - h.x) * (px - h.x) + (py - h.y) * (py - h.y) <= 81) return h; }
+    return null;
+  }
+  function areaById(id) { return areas.filter(function (a) { return a.id === id; })[0] || null; }
+  function areaDocOf(a) { return { pts: a.pts.map(function (v) { return Math.round(v * 10000) / 10000; }), name: a.name, color: a.color, t: a.t }; }
+  function saveArea(a, msg) {
+    if (!areasCol) { setStatus(msg || 'Зона обновлена'); return; }
+    areasCol.doc(a.id).set(areaDocOf(a)).then(function () { setStatus(msg || 'Зона сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+  }
+  function putArea(a) { if (!areaById(a.id)) areas.push(a); saveArea(a); }
+  function dropArea(a) { areas = areas.filter(function (o) { return o.id !== a.id; }); delete sel[a.id]; if (areasCol) areasCol.doc(a.id).delete().catch(function () {}); }
+  function removeArea(a) { record(function () { putArea(a); }); dropArea(a); if (areasCol) setStatus('Зона удалена'); draw(); renderSamples(); }
+  function selectedArea() { var ids = Object.keys(sel); if (ids.length !== 1) return null; return areaById(ids[0]); }
+  function finishArea() {
+    if (!areaDraft) return;
+    var pts = []; areaDraft.forEach(function (q) { var l = pts[pts.length - 1]; if (!l || Math.abs(l[0] - q[0]) * view.k > 2 || Math.abs(l[1] - q[1]) * view.k > 2) pts.push(q); });
+    if (pts.length > 2) { var f = pts[0], l2 = pts[pts.length - 1]; if (Math.abs(f[0] - l2[0]) * view.k <= 10 && Math.abs(f[1] - l2[1]) * view.k <= 10) pts.pop(); }
+    areaDraft = null;
+    if (pts.length < 3) { setStatus('Нужно хотя бы три точки'); draw(); return; }
+    var flat = []; pts.forEach(function (q) { flat.push(q[0], q[1]); });
+    var a = { id: newId('a'), area: true, pts: flat, name: 'Зона ' + (areas.length + 1), color: areaColor, t: Date.now() };
+    areas.push(a); sel = {}; sel[a.id] = true;
+    record(function () { dropArea(a); });
+    saveArea(a); renderSamples(); draw();
+  }
+  function drawAreas() {
+    areaHandles = [];
+    if (!areasShown || (!areas.length && !areaDraft)) return;
+    var sys = zonesTab();
+    var sorted = areas.slice().sort(function (a, b) { return Math.abs(polyArea(b.pts)) - Math.abs(polyArea(a.pts)); });
+    ctx.save(); ctx.lineJoin = 'round';
+    ctx.font = "700 13px 'PT Sans', system-ui, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    sorted.forEach(function (a) {
+      var on = !!sel[a.id], hov = sys && areaHover === a.id;
+      areaPath(ctx, a.pts); ctx.closePath();
+      ctx.globalAlpha = on ? 0.34 : 0.2; ctx.fillStyle = a.color; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.lineWidth = on ? 3 : hov ? 2.5 : 1.5; ctx.strokeStyle = on || hov ? '#FFFFFF' : 'rgba(255,255,255,0.6)'; ctx.stroke();
+      var bb = polyBox(a.pts);
+      if (a.name && (bb[2] - bb[0]) * view.k >= 40) {
+        var c = polyCentroid(a.pts), lx = sx(c[0]), ly = sy(c[1]);
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16,28,21,0.8)'; ctx.strokeText(a.name, lx, ly);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillText(a.name, lx, ly);
+      }
+    });
+    if (areaDraft && areaDraft.length) {
+      var flat = []; areaDraft.forEach(function (q) { flat.push(q[0], q[1]); });
+      var tip = hover && areaing() ? hover : null;
+      if (flat.length >= 6 || (flat.length >= 4 && tip)) { areaPath(ctx, flat, tip); ctx.closePath(); ctx.globalAlpha = 0.18; ctx.fillStyle = areaColor; ctx.fill(); ctx.globalAlpha = 1; }
+      areaPath(ctx, flat, tip); ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.strokeStyle = '#FFFFFF'; ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1F2A22'; ctx.lineWidth = 1.5;
+      areaDraft.forEach(function (q, i) { var r = i === 0 && areaDraft.length >= 3 ? 7 : 4; ctx.beginPath(); ctx.arc(sx(q[0]), sy(q[1]), r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    }
+    if (sys && !areaDraft && !(drag && drag.type === 'areamove')) {
+      areas.forEach(function (a) {
+        if (!sel[a.id]) return;
+        var n = a.pts.length / 2;
+        ctx.lineWidth = 2; ctx.strokeStyle = '#1F2A22';
+        for (var i = 0; i < n; i++) {
+          var j = (i + 1) % n;
+          var mx = sx((a.pts[i * 2] + a.pts[j * 2]) / 2), my = sy((a.pts[i * 2 + 1] + a.pts[j * 2 + 1]) / 2);
+          ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill(); ctx.stroke();
+          areaHandles.push({ a: a, i: i, kind: 'm', x: mx, y: my });
+        }
+        for (var k = 0; k < n; k++) {
+          var hx = sx(a.pts[k * 2]), hy = sy(a.pts[k * 2 + 1]);
+          ctx.beginPath(); ctx.arc(hx, hy, 6, 0, Math.PI * 2); ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.stroke();
+          areaHandles.push({ a: a, i: k, kind: 'v', x: hx, y: hy });
+        }
+        var bb2 = polyBox(a.pts);
+        drawCross(a, sx(bb2[2]) + 14, sy(bb2[3]) - 14, 0);
+      });
+    }
+    ctx.restore();
+  }
+  function renderZonesTool(box) {
+    var wrap = document.createElement('div'); wrap.className = 'brushbar';
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'sample' + (areaTool ? ' on' : ''); b.title = 'Зона';
+    b.setAttribute('aria-pressed', String(areaTool));
+    b.setAttribute('aria-label', 'Зона: щелчками ставьте точки, щелчок по первой точке, двойной щелчок или Enter — замкнуть, Esc — отменить');
+    var c = document.createElement('canvas'); c.width = 112; c.height = 112; c.style.width = '56px'; c.style.height = '56px';
+    var g = c.getContext('2d'); g.scale(2, 2); g.lineJoin = 'round';
+    var ico = [[10, 20], [30, 8], [50, 18], [44, 46], [16, 48]];
+    g.beginPath(); ico.forEach(function (q, i) { i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath();
+    g.globalAlpha = 0.45; g.fillStyle = areaColor; g.fill(); g.globalAlpha = 1;
+    g.lineWidth = 2; g.strokeStyle = '#2F5A3A'; g.stroke();
+    ico.forEach(function (q) { g.beginPath(); g.arc(q[0], q[1], 3.5, 0, Math.PI * 2); g.fillStyle = '#FFFFFF'; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#1F2A22'; g.stroke(); });
+    b.appendChild(c);
+    b.addEventListener('click', function () {
+      areaTool = !areaTool;
+      if (areaTool && !areasShown) { setAreasShown(true); return; }
+      if (!areaTool) areaDraft = null;
+      renderSamples(); draw();
+    });
+    wrap.appendChild(b);
+    var vis = document.createElement('div'); vis.className = 'toolpick';
+    var vb = document.createElement('button'); vb.type = 'button'; vb.className = 'toolbtn'; vb.id = 'areasToggle';
+    vb.textContent = areasShown ? 'Скрыть зоны' : 'Показать зоны'; vb.setAttribute('aria-pressed', String(!areasShown));
+    vb.addEventListener('click', function () { setAreasShown(!areasShown); });
+    vis.appendChild(vb); wrap.appendChild(vis);
+    var target = selectedArea(), targetId = target ? target.id : null;
+    var pal = document.createElement('div'); pal.className = 'palette'; pal.setAttribute('role', 'radiogroup'); pal.setAttribute('aria-label', target ? 'Цвет выделенной зоны' : 'Цвет новой зоны');
+    var curColor = target ? target.color : areaColor;
+    AREA_COLORS.forEach(function (pc) {
+      var sw = document.createElement('button'); sw.type = 'button'; sw.className = 'swatch'; sw.title = pc[0];
+      sw.setAttribute('role', 'radio'); sw.setAttribute('aria-label', pc[0]); sw.setAttribute('aria-checked', String(pc[1] === curColor));
+      sw.style.background = pc[1];
+      sw.addEventListener('click', function () {
+        areaColor = pc[1]; keepAreaColor();
+        var a = targetId ? areaById(targetId) : null;
+        if (a && a.color !== pc[1]) {
+          var old = a.color; a.color = pc[1]; saveArea(a, 'Цвет сохранён');
+          record(function () { var aa = areaById(targetId); if (aa) { aa.color = old; saveArea(aa); draw(); } });
+        }
+        renderSamples(); draw();
+      });
+      pal.appendChild(sw);
+    });
+    var hint = document.createElement('div'); hint.className = 'empty';
+    if (target) {
+      var nameBox = document.createElement('div'); nameBox.className = 'namebox';
+      var lab = document.createElement('label'); lab.setAttribute('for', 'areaName'); lab.textContent = 'Название';
+      var inp = document.createElement('input'); inp.type = 'text'; inp.id = 'areaName'; inp.value = target.name; inp.maxLength = 60; inp.autocomplete = 'off';
+      inp.addEventListener('change', function () {
+        var a = areaById(targetId); if (!a) return;
+        var v = inp.value.trim(), old = a.name; if (v === old) return;
+        a.name = v; saveArea(a, 'Название сохранено');
+        record(function () { var aa = areaById(targetId); if (aa) { aa.name = old; saveArea(aa); draw(); } });
+        draw();
+      });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); inp.blur(); } });
+      nameBox.appendChild(lab); nameBox.appendChild(inp);
+      var sep = document.createElement('span'); sep.className = 'tsep';
+      wrap.appendChild(sep); wrap.appendChild(nameBox);
+      hint.textContent = 'Тяните точки, чтобы менять контур. Щелчок по полому кружку на ребре — новая точка, Alt+щелчок по точке — убрать её. Delete — удалить зону.';
+    } else {
+      hint.textContent = areaTool
+        ? 'Щелчками ставьте точки. Щелчок по первой точке, двойной щелчок или Enter — замкнуть, Esc — отменить.'
+        : 'Выберите «Зона», чтобы нарисовать новую. Щелчок внутри зоны — выбрать её, правый щелчок — снять выбор.';
+    }
+    wrap.appendChild(pal); wrap.appendChild(hint); box.appendChild(wrap);
+  }
+
+  function draw() {
+    if (!W) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#38543B'; ctx.fillRect(0, 0, W, H);
+    drawStrokes();
+    drawRoads();
+    drawMarks();
+    drawAreas();
+    drawBrushRing();
+    drawBox();
+    drawRuler();
+  }
+
+
+  var TABS = [
+    { id: 'trees', name: 'Деревья', kinds: ['tree', 'fir'] },
+    { id: 'buildings', name: 'Здания', kinds: ['cottage', 'izba', 'townhouse', 'church', 'sawmill'] },
+    { id: 'structures', name: 'Структуры', kinds: [] },
+    { id: 'zones', name: 'Зоны', kinds: [] },
+    { id: 'system', name: 'Системное', kinds: [] },
+    { id: 'textures', name: 'Текстуры', kinds: [] }
+  ];
+  var tab = 'trees';
+  try { var savedTab = localStorage.getItem('sosnyMapTab'); if (TABS.some(function (t) { return t.id === savedTab; })) tab = savedTab; } catch (e) {}
+
+  function renderTabs() {
+    var box = document.getElementById('tabs'); box.textContent = '';
+    TABS.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.id = 'tab-' + t.id;
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(t.id === tab)); b.tabIndex = t.id === tab ? 0 : -1;
+      b.textContent = t.name;
+      b.addEventListener('click', function () { pickTab(t.id); });
+      b.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var i = TABS.findIndex(function (x) { return x.id === tab; });
+        i = (i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
+        pickTab(TABS[i].id); document.getElementById('tab-' + TABS[i].id).focus();
+      });
+      box.appendChild(b);
+    });
+    document.getElementById('samples').setAttribute('aria-labelledby', 'tab-' + tab);
+  }
+  function pickTab(id) {
+    tab = id;
+    try { localStorage.setItem('sosnyMapTab', id); } catch (e) {}
+    renderTabs(); renderSamples();
+  }
+
+  function renderBrush(box) {
+    var wrap = document.createElement('div'); wrap.className = 'brushbar';
+    var prev = document.createElement('div'); prev.className = 'brushprev'; prev.setAttribute('aria-hidden', 'true');
+    var dotEl = document.createElement('span'); prev.appendChild(dotEl);
+    function paintPrev() {
+      var d = Math.max(4, Math.min(48, brush.size * view.k));
+      dotEl.style.width = d + 'px'; dotEl.style.height = d + 'px'; dotEl.style.background = brush.color;
+    }
+    var sizeBox = document.createElement('div'); sizeBox.className = 'brushsize';
+    var lab = document.createElement('label'); lab.setAttribute('for', 'brushSize'); lab.textContent = 'Размер';
+    var range = document.createElement('input'); range.type = 'range'; range.id = 'brushSize'; range.min = '2'; range.max = '400'; range.step = '2';
+    range.value = String(Math.round(brush.size * 1000));
+    var val = document.createElement('output'); val.setAttribute('for', 'brushSize');
+    function showVal() { var m = Math.round(brush.size * 1000); val.textContent = m >= 1000 ? (m / 1000) + ' км' : m + ' м'; }
+    range.addEventListener('input', function () { brush.size = Number(range.value) / 1000; showVal(); paintPrev(); keepBrush(); });
+    sizeBox.appendChild(lab); sizeBox.appendChild(range); sizeBox.appendChild(val);
+    var pal = document.createElement('div'); pal.className = 'palette'; pal.setAttribute('role', 'radiogroup'); pal.setAttribute('aria-label', 'Цвет кисти');
+    PALETTE.forEach(function (pc) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.title = pc[0];
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-label', pc[0]); b.setAttribute('aria-checked', String(pc[1] === brush.color));
+      b.style.background = pc[1];
+      b.addEventListener('click', function () { brush.color = pc[1]; brush.tool = 'paint'; keepBrush(); renderSamples(); });
+      pal.appendChild(b);
+    });
+    var tools = document.createElement('div'); tools.className = 'toolpick'; tools.setAttribute('role', 'radiogroup'); tools.setAttribute('aria-label', 'Инструмент');
+    [['paint', 'Кисть'], ['erase', 'Ластик']].forEach(function (tl) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'toolbtn'; b.textContent = tl[1];
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(brush.tool === tl[0]));
+      b.addEventListener('click', function () { brush.tool = tl[0]; keepBrush(); renderSamples(); });
+      tools.appendChild(b);
+    });
+    if (brush.tool === 'erase') { pal.classList.add('off'); dotEl.classList.add('erase'); }
+    wrap.appendChild(tools); wrap.appendChild(prev); wrap.appendChild(sizeBox); wrap.appendChild(pal);
+    box.appendChild(wrap); showVal(); paintPrev();
+  }
+
+  function renderSamples() {
+    var box = document.getElementById('samples'); box.textContent = '';
+    canvas.classList.toggle('brush', painting());
+    canvas.classList.toggle('roadmode', roading());
+    canvas.classList.toggle('areamode', areaing());
+    if (!roading()) cancelDraft();
+    if (!zonesTab()) { areaDraft = null; areaHover = null; }
+    if (painting()) { renderBrush(box); return; }
+    if (structTab()) { renderRoadTool(box); return; }
+    if (zonesTab()) { renderZonesTool(box); return; }
+    var kinds = TABS.filter(function (t) { return t.id === tab; })[0].kinds;
+    if (!kinds.length) {
+      var em = document.createElement('div'); em.className = 'empty'; em.textContent = 'Здесь пока нет иконок';
+      box.appendChild(em); return;
+    }
+    kinds.forEach(function (k) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sample'; b.dataset.kind = k;
+      b.setAttribute('aria-label', 'Поставить: ' + KINDS[k].name + ' (перетащите на карту или нажмите, чтобы поставить в центр)');
+      var c = document.createElement('canvas'); c.width = 112; c.height = 112; c.style.width = '56px'; c.style.height = '56px';
+      var cc = c.getContext('2d'); cc.scale(2, 2); drawKind(cc, k, 28, 26, 44);
+      b.title = KINDS[k].name;
+      b.appendChild(c); box.appendChild(b);
+      b.addEventListener('pointerdown', function (e) { startNew(e, k); });
+      b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addMark(k, view.x, view.y); } });
+    });
+    var turn = selBridges();
+    if (turn.length) box.appendChild(rotateRow(turn));
+  }
+
+  var TURNABLE = BRIDGES.concat(['cottage', 'izba', 'townhouse', 'church', 'sawmill', 'busstop', 'pier']);
+  function selBridges() { return marks.filter(function (m) { return isSel(m) && TURNABLE.indexOf(m.kind) >= 0; }); }
+  var bridgeKey = '';
+  function refresh() {
+    var k = selBridges().map(function (m) { return m.id; }).join(',');
+    if (k !== bridgeKey) { bridgeKey = k; if (!painting() && !zonesTab()) renderSamples(); }
+    draw();
+  }
+  function rotateRow(bsel) {
+    var bridge = bsel.every(function (m) { return BRIDGES.indexOf(m.kind) >= 0; }), house = bsel.every(function (m) { return m.kind === 'cottage'; });
+    var rot = document.createElement('div'); rot.className = 'brushsize';
+    var rl = document.createElement('label'); rl.setAttribute('for', 'bridgeRot');
+    var one = bsel.every(function (m) { return m.kind === bsel[0].kind; });
+    rl.textContent = bridge ? (bsel.length > 1 ? 'Поворот мостов' : 'Поворот моста') : house ? (bsel.length > 1 ? 'Поворот домов' : 'Поворот дома') : one ? 'Поворот: ' + KINDS[bsel[0].kind].name.toLowerCase() : 'Поворот';
+    var left = document.createElement('button'); left.type = 'button'; left.className = 'toolbtn'; left.textContent = '⟲ 15°'; left.title = 'Повернуть против часовой (Shift+R)';
+    var right = document.createElement('button'); right.type = 'button'; right.className = 'toolbtn'; right.textContent = '15° ⟳'; right.title = 'Повернуть по часовой (R)';
+    var rr = document.createElement('input'); rr.type = 'range'; rr.id = 'bridgeRot'; rr.min = '0'; rr.max = '359'; rr.step = '1'; rr.value = String(bsel[0].rot || 0);
+    var ro = document.createElement('output'); ro.setAttribute('for', 'bridgeRot'); ro.textContent = rr.value + '°';
+    var rotFrom = null;
+    rr.addEventListener('input', function () { if (!rotFrom) rotFrom = bsel.map(function (m) { return m.rot || 0; }); bsel.forEach(function (m) { m.rot = Number(rr.value); }); ro.textContent = rr.value + '°'; draw(); });
+    rr.addEventListener('change', function () {
+      var was = rotFrom; rotFrom = null; bsel.forEach(save);
+      if (was) record(function () { bsel.forEach(function (m, i) { m.rot = was[i]; if (marks.indexOf(m) >= 0) save(m); }); renderSamples(); });
+      setStatus('Поворот сохранён');
+    });
+    left.addEventListener('click', function () { rotateBridges(bsel, null, -15); rr.value = String(bsel[0].rot); ro.textContent = rr.value + '°'; });
+    right.addEventListener('click', function () { rotateBridges(bsel, null, 15); rr.value = String(bsel[0].rot); ro.textContent = rr.value + '°'; });
+    rot.appendChild(rl); rot.appendChild(left); rot.appendChild(rr); rot.appendChild(right); rot.appendChild(ro);
+    return rot;
+  }
+  function rotateBridges(group, to, by) {
+    if (!group.length) return;
+    var from = group.map(function (m) { return m.rot || 0; });
+    group.forEach(function (m) { var v = to !== null ? to : (m.rot || 0) + by; m.rot = ((Math.round(v) % 360) + 360) % 360; save(m); });
+    record(function () { group.forEach(function (m, i) { m.rot = from[i]; if (marks.indexOf(m) >= 0) save(m); }); renderSamples(); });
+    draw();
+  }
+
+  var PALETTE = [
+    ['Трава', '#5E7F45'], ['Луг', '#8AA05A'], ['Тёмный лес', '#2C4A30'], ['Поле', '#B5A25E'], ['Грунт', '#8C6E4E'],
+    ['Песок', '#D2BE8C'], ['Камень', '#8A8A80'], ['Вода', '#3D6A80'], ['Глубокая вода', '#1E3646'], ['Снег', '#EEEDE6']
+  ];
+  var brush = { color: '#5E7F45', size: 0.04, tool: 'paint' };
+  try {
+    var savedBrush = JSON.parse(localStorage.getItem('sosnyMapBrush') || 'null');
+    if (savedBrush && /^#[0-9A-Fa-f]{6}$/.test(savedBrush.color)) brush.color = savedBrush.color;
+    if (savedBrush && savedBrush.size >= 0.002 && savedBrush.size <= 0.4) brush.size = savedBrush.size;
+    if (savedBrush && (savedBrush.tool === 'paint' || savedBrush.tool === 'erase')) brush.tool = savedBrush.tool;
+  } catch (e) {}
+  function keepBrush() { try { localStorage.setItem('sosnyMapBrush', JSON.stringify(brush)); } catch (e) {} }
+  var strokes = [];
+  var strokesCol = null;
+  var live = null;
+
+  function painting() { return tab === 'textures'; }
+  function structTab() { return tab === 'structures'; }
+  function roading() { return tab === 'structures' && !!structTool; }
+  var ROAD_W = 0.075;
+  var roads = [], roadsCol = null, draft = null, draftDoc = null, draftWs = null, handles = [];
+  // A river keeps one width per point in ws; selPt is the river point whose width the slider changes.
+  var selPt = null, riverPts = [];
+  var RIVER_GROW_PART = 1.2;
+  function newId(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  // A road or river is drawn in parts. Each part is its own document, saved point by point while it is drawn.
+  // draft holds the points in drawing order; draftDoc remembers the part's id, kind and widths.
+  function startDraft(kind, from) {
+    var wA, wB;
+    if (from) {
+      var r = from.r;
+      if (kind === 'river') {
+        if (from.end === 'end') { wA = r.w || RIVER_W0 * RIVER_GROW; wB = wA * RIVER_GROW_PART; }
+        else { wA = r.w0 || RIVER_W0; wB = wA / RIVER_GROW_PART; }
+      } else { wA = wB = r.w; }
+    } else {
+      wA = kind === 'river' ? structW.river : structW.road;
+      wB = kind === 'river' ? wA * RIVER_GROW : wA;
+    }
+    draftDoc = { id: newId('r'), kind: kind, wA: wA, wB: wB, wNext: wA, t: Date.now(), saved: false, reversed: !!(from && from.end === 'start'), fresh: !from };
+    draft = []; draftWs = [];
+    if (from) {
+      var n = from.r.pts.length, i0 = from.end === 'start' ? 0 : n - 2;
+      var fw = riverWs(from.r); draftDoc.wNext = fw[from.end === 'start' ? 0 : fw.length - 1];
+      draft.push([from.r.pts[i0], from.r.pts[i0 + 1]]); draftWs.push(draftDoc.wNext);
+    }
+  }
+  function draftFlat() {
+    var pts = draft.slice(); if (draftDoc.reversed) pts.reverse();
+    var flat = []; pts.forEach(function (q) { flat.push(Math.round(q[0] * 10000) / 10000, Math.round(q[1] * 10000) / 10000); });
+    return flat;
+  }
+  function draftWidths() { var d = draftDoc; return d.reversed ? { w0: d.wB, w: d.wA } : { w0: d.wA, w: d.wB }; }
+  function draftRoad() {
+    var w = draftWidths();
+    var ws = draftWs.map(function (v) { return Math.round(v * 10000) / 10000; }); if (draftDoc.reversed) ws.reverse();
+    var isRiver = draftDoc.kind === 'river';
+    return { id: draftDoc.id, pts: draftFlat(), w: ws[ws.length - 1], w0: isRiver ? ws[0] : null, ws: ws, kind: draftDoc.kind, t: draftDoc.t };
+  }
+  function addDraftPoint(x, y) { draft.push([x, y]); draftWs.push(draftDoc.wNext); }
+  function saveDraft(msg) {
+    if (!draftDoc || draft.length < 2) return;
+    var r = draftRoad();
+    draftDoc.saved = true;
+    if (!roadsCol) return;
+    roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, t: r.t }).then(function () { setStatus(msg || 'Точка сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+  }
+  function discardDraft() {
+    if (draftDoc) {
+      var id = draftDoc.id;
+      roads = roads.filter(function (x) { return x.id !== id; });
+      if (draftDoc.saved && roadsCol) roadsCol.doc(id).delete().catch(function () {});
+    }
+    draft = null; draftDoc = null; draftWs = null;
+  }
+  function cancelDraft() { if (draft && draft.length >= 2) finishRoad(); else discardDraft(); }
+  // Roads have square ends: everything is drawn with round caps and clipped by two half-planes
+  // that cut straight across the road at its first and last point.
+  function squareEnds(sm) {
+    var n = sm.length, L = 1e5;
+    function cut(a, b) {
+      var ax = sx(a[0]), ay = sy(a[1]), dx = sx(b[0]) - ax, dy = sy(b[1]) - ay, len = Math.hypot(dx, dy) || 1;
+      dx /= len; dy /= len; var nx = -dy, ny = dx;
+      ctx.beginPath();
+      ctx.moveTo(ax + nx * L, ay + ny * L); ctx.lineTo(ax - nx * L, ay - ny * L);
+      ctx.lineTo(ax - nx * L + dx * L, ay - ny * L + dy * L); ctx.lineTo(ax + nx * L + dx * L, ay + ny * L + dy * L);
+      ctx.closePath(); ctx.clip();
+    }
+    cut(sm[0], sm[Math.min(2, n - 1)]); cut(sm[n - 1], sm[Math.max(n - 3, 0)]);
+  }
+  function paintRoad(flat, selectedRoad, extra, ghostly, ws, tip) {
+    var pts = flat.slice(); ws = ws.slice();
+    if (extra) { pts.push(wx(extra[0]), wy(extra[1])); ws.push(ws.length ? ws[ws.length - 1] : ROAD_W); }
+    if (tip) pts.push(wx(tip[0]), wy(tip[1]));
+    var sm = smooth(pts); if (sm.length < 2) return;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (ghostly) ctx.globalAlpha = 0.7;
+    squareEnds(sm);
+    if (selectedRoad === true) riverPass(sm, ws, 1, 10, '#FFFFFF', 0);
+    else if (selectedRoad) selectedRoad.forEach(function (rg) { riverPass(sm, ws, 1, 10, '#FFFFFF', 0, rg[0] * 10, rg[1] * 10); });
+    riverPass(sm, ws, 1, 2, 'rgba(16,28,21,0.55)', 0);
+    riverPass(sm, ws, 1, 0, '#D8D4CC', 0);
+    riverPass(sm, ws, 0.88, 0, '#5E5D5A', 0);
+    ctx.lineCap = 'butt';
+    var avg = ws.reduce(function (a, b) { return a + b; }, 0) / ws.length * view.k;
+    if (avg >= 7) {
+      ctx.beginPath(); ctx.moveTo(sx(sm[0][0]), sy(sm[0][1]));
+      for (var i = 1; i < sm.length; i++) ctx.lineTo(sx(sm[i][0]), sy(sm[i][1]));
+      var dash = Math.max(4, 0.02 * view.k); ctx.lineWidth = Math.max(1, 0.006 * view.k); ctx.setLineDash([dash, dash]); ctx.strokeStyle = '#ECE6D6'; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  var RIVER_W0 = 0.05, RIVER_W1 = 0.09;
+  var structTool = null;
+  var structW = { road: 0.075, river: 0.05 };
+  try {
+    var savedW = JSON.parse(localStorage.getItem('sosnyMapStructW') || 'null');
+    if (savedW && savedW.road >= 0.01 && savedW.road <= 0.3) structW.road = savedW.road;
+    if (savedW && savedW.river >= 0.01 && savedW.river <= 0.3) structW.river = savedW.river;
+  } catch (e) {}
+  var RIVER_GROW = 1.8;
+  function smooth(flat) {
+    var p = []; for (var i = 0; i < flat.length; i += 2) p.push([flat[i], flat[i + 1]]);
+    if (p.length < 3) return p;
+    var out = [], ext = [p[0]].concat(p, [p[p.length - 1]]);
+    for (var j = 1; j < ext.length - 2; j++) {
+      var p0 = ext[j - 1], p1 = ext[j], p2 = ext[j + 1], p3 = ext[j + 2];
+      for (var k = 0; k < 10; k++) {
+        var t = k / 10, t2 = t * t, t3 = t2 * t;
+        out.push([
+          0.5 * (2 * p1[0] + (p2[0] - p0[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (3 * p1[0] - p0[0] - 3 * p2[0] + p3[0]) * t3),
+          0.5 * (2 * p1[1] + (p2[1] - p0[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (3 * p1[1] - p0[1] - 3 * p2[1] + p3[1]) * t3)
+        ]);
+      }
+    }
+    out.push(p[p.length - 1]);
+    return out;
+  }
+  function riverWs(r) {
+    var n = r.pts.length / 2;
+    if (r.ws && r.ws.length === n) return r.ws;
+    if (r.kind !== 'river') { var flat = []; for (var j = 0; j < n; j++) flat.push(r.w || ROAD_W); return flat; }
+    var w0 = r.w0 || RIVER_W0, w1 = r.w || w0 * RIVER_GROW, out = [];
+    for (var i = 0; i < n; i++) out.push(n > 1 ? w0 + (w1 - w0) * i / (n - 1) : w0);
+    return out;
+  }
+  // smooth() makes 10 samples per segment once there are 3+ points, so sample i sits in segment i/10.
+  function sampleW(ws, i, n) {
+    if (ws.length < 3) { var t0 = n > 1 ? i / (n - 1) : 0; return ws[0] + ((ws[1] === undefined ? ws[0] : ws[1]) - ws[0]) * t0; }
+    var seg = Math.floor(i / 10); if (seg >= ws.length - 1) return ws[ws.length - 1];
+    var t = (i % 10) / 10; t = t * t * (3 - 2 * t);
+    return ws[seg] + (ws[seg + 1] - ws[seg]) * t;
+  }
+  function riverPass(sm, ws, scale, extraPx, color, dy, from, to) {
+    var n = sm.length, i0 = from || 0;
+    ctx.strokeStyle = color;
+    for (var i = i0; i + 1 < n && (to === undefined || i < to); i++) {
+      var w = (sampleW(ws, i, n) + sampleW(ws, i + 1, n)) / 2 * scale * view.k;
+      ctx.lineWidth = Math.max(3, w) + extraPx;
+      ctx.beginPath(); ctx.moveTo(sx(sm[i][0]), sy(sm[i][1]) + dy); ctx.lineTo(sx(sm[i + 1][0]), sy(sm[i + 1][1]) + dy); ctx.stroke();
+    }
+  }
+  // Smooth noise from world position, so the banks keep their shape while panning and zooming.
+  function bankNoise(x, y, seed) { return 0.6 * Math.sin(x * 23 + y * 9 + seed) + 0.4 * Math.sin(x * 11 - y * 19 + seed * 2.3); }
+  // The light water is one smooth shape inside the bed; the dark bank between them is a 1–4 px border
+  // whose width drifts slowly and differently on each side.
+  function riverCore(sm, ws) {
+    var n = sm.length; if (n < 2) return;
+    var left = [], right = [];
+    for (var i = 0; i < n; i++) {
+      var a = sm[Math.max(0, i - 1)], b = sm[Math.min(n - 1, i + 1)];
+      var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.sqrt(dx * dx + dy * dy) || 1, nx = -dy / len, ny = dx / len;
+      var half = Math.max(3, sampleW(ws, i, n) * view.k) / 2;
+      var eL = 2.5 + 1.5 * bankNoise(sm[i][0], sm[i][1], 1.3), eR = 2.5 + 1.5 * bankNoise(sm[i][0], sm[i][1], 4.1);
+      var px = sx(sm[i][0]), py = sy(sm[i][1]), sxn = nx, syn = -ny;
+      left.push([px + sxn * Math.max(0.75, half - eL), py + syn * Math.max(0.75, half - eL)]);
+      right.push([px - sxn * Math.max(0.75, half - eR), py - syn * Math.max(0.75, half - eR)]);
+    }
+    ctx.fillStyle = '#5687A0';
+    ctx.beginPath(); ctx.moveTo(left[0][0], left[0][1]);
+    for (var k = 1; k < n; k++) ctx.lineTo(left[k][0], left[k][1]);
+    for (var m = n - 1; m >= 0; m--) ctx.lineTo(right[m][0], right[m][1]);
+    ctx.closePath(); ctx.fill();
+    [0, n - 1].forEach(function (e) {
+      var r = Math.hypot(left[e][0] - right[e][0], left[e][1] - right[e][1]) / 2;
+      ctx.beginPath(); ctx.arc((left[e][0] + right[e][0]) / 2, (left[e][1] + right[e][1]) / 2, r, 0, Math.PI * 2); ctx.fill();
+    });
+
+  }
+  function paintRiver(flat, selectedRiver, extra, ghostly, ws, tip) {
+    var pts = flat.slice(); ws = ws.slice();
+    if (extra) { pts.push(wx(extra[0]), wy(extra[1])); ws.push(ws.length ? ws[ws.length - 1] : RIVER_W0); }
+    if (tip) pts.push(wx(tip[0]), wy(tip[1]));
+    var sm = smooth(pts); if (sm.length < 2) return;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (ghostly) ctx.globalAlpha = 0.75;
+    if (selectedRiver === true) riverPass(sm, ws, 1, 8, '#FFFFFF', 0);
+    else if (selectedRiver) selectedRiver.forEach(function (rg) { riverPass(sm, ws, 1, 8, '#FFFFFF', 0, rg[0] * 10, rg[1] * 10); });
+    riverPass(sm, ws, 1, 0, '#3D6A80', 0);
+    riverCore(sm, ws);
+    ctx.restore();
+  }
+  function drawRoads() {
+    var skip = draftDoc ? draftDoc.id : null;
+    ['river', 'road'].forEach(function (kind) { riverChains(roads.filter(function (r) { return r.kind === kind && r.id !== skip; })).forEach(function (ch) {
+      var flat = [], ws = [], marked = [];
+      ch.forEach(function (r, k) {
+        var a = flat.length / 2 - (k ? 1 : 0), rw = riverWs(r);
+        flat = flat.concat(k ? r.pts.slice(2) : r.pts); ws = ws.concat(k ? rw.slice(1) : rw);
+        if (sel[r.id]) marked.push([a, a + rw.length - 1]);
+      });
+      var hl = ch.length === 1 ? marked.length > 0 : (marked.length ? marked : false);
+      if (kind === 'river') paintRiver(flat, hl, null, false, ws); else paintRoad(flat, hl, null, false, ws);
+    }); });
+    if (draft && draft.length) {
+      var flat = []; draft.forEach(function (q) { flat.push(q[0], q[1]); });
+      var tip = hover && roading() ? hover : null;
+      var dws = tip ? draftWs.concat([draftDoc.wNext]) : draftWs;
+      if (draftDoc.kind === 'river') paintRiver(flat, false, null, true, dws, tip); else paintRoad(flat, false, null, true, dws, tip);
+      ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1F2A22'; ctx.lineWidth = 1.5;
+      draft.forEach(function (q) { ctx.beginPath(); ctx.arc(sx(q[0]), sy(q[1]), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+      ctx.restore();
+    }
+    roads.forEach(function (r) { var off = 20; if (sel[r.id]) drawCross(r, sx(r.pts[0]) + off, sy(r.pts[1]) + off, 0); });
+    handles = []; riverPts = [];
+    var pr = pointRiver();
+    if (selPt && (!pr || pr.id !== selPt.id || selPt.i >= pr.pts.length / 2)) selPt = null;
+    if (structTab() && !draft) {
+      ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = '#1F2A22'; ctx.fillStyle = '#FFFFFF';
+      var ends = [];
+      roads.forEach(function (r) {
+        if (pr && r.id === pr.id) return;
+        var n = r.pts.length;
+        [[0, 'start'], [n - 2, 'end']].forEach(function (e) { ends.push({ r: r, end: e[1], x: sx(r.pts[e[0]]), y: sy(r.pts[e[0] + 1]) }); });
+      });
+      ends.forEach(function (h) {
+        var joined = ends.some(function (o) { return o.r !== h.r && Math.abs(o.x - h.x) <= 3 && Math.abs(o.y - h.y) <= 3; });
+        if (joined) return;
+        ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        handles.push(h);
+      });
+      if (pr) {
+        for (var pi = 0; pi < pr.pts.length; pi += 2) {
+          var on = selPt && selPt.i === pi / 2, qx = sx(pr.pts[pi]), qy = sy(pr.pts[pi + 1]);
+          ctx.fillStyle = on ? '#F2B33D' : '#FFFFFF';
+          ctx.beginPath(); ctx.arc(qx, qy, on ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          riverPts.push({ r: pr, i: pi / 2, x: qx, y: qy });
+        }
+      }
+      ctx.restore();
+    }
+  }
+  // Parts of a river that meet end to start are drawn as one river, so the joint has no seam.
+  function riverChains(list) {
+    function key(r, end) { var i = end ? r.pts.length - 2 : 0; return r.pts[i].toFixed(4) + ',' + r.pts[i + 1].toFixed(4); }
+    var byStart = {}, used = {}, isNext = {}, out = [];
+    list.forEach(function (r) { var k = key(r, false); if (!byStart[k]) byStart[k] = r; });
+    list.forEach(function (r) { var nx = byStart[key(r, true)]; if (nx && nx !== r) isNext[nx.id] = true; });
+    function walk(r) {
+      var ch = [];
+      while (r && !used[r.id]) { used[r.id] = true; ch.push(r); var nx = byStart[key(r, true)]; r = nx && nx !== r ? nx : null; }
+      if (ch.length) out.push(ch);
+    }
+    list.forEach(function (r) { if (!isNext[r.id]) walk(r); });
+    list.forEach(function (r) { walk(r); });
+    return out;
+  }
+  function pointRiver() { var r = selectedLine(); return r && structTab() ? r : null; }
+  function riverPtAt(px, py) {
+    for (var i = riverPts.length - 1; i >= 0; i--) { var h = riverPts[i]; if ((px - h.x) * (px - h.x) + (py - h.y) * (py - h.y) <= 81) return h; }
+    return null;
+  }
+  function saveRiver(r, msg) {
+    r.ws = riverWs(r).map(function (v) { return Math.round(v * 10000) / 10000; }); r.w0 = r.kind === 'river' ? r.ws[0] : null; r.w = r.ws[r.ws.length - 1];
+    if (roadsCol) roadsCol.doc(r.id).update({ pts: r.pts, ws: r.ws, w: r.w, w0: r.w0 }).then(function () { setStatus(msg || 'Сохранено'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+  }
+  function dropRiverPoint(r, i) {
+    if (r.pts.length <= 4) { setStatus('В части должно остаться хотя бы две точки'); return; }
+    var rid = r.id, oldP = r.pts.slice(), oldW = riverWs(r).slice();
+    r.ws = oldW.slice(); r.ws.splice(i, 1); r.pts.splice(i * 2, 2); selPt = null;
+    saveRiver(r, 'Точка убрана'); record(function () { restoreRiver(rid, oldP, oldW); });
+    renderSamples(); draw();
+  }
+  function riverById(id) { return roads.filter(function (x) { return x.id === id; })[0] || null; }
+  function restoreRiver(id, pts, ws) { var rr = riverById(id); if (rr) { rr.pts = pts; rr.ws = ws; saveRiver(rr, 'Отменено'); renderSamples(); draw(); } }
+  function handleAt(px, py) {
+    for (var i = handles.length - 1; i >= 0; i--) { var h = handles[i]; if ((px - h.x) * (px - h.x) + (py - h.y) * (py - h.y) <= 81) return h; }
+    return null;
+  }
+  function roadHit(px, py) {
+    for (var k = roads.length - 1; k >= 0; k--) {
+      var r = roads[k], pts = [].concat.apply([], smooth(r.pts)), tol = Math.max(4, Math.max.apply(null, riverWs(r)) * view.k) / 2 + 5;
+      for (var i = 0; i + 3 < pts.length; i += 2) {
+        var ax = sx(pts[i]), ay = sy(pts[i + 1]), bx = sx(pts[i + 2]), by = sy(pts[i + 3]);
+        var dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1;
+        var t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+        var cx = ax + t * dx - px, cy = ay + t * dy - py;
+        if (cx * cx + cy * cy <= tol * tol) return r;
+      }
+    }
+    return null;
+  }
+  function selectedLine() {
+    var ids = Object.keys(sel); if (ids.length !== 1) return null;
+    return roads.filter(function (r) { return r.id === ids[0]; })[0] || null;
+  }
+  function lineWidth(r) {
+    var ws = riverWs(r); return selPt && selPt.id === r.id ? ws[selPt.i] : ws[0];
+  }
+  function setLineWidth(r, v) {
+    var ws = riverWs(r).slice();
+    if (selPt && selPt.id === r.id) ws[selPt.i] = v;
+    else { var k = v / ws[0]; ws = ws.map(function (x) { return x * k; }); }
+    r.ws = ws; r.w0 = r.kind === 'river' ? ws[0] : null; r.w = ws[ws.length - 1];
+  }
+  function saveLine(r) {
+    saveRiver(r, 'Ширина сохранена'); return;
+    if (roadsCol) roadsCol.doc(r.id).update({ w: r.w, w0: r.w0 || null }).then(function () { setStatus('Ширина сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+  }
+  function finishRoad() {
+    if (!draft) return;
+    var pts = [], pws = []; draft.forEach(function (q, qi) { var l = pts[pts.length - 1]; if (!l || Math.abs(l[0] - q[0]) * view.k > 2 || Math.abs(l[1] - q[1]) * view.k > 2) { pts.push(q); pws.push(draftWs[qi]); } });
+    draft = pts; draftWs = pws;
+    if (pts.length < 2) { discardDraft(); draw(); return; }
+    var r = draftRoad();
+    var isRiver = r.kind === 'river';
+    draft = null; draftDoc = null; draftWs = null;
+    if (roads.some(function (x) { return x.id === r.id; })) roads = roads.map(function (x) { return x.id === r.id ? r : x; }); else roads.push(r);
+    record(function () { dropRoad(r); });
+    if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, t: r.t }).then(function () { setStatus(isRiver ? 'Часть реки сохранена' : 'Дорога сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+    else setStatus(isRiver ? 'Часть реки готова' : 'Дорога готова');
+    draw();
+  }
+  function renderRoadTool(box) {
+    var wrap = document.createElement('div'); wrap.className = 'brushbar';
+    [['road', 'Простая дорога'], ['river', 'Река']].forEach(function (tl) {
+      var on = structTool === tl[0];
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sample' + (on ? ' on' : ''); b.title = tl[1];
+      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', tl[1] + ': щелчками ставьте точки, двойной щелчок или Enter — закончить, Esc — отменить');
+      var c = document.createElement('canvas'); c.width = 112; c.height = 112; c.style.width = '56px'; c.style.height = '56px';
+      var g = c.getContext('2d'); g.scale(2, 2); g.lineCap = 'round'; g.lineJoin = 'round';
+      function path() { g.beginPath(); g.moveTo(8, 46); g.quadraticCurveTo(26, 40, 30, 26); g.quadraticCurveTo(34, 12, 50, 9); }
+      if (tl[0] === 'road') {
+        g.lineCap = 'butt';
+        path(); g.lineWidth = 13; g.strokeStyle = 'rgba(16,28,21,0.55)'; g.stroke();
+        path(); g.lineWidth = 11; g.strokeStyle = '#D8D4CC'; g.stroke();
+        path(); g.lineWidth = 8; g.strokeStyle = '#5E5D5A'; g.stroke();
+        path(); g.lineWidth = 1.2; g.setLineDash([4, 4]); g.strokeStyle = '#ECE6D6'; g.stroke();
+      } else {
+        path(); g.lineWidth = 10; g.strokeStyle = '#3D6A80'; g.stroke();
+        path(); g.lineWidth = 4; g.strokeStyle = '#5687A0'; g.stroke();
+      }
+      b.appendChild(c);
+      b.addEventListener('click', function () { structTool = structTool === tl[0] ? null : tl[0]; cancelDraft(); renderSamples(); draw(); });
+      wrap.appendChild(b);
+    });
+    var sizeBox = document.createElement('div'); sizeBox.className = 'brushsize';
+    var lab = document.createElement('label'); lab.setAttribute('for', 'structWidth'); lab.textContent = 'Ширина';
+    var range = document.createElement('input'); range.type = 'range'; range.id = 'structWidth'; range.min = '10'; range.max = '300'; range.step = '5';
+    var target = selectedLine(), targetId = target ? target.id : null;
+    function live() { return targetId ? roads.filter(function (r) { return r.id === targetId; })[0] || null : null; }
+    var ptOn = target && selPt && selPt.id === target.id;
+    if (target) lab.textContent = ptOn ? 'Ширина в точке ' + (selPt.i + 1) + ' из ' + target.pts.length / 2 : target.kind === 'river' ? 'Ширина реки (все точки)' : 'Ширина дороги (все точки)';
+    else if (draftDoc) lab.textContent = 'Ширина следующих точек';
+    var cur = target ? lineWidth(target) : draftDoc ? draftDoc.wNext : structTool ? structW[structTool] : 0.075;
+    range.value = String(Math.round(cur * 1000));
+    var val = document.createElement('output'); val.setAttribute('for', 'structWidth');
+    var isRiverNow = target ? target.kind === 'river' : structTool === 'river';
+    function showW() { val.textContent = range.value + ' м' + (isRiverNow && target && !ptOn ? ' у истока' : ''); }
+    var beforeWs = target ? riverWs(target).slice() : null;
+    range.addEventListener('input', function () {
+      var v = Number(range.value) / 1000;
+      if (target) { var lr = live(); if (lr) setLineWidth(lr, v); }
+      else if (structTool) {
+        structW[structTool] = v; try { localStorage.setItem('sosnyMapStructW', JSON.stringify(structW)); } catch (e) {}
+        if (draftDoc && draftDoc.kind === structTool) draftDoc.wNext = v;
+      }
+      showW(); draw();
+    });
+    range.addEventListener('change', function () {
+      if (!target) { if (draftDoc && draftDoc.saved) saveDraft('Ширина сохранена'); return; }
+      var r = live(); if (!r) return;
+      var oldWs = beforeWs, rpts = r.pts.slice(); beforeWs = riverWs(r).slice();
+      saveLine(r);
+      record(function () { restoreRiver(targetId, rpts, oldWs); });
+    });
+    sizeBox.appendChild(lab); sizeBox.appendChild(range); sizeBox.appendChild(val); showW();
+    var hint = document.createElement('div'); hint.className = 'empty';
+    hint.textContent = target
+      ? 'Щёлкните точку и меняйте ширину в ней ползунком. Точку можно тащить, Alt+щелчок или Delete — убрать точку.'
+      : 'Щелчками ставьте точки. Двойной щелчок или Enter — закончить, Esc — отменить.';
+    var hb = document.createElement('button'); hb.type = 'button'; hb.className = 'sample'; hb.title = KINDS.hill.name;
+    hb.setAttribute('aria-label', 'Поставить: ' + KINDS.hill.name + ' (перетащите на карту или нажмите, чтобы поставить в центр)');
+    var hc = document.createElement('canvas'); hc.width = 112; hc.height = 112; hc.style.width = '56px'; hc.style.height = '56px';
+    var hg = hc.getContext('2d'); hg.scale(2, 2); drawKind(hg, 'hill', 28, 30, 54);
+    hb.appendChild(hc);
+    hb.addEventListener('pointerdown', function (e) { startNew(e, 'hill'); });
+    hb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addMark('hill', view.x, view.y); } });
+    var lb = document.createElement('button'); lb.type = 'button'; lb.className = 'sample'; lb.title = KINDS.lake.name;
+    lb.setAttribute('aria-label', 'Поставить: ' + KINDS.lake.name + ' (перетащите на карту или нажмите, чтобы поставить в центр)');
+    var lc = document.createElement('canvas'); lc.width = 112; lc.height = 112; lc.style.width = '56px'; lc.style.height = '56px';
+    var lg = lc.getContext('2d'); lg.scale(2, 2); drawKind(lg, 'lake', 28, 28, 52);
+    lb.appendChild(lc);
+    lb.addEventListener('pointerdown', function (e) { startNew(e, 'lake'); });
+    lb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addMark('lake', view.x, view.y); } });
+    var sep = document.createElement('span'); sep.className = 'tsep';
+    wrap.insertBefore(sep, wrap.firstChild); wrap.insertBefore(lb, wrap.firstChild); wrap.insertBefore(hb, wrap.firstChild);
+    STRUCT_MARKS.forEach(function (k) {
+      var bb = document.createElement('button'); bb.type = 'button'; bb.className = 'sample'; bb.title = KINDS[k].name;
+      bb.setAttribute('aria-label', 'Поставить: ' + KINDS[k].name + ' (перетащите на карту или нажмите, чтобы поставить в центр)');
+      var bc = document.createElement('canvas'); bc.width = 112; bc.height = 112; bc.style.width = '56px'; bc.style.height = '56px';
+      var bg = bc.getContext('2d'); bg.scale(2, 2); drawKind(bg, k, 28, 28, 56);
+      bb.appendChild(bc);
+      bb.addEventListener('pointerdown', function (e) { startNew(e, k); });
+      bb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addMark(k, view.x, view.y); } });
+      wrap.insertBefore(bb, sep);
+    });
+    if (!target && !structTool) { sizeBox.hidden = true; hint.textContent = 'Выберите «Простую дорогу» или «Реку», чтобы рисовать. Правый щелчок по карте — снять выбор.'; }
+    else if (!target) hint.textContent = structTool === 'river'
+      ? 'Река рисуется частями: каждая точка сохраняется сразу. Двойной щелчок или Enter — закончить часть, Esc — убрать её. Потяните за кружок на конце — продолжить новой частью.'
+      : 'Щелчками ставьте точки, каждая сохраняется сразу. Двойной щелчок или Enter — закончить, Esc — убрать. Правый щелчок — снять выбор.';
+    var bsel = selBridges();
+    if (bsel.length) {
+      sizeBox.style.display = 'none';
+      wrap.appendChild(rotateRow(bsel));
+      hint.textContent = 'Крутите ползунком или кнопками (R / Shift+R — на 15°).';
+    }
+    wrap.appendChild(sizeBox); wrap.appendChild(hint); box.appendChild(wrap);
+  }
+
+  var layer = document.createElement('canvas');
+  var lctx = layer.getContext('2d');
+  function strokePath(g, st) {
+    var pts = st.pts;
+    g.beginPath();
+    g.moveTo(sx(pts[0]), sy(pts[1]));
+    if (pts.length === 2) g.lineTo(sx(pts[0]) + 0.01, sy(pts[1]));
+    for (var i = 2; i < pts.length; i += 2) g.lineTo(sx(pts[i]), sy(pts[i + 1]));
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.lineWidth = Math.max(1, st.size * view.k);
+    g.globalCompositeOperation = st.erase ? 'destination-out' : 'source-over';
+    g.strokeStyle = st.erase ? '#000' : st.color; g.stroke();
+  }
+  function fmtKm(v) {
+    if (v < 1) return Math.round(v * 1000) + ' м';
+    return (Math.round(v * 10) / 10).toString().replace('.', ',') + ' км';
+  }
+  function drawRuler() {
+    var opts = [[0.1, 5], [0.2, 4], [0.5, 5], [1, 5], [2, 4], [5, 5], [10, 5]];
+    var pick = opts[0];
+    for (var i = 0; i < opts.length; i++) if (opts[i][0] * view.k <= 260) pick = opts[i];
+    var L = pick[0], parts = pick[1], len = L * view.k, seg = len / parts;
+    var tray = document.querySelector('.tray');
+    var bottom = tray ? tray.getBoundingClientRect().height : 0;
+    var x0 = 28, y0 = H - bottom - 30, h = 7;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20, 24, 20, 0.72)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0 - 14, y0 - 26, len + 28 + 26, 44, 8); else ctx.rect(x0 - 14, y0 - 26, len + 28 + 26, 44);
+    ctx.fill();
+    for (var k = 0; k < parts; k++) {
+      ctx.fillStyle = k % 2 ? '#EDE6D6' : '#141814';
+      ctx.fillRect(x0 + k * seg, y0, seg, h);
+    }
+    ctx.lineWidth = 1; ctx.strokeStyle = '#EDE6D6'; ctx.strokeRect(x0 + 0.5, y0 + 0.5, len - 1, h - 1);
+    ctx.font = "600 12px 'PT Sans', system-ui, sans-serif"; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#EDE6D6';
+    ctx.beginPath();
+    for (var t = 0; t <= parts; t++) { var tx = x0 + t * seg; ctx.moveTo(tx + 0.5, y0 - 4); ctx.lineTo(tx + 0.5, y0); }
+    ctx.stroke();
+    var labels = [0, 1, parts];
+    if (parts === 4) labels = [0, 2, parts];
+    labels.forEach(function (t) {
+      var tx = x0 + t * seg, v = L * t / parts;
+      ctx.textAlign = t === 0 ? 'left' : t === parts ? 'left' : 'center';
+      var text = t === 0 ? '0' : fmtKm(v);
+      ctx.fillText(text, t === parts ? tx - 6 : tx, y0 - 6);
+    });
+    ctx.restore();
+  }
+  var hover = null;
+  function drawBrushRing() {
+    if (!painting() || !hover) return;
+    var r = Math.max(2, brush.size * view.k / 2);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(hover[0], hover[1], r, 0, Math.PI * 2);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.stroke();
+    if (brush.tool === 'erase') ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#FFFFFF'; ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(hover[0], hover[1], 1.5, 0, Math.PI * 2); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+    ctx.restore();
+  }
+  function drawStrokes() {
+    if (layer.width !== canvas.width || layer.height !== canvas.height) { layer.width = canvas.width; layer.height = canvas.height; }
+    lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalCompositeOperation = 'source-over';
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    strokes.forEach(function (st) { strokePath(lctx, st); });
+    if (live) strokePath(lctx, live);
+    lctx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore();
+  }
+  function saveStroke(st) {
+    if (!strokesCol) return;
+    st.id = st.id || ('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    record(function () { strokes = strokes.filter(function (o) { return o !== st; }); strokesCol.doc(st.id).delete().catch(function () {}); draw(); });
+    strokesCol.doc(st.id).set({ color: st.color, erase: !!st.erase, size: st.size, t: Date.now(), pts: st.pts.map(function (v) { return Math.round(v * 10000) / 10000; }) })
+      .then(function () { setStatus(st.erase ? 'Стёрто' : 'Мазок сохранён'); })
+      .catch(function () { setStatus('Мазок не сохранился — попробуйте ещё раз'); });
+  }
+
+
+  function save(m) {
+    if (!col) return;
+    col.doc(m.id).set(markDoc(m))
+      .then(function () { setStatus('Сохранено'); })
+      .catch(function () { setStatus('Не сохранилось — проверьте связь и попробуйте ещё раз'); });
+  }
+  function addMark(kind, x, y) {
+    var id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var m = { id: id, kind: kind, x: x, y: y };
+    marks.push(m); sel = {}; sel[m.id] = true; refresh(); save(m);
+    record(function () { dropMark(m); });
+  }
+  function removeRoad(r) {
+    record(function () { putRoad(r); });
+    delete sel[r.id];
+    roads = roads.filter(function (o) { return o !== r; }); draw();
+    if (roadsCol) roadsCol.doc(r.id).delete().then(function () { setStatus('Дорога удалена'); }).catch(function () { setStatus('Не удалилось — попробуйте ещё раз'); });
+  }
+  function removeSelected() {
+    areas.filter(function (a) { return sel[a.id]; }).forEach(removeArea);
+    roads.filter(function (r) { return sel[r.id]; }).forEach(removeRoad);
+    var gone = marks.filter(isSel);
+    if (!gone.length) return;
+    record(function () { gone.forEach(putMark); });
+    sel = {};
+    marks = marks.filter(function (o) { return gone.indexOf(o) < 0; }); refresh();
+    if (col) gone.forEach(function (m) { col.doc(m.id).delete().then(function () { setStatus('Удалено'); }).catch(function () { setStatus('Не удалилось — попробуйте ещё раз'); }); });
+  }
+
+  var masks = {};
+  function maskFor(kind, size, rot) {
+    var key = kind + '|' + size + '|' + (rot || 0);
+    if (masks[key]) return masks[key];
+    var box = Math.ceil(size * 1.4) + 4, c = document.createElement('canvas');
+    c.width = box; c.height = box;
+    var g = c.getContext('2d');
+    noShadow = true; try { drawKind(g, kind, box / 2, box / 2, size, rot); } finally { noShadow = false; }
+    var m = { box: box, data: g.getImageData(0, 0, box, box).data };
+    masks[key] = m;
+    return m;
+  }
+  function hit(px, py) {
+    var sorted = marks.slice().sort(function (a, b) { return a.y - b.y; });
+    for (var i = 0; i < sorted.length; i++) {
+      var m = sorted[i], size = Math.round(iconPx(m.kind)), mk = maskFor(m.kind, size, m.rot);
+      var lx = Math.round(px - sx(m.x) + mk.box / 2), ly = Math.round(py - sy(m.y) + mk.box / 2);
+      if (lx < 0 || ly < 0 || lx >= mk.box || ly >= mk.box) continue;
+      for (var dy = -2; dy <= 2; dy += 2) for (var dx = -2; dx <= 2; dx += 2) {
+        var qx = lx + dx, qy = ly + dy;
+        if (qx < 0 || qy < 0 || qx >= mk.box || qy >= mk.box) continue;
+        if (mk.data[(qy * mk.box + qx) * 4 + 3] > 60) return m;
+      }
+    }
+    return null;
+  }
+
+  var drag = null;
+  function localXY(e) { var r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  canvas.addEventListener('pointerdown', function (e) {
+    var p = localXY(e);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    if (e.button === 1 || e.button === 2) { drag = { type: 'pan', sx: p[0], sy: p[1], vx: view.x, vy: view.y, button: e.button, moved: false }; canvas.classList.add('panning'); return; }
+    if (painting()) {
+      live = { color: brush.color, erase: brush.tool === 'erase', size: brush.size, pts: [wx(p[0]), wy(p[1])] };
+      drag = { type: 'paint' }; draw(); return;
+    }
+    if (e.button !== 0) return;
+    if (zonesTab()) {
+      if (areaDraft) {
+        if (e.detail >= 2) { finishArea(); return; }
+        var f0 = areaDraft[0];
+        if (areaDraft.length >= 3 && Math.abs(sx(f0[0]) - p[0]) <= 10 && Math.abs(sy(f0[1]) - p[1]) <= 10) { finishArea(); return; }
+        areaDraft.push([wx(p[0]), wy(p[1])]); draw(); return;
+      }
+      var xa = crossAt(p[0], p[1]);
+      if (xa) { removeMark(xa); return; }
+      var ah = areaHandleAt(p[0], p[1]);
+      if (ah) {
+        var a0 = ah.a, oldPts = a0.pts.slice(), aid = a0.id;
+        if (ah.kind === 'v') {
+          if (e.altKey) {
+            if (a0.pts.length <= 6) { setStatus('В зоне должно остаться хотя бы три точки'); return; }
+            a0.pts.splice(ah.i * 2, 2); saveArea(a0, 'Точка убрана');
+            record(function () { var aa = areaById(aid); if (aa) { aa.pts = oldPts; saveArea(aa); draw(); } });
+            draw(); return;
+          }
+          drag = { type: 'vertex', a: a0, i: ah.i, from: oldPts, moved: false }; return;
+        }
+        a0.pts.splice(ah.i * 2 + 2, 0, wx(p[0]), wy(p[1]));
+        drag = { type: 'vertex', a: a0, i: ah.i + 1, from: oldPts, moved: true }; draw(); return;
+      }
+      var hitA = areaAt(p[0], p[1]);
+      if (areaTool) {
+        if (hitA) { sel = {}; sel[hitA.id] = true; renderSamples(); draw(); return; }
+        if (selCount()) { sel = {}; renderSamples(); draw(); return; }
+        areaDraft = [[wx(p[0]), wy(p[1])]]; draw(); return;
+      }
+      if (hitA) {
+        if (!sel[hitA.id]) { if (!e.shiftKey) sel = {}; sel[hitA.id] = true; renderSamples(); }
+        drag = { type: 'areamove', a: hitA, wx: wx(p[0]), wy: wy(p[1]), from: hitA.pts.slice(), moved: false }; draw(); return;
+      }
+    }
+    if (structTab() && !draft) {
+      var rp = riverPtAt(p[0], p[1]);
+      if (rp) {
+        var rr0 = rp.r, rid = rr0.id, oldP = rr0.pts.slice(), oldW = riverWs(rr0).slice();
+        if (e.altKey) { dropRiverPoint(rr0, rp.i); return; }
+        selPt = { id: rid, i: rp.i }; renderSamples();
+        drag = { type: 'rpoint', r: rr0, i: rp.i, from: oldP, ws: oldW, moved: false }; draw(); return;
+      }
+      var hd = handleAt(p[0], p[1]);
+      if (hd) {
+        structTool = hd.r.kind === 'river' ? 'river' : 'road';
+        startDraft(structTool, hd); sel = {}; renderSamples(); draw();
+        setStatus(structTool === 'river' ? 'Новая часть реки' : 'Новая часть дороги'); return;
+      }
+    }
+    if (roading()) {
+      if (!draft) {
+        var xc = crossAt(p[0], p[1]);
+        if (xc) { removeMark(xc); renderSamples(); return; }
+        var hitR = roadHit(p[0], p[1]);
+        if (hitR) { if (!sel[hitR.id]) selPt = null; sel = {}; sel[hitR.id] = true; structTool = hitR.kind === 'river' ? 'river' : 'road'; renderSamples(); draw(); return; }
+        if (selectedLine()) { sel = {}; selPt = null; renderSamples(); draw(); return; }
+      }
+      if (!draft) startDraft(structTool, null);
+      if (e.detail >= 2) { finishRoad(); return; }
+      addDraftPoint(wx(p[0]), wy(p[1])); saveDraft(); draw(); return;
+    }
+    var x = crossAt(p[0], p[1]);
+    if (x) { removeMark(x); return; }
+    var m = hit(p[0], p[1]);
+    if (m) {
+      if (!isSel(m)) { if (!e.shiftKey) sel = {}; sel[m.id] = true; }
+      var group = marks.filter(isSel);
+      drag = { type: 'move', wx: wx(p[0]), wy: wy(p[1]), group: group, from: group.map(function (g) { return [g.x, g.y]; }), moved: false };
+      refresh();
+    } else if (roadHit(p[0], p[1])) {
+      var rd = roadHit(p[0], p[1]);
+      if (!e.shiftKey) sel = {};
+      sel[rd.id] = true; refresh();
+      if (structTab()) renderSamples();
+    } else {
+      drag = { type: 'box', x0: p[0], y0: p[1], x1: p[0], y1: p[1], add: e.shiftKey };
+      if (!e.shiftKey) sel = {};
+      refresh();
+    }
+  });
+  canvas.addEventListener('pointerleave', function () { if (hover) { hover = null; draw(); } });
+  canvas.addEventListener('pointermove', function (e) {
+    var p = localXY(e);
+    hover = e.pointerType === 'mouse' || e.pointerType === 'pen' ? p : null;
+    if (!drag && (painting() || (roading() && draft) || areaDraft)) { draw(); return; }
+    if (!drag && zonesTab()) {
+      var ha = areaAt(p[0], p[1]), hid = ha ? ha.id : null, hh = areaHandleAt(p[0], p[1]);
+      if (hid !== areaHover) { areaHover = hid; draw(); }
+      canvas.classList.toggle('over-vertex', !!hh || !!crossAt(p[0], p[1]));
+      canvas.classList.toggle('over-mark', !areaTool && !!ha && !hh);
+      canvas.classList.toggle('over-cross', false);
+      return;
+    }
+    if (!drag) { canvas.classList.toggle('over-cross', !painting() && (!!crossAt(p[0], p[1]) || (roading() && !!handleAt(p[0], p[1])))); canvas.classList.toggle('over-mark', !painting() && !!hit(p[0], p[1])); return; }
+    if (drag.type === 'pan') {
+      if (Math.abs(p[0] - drag.sx) + Math.abs(p[1] - drag.sy) > 4) drag.moved = true;
+      view.x = drag.vx - (p[0] - drag.sx) / view.k; view.y = drag.vy + (p[1] - drag.sy) / view.k; draw();
+    } else if (drag.type === 'paint') {
+      var x = wx(p[0]), y = wy(p[1]), n = live.pts.length;
+      var dx = x - live.pts[n - 2], dy = y - live.pts[n - 1];
+      if (Math.sqrt(dx * dx + dy * dy) >= Math.max(live.size * 0.15, 2 / view.k)) live.pts.push(x, y);
+      draw();
+    } else if (drag.type === 'box') {
+      drag.x1 = p[0]; drag.y1 = p[1]; draw();
+    } else if (drag.type === 'move') {
+      var ddx = wx(p[0]) - drag.wx, ddy = wy(p[1]) - drag.wy;
+      drag.group.forEach(function (g, i) { g.x = drag.from[i][0] + ddx; g.y = drag.from[i][1] + ddy; });
+      drag.moved = true; draw();
+    } else if (drag.type === 'rpoint') {
+      if (!drag.moved && Math.abs(sx(drag.from[drag.i * 2]) - p[0]) + Math.abs(sy(drag.from[drag.i * 2 + 1]) - p[1]) < 4) return;
+      drag.r.pts[drag.i * 2] = wx(p[0]); drag.r.pts[drag.i * 2 + 1] = wy(p[1]); drag.moved = true; draw();
+    } else if (drag.type === 'vertex') {
+      drag.a.pts[drag.i * 2] = wx(p[0]); drag.a.pts[drag.i * 2 + 1] = wy(p[1]); drag.moved = true; draw();
+    } else if (drag.type === 'areamove') {
+      var adx = wx(p[0]) - drag.wx, ady = wy(p[1]) - drag.wy;
+      for (var ai = 0; ai < drag.from.length; ai += 2) { drag.a.pts[ai] = drag.from[ai] + adx; drag.a.pts[ai + 1] = drag.from[ai + 1] + ady; }
+      drag.moved = true; draw();
+    }
+  });
+  function endDrag() {
+    if (drag && drag.type === 'pan' && drag.button === 2 && !drag.moved && structTab() && (structTool || draft)) {
+      cancelDraft(); structTool = null; drag = null; canvas.classList.remove('panning'); renderSamples(); draw(); return;
+    }
+    if (drag && drag.type === 'pan' && drag.button === 2 && !drag.moved && zonesTab() && (areaTool || areaDraft || selCount())) {
+      if (areaDraft) finishArea(); areaTool = false; sel = {}; drag = null; canvas.classList.remove('panning'); renderSamples(); draw(); return;
+    }
+    if (drag && drag.type === 'move' && drag.moved) {
+      drag.group.forEach(save);
+      var grp = drag.group, from = drag.from;
+      record(function () { grp.forEach(function (g, i) { g.x = from[i][0]; g.y = from[i][1]; if (marks.indexOf(g) >= 0) save(g); }); });
+    }
+    if (drag && drag.type === 'box') {
+      var l = Math.min(drag.x0, drag.x1), r = Math.max(drag.x0, drag.x1), t = Math.min(drag.y0, drag.y1), b = Math.max(drag.y0, drag.y1);
+      if (r - l > 3 || b - t > 3) {
+        marks.forEach(function (m) { var mx = sx(m.x), my = sy(m.y); if (mx >= l && mx <= r && my >= t && my <= b) sel[m.id] = true; });
+        roads.forEach(function (rd) { for (var i = 0; i < rd.pts.length; i += 2) { var qx = sx(rd.pts[i]), qy = sy(rd.pts[i + 1]); if (qx >= l && qx <= r && qy >= t && qy <= b) { sel[rd.id] = true; break; } } });
+        if (zonesTab() && areasShown) areas.forEach(function (a) { for (var i = 0; i < a.pts.length; i += 2) { var qx = sx(a.pts[i]), qy = sy(a.pts[i + 1]); if (qx >= l && qx <= r && qy >= t && qy <= b) { sel[a.id] = true; break; } } });
+      }
+      drag = null; refresh();
+      if (structTab() || zonesTab()) renderSamples();
+    }
+    if (drag && drag.type === 'rpoint') {
+      if (drag.moved) { var mr = drag.r, mid = mr.id, mp = drag.from, mw = drag.ws; mr.pts = mr.pts.map(function (v) { return Math.round(v * 10000) / 10000; }); saveRiver(mr, 'Точка передвинута'); record(function () { restoreRiver(mid, mp, mw); }); }
+      else setStatus('Точка ' + (drag.i + 1) + ': меняйте ширину ползунком');
+      drag = null; draw();
+    }
+    if (drag && drag.type === 'paint' && live) { strokes.push(live); saveStroke(live); live = null; draw(); }
+    if (drag && (drag.type === 'vertex' || drag.type === 'areamove')) {
+      var va = drag.a, vfrom = drag.from, vid = va.id;
+      if (drag.moved) {
+        saveArea(va, drag.type === 'vertex' ? 'Контур сохранён' : 'Зона передвинута');
+        record(function () { var aa = areaById(vid); if (aa) { aa.pts = vfrom; saveArea(aa); draw(); } });
+      }
+      drag = null; draw();
+    }
+    drag = null; canvas.classList.remove('panning');
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  var ZOOMS = [50, 100, 190, 350, 650];
+  var zoomLevel = 2;
+  var wheelAcc = 0, wheelAt = 0;
+  function setZoom(px, py, level) {
+    level = Math.max(0, Math.min(ZOOMS.length - 1, level));
+    if (level === zoomLevel) return;
+    var bx = wx(px), by = wy(py);
+    zoomLevel = level; view.k = ZOOMS[level];
+    view.x = bx - (px - W / 2) / view.k; view.y = by + (py - H / 2) / view.k; draw();
+    renderZoombar();
+    if (painting()) renderSamples();
+  }
+  function renderZoombar() {
+    var bar = document.getElementById('zoombar'); bar.textContent = '';
+    for (var lv = ZOOMS.length - 1; lv >= 0; lv--) (function (lv) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = String(lv + 1);
+      b.setAttribute('aria-label', 'Уровень приближения ' + (lv + 1) + ' из ' + ZOOMS.length);
+      if (lv === zoomLevel) b.setAttribute('aria-current', 'true');
+      b.addEventListener('click', function () { setZoom(W / 2, H / 2, lv); });
+      bar.appendChild(b);
+    })(lv);
+  }
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault(); var p = localXY(e);
+    var now = performance.now();
+    if (now - wheelAt < 160) { wheelAcc = 0; return; }
+    wheelAcc += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    if (Math.abs(wheelAcc) < 60) return;
+    wheelAt = now;
+    var step = wheelAcc < 0 ? 1 : -1; wheelAcc = 0;
+    setZoom(p[0], p[1], zoomLevel + step);
+  }, { passive: false });
+  var clip = null, pasteCount = 0;
+  function copySelected() {
+    var group = marks.filter(isSel);
+    if (!group.length) return;
+    var cx = 0, cy = 0; group.forEach(function (m) { cx += m.x; cy += m.y; }); cx /= group.length; cy /= group.length;
+    clip = { cx: cx, cy: cy, items: group.map(function (m) { return { kind: m.kind, rot: m.rot || 0, dx: m.x - cx, dy: m.y - cy }; }) };
+    pasteCount = 0;
+    setStatus('Скопировано: ' + group.length);
+  }
+  function pasteClip() {
+    if (!clip) return;
+    pasteCount++;
+    var cx, cy;
+    if (hover) { cx = wx(hover[0]); cy = wy(hover[1]); }
+    else { var step = 24 / view.k * pasteCount; cx = clip.cx + step; cy = clip.cy - step; }
+    sel = {};
+    var made = [];
+    clip.items.forEach(function (it, i) {
+      var id = 'm' + Date.now().toString(36) + i.toString(36) + Math.random().toString(36).slice(2, 6);
+      var m = { id: id, kind: it.kind, x: cx + it.dx, y: cy + it.dy, rot: it.rot || 0 };
+      marks.push(m); sel[id] = true; save(m); made.push(m);
+    });
+    record(function () { made.forEach(dropMark); });
+    refresh();
+    setStatus('Вставлено: ' + clip.items.length);
+  }
+  window.addEventListener('keydown', function (e) {
+    var typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (typing) return;
+    if (areaDraft) {
+      if (e.key === 'Enter') { e.preventDefault(); finishArea(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); areaDraft = null; draw(); setStatus('Зона отменена'); return; }
+    }
+    if (roading() && draft) {
+      if (e.key === 'Enter') { e.preventDefault(); finishRoad(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); discardDraft(); draw(); setStatus('Часть убрана'); return; }
+    }
+    if ((e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && !e.ctrlKey && !e.metaKey && !e.altKey && selBridges().length && !(e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type === 'text')) {
+      e.preventDefault(); rotateBridges(selBridges(), null, e.shiftKey ? -15 : 15); renderSamples(); return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selPt && pointRiver()) { e.preventDefault(); dropRiverPoint(pointRiver(), selPt.i); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selCount()) { e.preventDefault(); removeSelected(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      var k = e.code === 'KeyC' ? 'c' : e.code === 'KeyV' ? 'v' : e.code === 'KeyZ' ? 'z' : '';
+      if (k === 'c' && selCount()) { e.preventDefault(); copySelected(); }
+      else if (k === 'v' && clip) { e.preventDefault(); pasteClip(); }
+      else if (k === 'z' && !e.shiftKey) { e.preventDefault(); if (areaDraft) { areaDraft.pop(); if (!areaDraft.length) areaDraft = null; draw(); }
+      else if (draft) { draft.pop(); draftWs.pop(); if (!draft.length) discardDraft(); else if (draft.length >= 2) saveDraft('Точка убрана'); else if (draftDoc.saved) { var did = draftDoc.id; draftDoc.saved = false; roads = roads.filter(function (x) { return x.id !== did; }); if (roadsCol) roadsCol.doc(did).delete().catch(function () {}); } draw(); }
+      else undoLast(); }
+    }
+  });
+
+  var ghost = null;
+  function startNew(e, kind) {
+    e.preventDefault();
+    ghost = document.createElement('canvas'); ghost.className = 'ghost';
+    var s = Math.round(iconPx(kind)); ghost.width = s * 2; ghost.height = s * 2; ghost.style.width = s + 'px'; ghost.style.height = s + 'px';
+    var gc = ghost.getContext('2d'); gc.scale(2, 2); drawKind(gc, kind, s / 2, s / 2, s);
+    ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px'; document.body.appendChild(ghost);
+    var startX = e.clientX, startY = e.clientY;
+    function move(ev) { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; }
+    function up(ev) {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      ghost.remove(); ghost = null;
+      var r = canvas.getBoundingClientRect();
+      var trayTop = document.querySelector('.tray').getBoundingClientRect().top;
+      var dist = Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY);
+      if (dist < 6) { addMark(kind, view.x, view.y); return; }
+      if (ev.type === 'pointerup' && ev.clientY < trayTop) addMark(kind, wx(ev.clientX - r.left), wy(ev.clientY - r.top));
+    }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }
+
+
+  function loadIcons(urls) {
+    ORDER.forEach(function (k) {
+      if (!urls || typeof urls[k] !== 'string' || !urls[k]) { delete images[k]; return; }
+      var img = new Image(); img.onload = function () { renderSamples(); refresh(); }; img.src = urls[k]; images[k] = img;
+    });
+  }
+
+
+
+  window.addEventListener('resize', resize);
+  renderTabs(); renderSamples(); renderZoombar(); resize();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  if (window.claude && window.claude.use) {
+    window.claude.use('db').then(function (db) {
+      if (!db) { setStatus('Расстановка не сохраняется в этом просмотре'); return; }
+      roadsCol = db.collection('roads');
+      roadsCol.orderBy('t').onSnapshot(function (snap) {
+        var next = [];
+        snap.docs.forEach(function (d) {
+          var v = d.data();
+          if (!v || !Array.isArray(v.pts) || v.pts.length < 4) return;
+          var ws = Array.isArray(v.ws) && v.ws.length * 2 === v.pts.length ? v.ws.map(function (x) { return Number(x) || RIVER_W0; }) : null;
+          next.push({ id: d.id, pts: v.pts.map(Number), w: Number(v.w) || ROAD_W, w0: Number(v.w0) || null, ws: ws, kind: v.kind === 'river' ? 'river' : 'road', t: Number(v.t) || 0 });
+        });
+        roads = next;
+        var keep = {}; Object.keys(sel).forEach(function (id) { if (marks.some(function (m) { return m.id === id; }) || roads.some(function (r) { return r.id === id; }) || areas.some(function (a) { return a.id === id; })) keep[id] = true; }); sel = keep;
+        draw();
+      }, function () {});
+      areasCol = db.collection('areas');
+      areasCol.orderBy('t').onSnapshot(function (snap) {
+        var held = drag && (drag.type === 'vertex' || drag.type === 'areamove') ? drag.a : null;
+        var next = [];
+        snap.docs.forEach(function (d) {
+          var v = d.data();
+          if (!v || !Array.isArray(v.pts) || v.pts.length < 6) return;
+          if (held && held.id === d.id) { next.push(held); return; }
+          next.push({ id: d.id, area: true, pts: v.pts.map(Number), name: typeof v.name === 'string' ? v.name : '', color: /^#[0-9A-Fa-f]{6}$/.test(v.color) ? v.color : AREA_COLORS[0][1], t: Number(v.t) || 0 });
+        });
+        areas = next;
+        var keep = {}; Object.keys(sel).forEach(function (id) { if (marks.some(function (m) { return m.id === id; }) || roads.some(function (r) { return r.id === id; }) || areas.some(function (a) { return a.id === id; })) keep[id] = true; }); sel = keep;
+        draw();
+      }, function () {});
+      strokesCol = db.collection('strokes');
+      strokesCol.orderBy('t').onSnapshot(function (snap) {
+        var next = [];
+        snap.docs.forEach(function (d) {
+          var v = d.data();
+          if (!v || !Array.isArray(v.pts) || v.pts.length < 2 || typeof v.color !== 'string') return;
+          next.push({ id: d.id, color: v.color, erase: v.erase === true, size: Number(v.size) || 0.1, pts: v.pts.map(Number) });
+        });
+        strokes = next; draw();
+      }, function () {});
+      col = db.collection('marks');
+      setStatus('Подключено');
+      col.onSnapshot(function (snap) {
+        var dragging = {};
+        if (drag && drag.type === 'move') drag.group.forEach(function (g) { dragging[g.id] = g; });
+        var next = [];
+        snap.docs.forEach(function (d) {
+          var v = d.data(); if (!v || !KINDS[v.kind]) return;
+          if (dragging[d.id]) { next.push(dragging[d.id]); return; }
+          next.push({ id: d.id, kind: v.kind, x: Number(v.x) || 0, y: Number(v.y) || 0, rot: Number(v.rot) || 0 });
+        });
+        marks = next;
+        var keep = {}; marks.forEach(function (m) { if (sel[m.id]) keep[m.id] = true; }); roads.forEach(function (r) { if (sel[r.id]) keep[r.id] = true; }); areas.forEach(function (a) { if (sel[a.id]) keep[a.id] = true; }); sel = keep;
+        if (!marks.length) setStatus('Иконок пока нет — перетащите первую из панели');
+        refresh();
+      }, function () { setStatus('Связь с картой потеряна — обновите страницу'); });
+      db.doc('config/icons').onSnapshot(function (d) { loadIcons(d.exists ? d.data() : null); }, function () {});
+    });
+  } else {
+    setStatus('Расстановка не сохраняется в этом просмотре');
+  }
+})();
+</script>
