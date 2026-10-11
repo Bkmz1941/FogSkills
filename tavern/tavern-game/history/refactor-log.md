@@ -3600,3 +3600,23 @@ P651/P696 получили «Защиту», P652 обновлён (проба �
 
 Не взято днём: `FindOffer`/`UpdateMoveObject` (перенос — только с Ильёй), процедурная геометрия (`MapWorld`, лифт, мойка),
 `RecordOpenDoors` (запись ролика обучения, защиты нет), дубль дефов каталога (данные, чужой домен).
+
+## 2026-10-10 вечер → 11.10 (ilya-58) — глубокий рефакторинг по команде Ильи
+
+Чекпоинт до: игра 4605b659, скилы 0f02baf. 16 шагов `night.py step` (не закоммичены). Методов >60 строк: 82 → 75, >100: 8 → 6.
+Защита: `night.py verify` после каждой пачки (панель дебага 158545 строк и правила стычки — совпали везде; живые пробы — совпали, кроме позиции бродящего сектанта; перенос один раз красный — кинокамера атаки сектанта посреди пробы, повтор ×4 зелёный); FindOffer и UpdateMoveObject — независимая сверка эквивалентности агентом; новая проба `hud_menu_probe.cs` (15 вкладок нижнего меню).
+Шаги: заморозка — один владелец `TimeBarHud`; `ViewState.SetTimeScale` — единственный писатель `Time.timeScale` + сторож (P1013); FindOffer 173→9; UpdateMoveObject 116→37 (`MoveFrame`); PickupFeature.Buttons 85→12; InteractiveObject.Build 95→49; HudUI.Start/SystemTab/QuestsTab/AiTab/BuildLevelsManager блоками; GridCursor.Update 80→48; мёртвый код −110 строк (11 методов + хвост конструктора событий зон); 7 лучей через RayPick (Terrain/Support/CrowAttack сняты с белого списка); тесты: Regex не текст для локализации, ShowAll в TuneExempt.
+Отвергнуто: RestoreLevel/Snapshot/ValidatePose/BuildSelectionPanel/палитры/MapWorld (последовательность или данные, резать по счётчику нельзя); Monster.Replan (нет защиты); ParseThen и CreaturePlan* (соседи правят).
+
+## 11.10 ночь (ilya-65) — монстры: общее ядро, дубли, грабли (Илья: «займись рефакторингом кода монстров, только их, функционал ок… чтобы ядро было одно на всех монстров»)
+
+Редактор не запущен (мост UnityMCP молчит) — защита только офлайн: `offline_build.py` чисто после каждого шага, `offline_tests.py` LifeRulesParseTests+AiMonsterBriefTests 13/13, правила `SourceRulesTests` по grep (GetComponent `??`, NonAlloc, Shader.Find) — чисто. Живые пробы (`ai_plan_probe`, `invariants_play`) и `night.py verify` — НЕ гонялись, ждут редактора.
+Шаги 17–22 поверх 16 шагов ilya-58 (все не закоммичены). `CreaturePlan*.cs` взяты `--force`: в них незакоммиченные двери по пути сектанта (сессия 10.10 вечер) — сохранены как есть.
+- 17 `creature-core`: новый файл `Modules/Monsters/Creature.cs` — этаж (5 копий `RoundToInt(y/cs)` → `Storey/StoreyY/SameStorey/CellSize`) и тело-манекен (`Monster.Spawn` + `ShadowMonster.Appear` → `Dummy` + `Animate`, порядок сборки прежний).
+- 18 `plan-dedupe`: `CreaturePlan.On(io)` ×3, `Program.Step` ×3, `HoldAtLeast/HoldOr/NextOrHold`.
+- 19 `creature-frame-gc`: `CreatureSenses` — поиск `SectantAnimation` только у профиля сектанта (у ворон два GetComponent на кадр впустую); `ClosedDoorBetween` — `RayPick.Sorted` вместо `RaycastAll` (аллокация на кадр).
+- 20 `player-off-limits`: `PlayerTarget.OffLimits` ×5 (MonsterManager ×3, SectantAttack, CrowAttack).
+- 21 `look-spec-rake`: P1014 — осмотр без «:секунд» ронял план исключением каждый кадр. ЕДИНСТВЕННЫЙ шаг со сменой поведения (только для ввода, который раньше падал).
+- 22 `look-plan`: осмотр стоя и на ходу — одна `ReadLook(spec, into, otherwise)`.
+Отвергнуто: перевод безумца на `CreaturePlan` и `LiveVisibilityGate` (поведение), интерфейс тела в `CreaturePlan` (нужна живая проба), сведение `SectantSenses/CrowSenses` (ключи `DebugTune`), переименование `CrowZoneSpawn` (проба по имени), `Monster.Replan` (нет защиты), `Flat(Vector3)` (решено раньше не брать), `CrowAttack`/`CrowFlight` (домены стычки и птиц). Всё — в `TARGETS.md` T-MONSTERS.
+- 23 `remove-madman` (Илья 11.10 днём: «безумца и все что с ним связано удали полностью»): `Monster*.cs`, `MonsterSpawnPoint` (+ мёртвый `MarkerLabel`), волны/Shift+F3/кнопки в `MonsterManager`, `PlayerEffects.MonsterMindDrain` (ползунок, ключ `DebugTune`), `ZonePiece.Attacker.Madman`, `ZoneKind.MonstersMadman` (+ `ZoneKindCanonTests`), `monster_hit.mp3`, 10 переводов; проба `invariants_play.py` переведена с `MonsterSpawnPoint`. Проверено: офлайн-сборка чистая; редактор к этому времени поднят — скомпилировал, в play 0 ошибок консоли, `Creature.Dummy` собирает тело, сектант с планом и чувствами на месте, кнопок безумца в F1 нет. Хвост: аниматор героя (Pound/Hammer/Ram) и `Monster_*.fbx` — при стопнутом редакторе. `Creature.cs.meta` создан редактором после шага 17 — при коммите добавить.

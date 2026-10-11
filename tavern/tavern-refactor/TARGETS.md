@@ -56,8 +56,8 @@
   `InteractiveObject.FeatureFactories`, сейв через общие поля объекта, тикер —
   регистрацией. Защита есть: `bird_flight_probe.py`, `crow_pick_probe.cs`,
   `encounter_probe.py`, круг сейва `level_roundtrip.py`.
-- **`Cozy.Monsters` ссылается на `Tavern.UI`** (геймплей на UI): безумцы слушают
-  `QuickChatUI.PhraseSpoken` и зовут `SpeechBubbles.Show`, а экран смерти
+- **`Cozy.Monsters` ссылается на `Tavern.UI`** (геймплей на UI): `CreaturePlan` зовёт
+  `SpeechBubbles.Show`/`GameEvents`/`AiConsole`, а экран смерти
   `DeathScreenUI` лежит в `Modules/Monsters`. Направление «UI сверху» нарушено в одном
   месте — лечится событием в `Tavern.Core` или переносом экрана в `Tavern.UI`.
 - **`CrowAttack.Side`** (`Launch(Side want)`, ожидание стороны): после 16.09 атака по
@@ -80,7 +80,6 @@
 | `ProceduralModels.ElevatorModern`, `HomeSinkCabinet`, `GridMesh.SlabTop`, `PlankRelief.DeckMesh` | 131, 123, 114, 103 | описания геометрии, длина — суть; `SlabTop` ещё и под правилом 18 |
 | `HudUI.EffectsTab` | 120 | декларативный список ползунков; блоки «туман» и «темнота» — две копии одной формы, ждут третьего эффекта с пеленой |
 | `HudUI.WeatherTab` | 110 | то же: свечение огня (под небом / в камине) и порывы (днём / ночью) — по две копии |
-| `Monster.Replan` | 114 | безумцев нет на crown_attack — защиты на открытом уровне нет |
 
 ## T-ПЛИНТУС — вырез мебели у проёмов и в углу (открыто 20.09, ilya-8c)
 
@@ -422,3 +421,23 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
 - **`ZoneEvent.Clock` и `HudUI.DebugMonsters.Clock`** — две одинаковые функции «часы с округлением» (вторая —
   копия первой); свести, когда `ZoneEvent.cs` освободится.
 - **`HudUI.PoisonBlock` (94), `SkinTab` (84)** — тот же приём, что у `ObjectsTab`/`MonstersTab`.
+
+## T-FOUND-1110 — найдено ночью 10→11.10 (ilya-58), не взято
+
+- **`SurfaceTopAt` и `GroundTopAt` (GridCursor.PlaceQueries) зависят от порядка хитов PhysX**: фильтр `h.point.y <= top + FloorSkin` сравнивает с уже найденной высотой, `GroundTopAt` выходит на первом не-земляном блоке. Порядок `RaycastNonAlloc` произвольный → опора в пределах ~1 см выбирается случайно. Вероятная причина «спичечный коробок на плите то красный, то зелёный» (конфорки, `StepTol` 12 мм). Починка — `RayPick.Sorted` (сверху вниз), но это смена поведения: решает Илья, проверка — `transfer_probe` на level1.
+- **Палитра цвета ×2**: `HudUI.OpenSkinPalette` и `MainMenuUI.OpenPalette` почти копии (часть каркаса дебаг-окон, №8 T-PLAN-0510). Окно меню пробой не открыть.
+- **224 типа не в своём файле** (21 в `ObjectDef.cs`) — почти все мелкие enum/struct рядом с владельцем; разнос — новые файлы, только по слову Ильи.
+- **`hud_menu_probe.cs`** снимает весь HudCanvas, кроме TopBar: строки быстрой панели и StatPanel зависят от состояния героя — для сверки сравнивать только блоки вкладок (или доработать пробу: снимать разницу «до/после открытия вкладки»).
+- **Живые пробы на `Test AI` шумят от сектанта**: позиция в invariants, атака посреди transfer_probe. Для ночей — уровень без бродящего сектанта или пауза его плана на время проб.
+
+## T-MONSTERS — рефакторинг монстров 11.10 (ilya-65), не взято
+
+Сделано шагами 17–22 (журнал — `history/refactor-log.md`). Ниже — то, что упирается в поведение или в живую проверку.
+
+- ~~Безумец мимо общего мозга~~ — безумец удалён целиком 11.10 (шаг 23 `remove-madman`). Хвост за редактором: состояния Pound/Hammer/Ram и параметры `Pound`/`PoundStyle` в `PlayerAvatar.controller` и `PlayerAvatarGirl.overrideController`, клипы `Monster_Pound/Hammer/Ram.fbx` — удалять при стопнутом редакторе через API аниматора, не правкой YAML.
+- **`CreaturePlan` ветвится по виду тела**: `Crow != null` в `Update/Begin/BeginGo/Walk/RoamTick` — ходок по сетке и летун через `CrowFlight`. Тело одним интерфейсом («иди туда / стоишь ли / повернись») уберёт ветки и откроет мозг безумцу. Брать только при живом `ai_plan_probe.py` до и после.
+- **`SectantSenses`/`CrowSenses`** — две одинаковые обёртки по 15 свойств над статическими полями (`Sectant.*`, `CrowSense.*`), их держат ключи `DebugTune`. Свести можно только с переездом ключей в слоты-объекты `DebugTune` — не трогать без проверки, что числа Ильи из `DebugTune.json` подхватываются.
+- **`Sectant.AttentionRadius` и `Sectant.MindDrain`** — ползунки F1 и ключи `DebugTune`, которые ничто в игре не читает (заготовка 07.10). Рассудок у сектанта не капает. Решает Илья.
+- **`CrowZoneSpawn`** (Combat) — на деле спавн ВСЕХ существ (сектант, ворона, сова, зарянка), имя и модуль вороньи; на имя ссылается `ai_plan_probe.py`. Переименование — с пробой.
+- **`MonsterManager.OnDisable`** снимает 4 кнопки дебага, а «Тень: появиться/исчезнуть» и `shadow-tempo` — нет (вызовы статические, вреда нет; асимметрия).
+- **Тест на `CreaturePlan.ReadLook`** (P1014) — EditMode, когда Илья разрешит правку тестов.

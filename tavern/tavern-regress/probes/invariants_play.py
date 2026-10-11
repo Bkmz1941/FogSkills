@@ -118,11 +118,11 @@ foreach (var io in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveObj
     int visible = 0;
     foreach (var r in io.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
         if (r.enabled && r.gameObject.activeInHierarchy && !r.name.StartsWith("Outline")) visible++;
-    //    Метки спавна (игрока и монстров) — не поломка: их модель включена
+    //    Метка спавна игрока — не поломка: их модель включена
     //    только при SpawnPoint.ShowVisual (дебаг), вне дебага они и должны
     //    быть без мешей (разбор ilya-44, 06.09).
     var gate = io.GetComponent<Cozy.Grid.FloorPieceView>();
-    bool marker = io.Def.id == Cozy.Grid.SpawnPoint.ObjectId || io.Def.id == Cozy.Grid.MonsterSpawnPoint.ObjectId;
+    bool marker = io.Def.id == Cozy.Grid.SpawnPoint.ObjectId;
     if (visible == 0 && (gate == null || gate.Visible) && !(marker && !Cozy.Grid.SpawnPoint.ShowVisual)) bad.Append("невидимый объект: " + io.Def.id + "; ");
     // 4. Вложенный предмет знает своего хозяина: без Container правило
     //    «в закрытой секции не трогают» слепнет.

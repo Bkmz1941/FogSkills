@@ -62,8 +62,8 @@ description: Сектант (культист) в «Таверне» — вто�
    кокетки, капора и рукавов — явные кости, не «с ближайшей вершины кожи»
    (P978). Правило `tavern-clothes` «из тела» остаётся для облегающих вещей.
 6. **Порода задаётся дефом** (правило 2 `tavern-monsters`): в игре сектанта
-   должен оживлять тот же `Monster`, что безумца, если разница укладывается в
-   поля `ObjectDef`; отдельный класс — только по решению Ильи.
+   оживляет общий мозг `CreaturePlan` и ядро `Creature` (безумец и его класс
+   `Monster` удалены 11.10); отдельный класс — только по решению Ильи.
 7. **Мерка — ПЕРСОНАЖ 2.55 м**, опорные высоты по костям в правиле 8
    `tavern-game/BLENDER.md`; одежда и позы судятся на ходячей и бегущей копии,
    а не только на позе покоя (правило «смотрим парой», `tavern-clothes`).
@@ -100,7 +100,7 @@ description: Сектант (культист) в «Таверне» — вто�
 | клипы героя на копиях | `KI/HumanM@Idle01.fbx`, `Resources/Walk_Calm.fbx`, `Resources/Jog_Calm.fbx` |
 | пересборка | `cd BlenderWork && systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 <blender> -b --factory-startup --python sectant_build.py` (клипы) или `… sectant_robes_build.py` (балахон) |
 | окно для Ильи (с мостом) | `bash BlenderWork/blender_mcp_up.sh Library/sectantRobes.blend` (или `Library/sectant.blend`); погасить — `… stop`; одно окно на порт 9876 |
-| код монстров (безумец — образец) | `Assets/Modules/Monsters/Monster*.cs`, `MonsterManager.cs` |
+| код существ | `Assets/Modules/Monsters/` — `Creature.cs` (ядро), `CreaturePlan*.cs` (мозг), `MonsterNav.cs`, `MonsterManager.cs` |
 | бестиарий всех существ | `tavern-monsters/SKILL.md`, внизу; строка сектанта там — ссылка сюда |
 | значки над головой «думает» / «вопрос» / «!» (галерея, Blender-only) | `BlenderWork/sectant_head_icons.py` → `Animations/Sectant_Head_Icons.blend`; числа в долях головы в капюшоне, формат `stun_stars.py`; окно — `bash BlenderWork/blender_mcp_up.sh Animations/Sectant_Head_Icons.blend` |
 | ⭐ атака, сценарий 1 «Идёт атаковать» (10.10; в игре с 10.10 вечера — `Modules/Combat/SectantEncounter.cs`, экспорт `sectant_attack.py -- export`) | `BlenderWork/sectant_attack.py` → `Animations/Sectant_Attack.blend`: готовая фигура в балахоне из `sectantRobes.blend` (накидка НЕ пересчитывается), клип `Sectant_Attack` 136 кадров, нож `Knife_Attack` из `Library/kitchenKnife.blend`; числа — `P`; окно — `bash BlenderWork/blender_mcp_up.sh Animations/Sectant_Attack.blend`; подробно — `SECTANT.md` §15 |

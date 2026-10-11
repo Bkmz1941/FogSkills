@@ -345,8 +345,7 @@ LiveFade) — в `history/refactor-log.md`.
 
 ## Мёртвые члены — дополнение скана 2026-09-11 (ilya-33), ждут слова владельца
 
-`MonsterSpawnPoint.cs` → класс `MarkerLabel` (билборд подписи маркера, никуда не
-вешается, 0 ссылок в Assets и в пробах); `LiquidVolume.KindClipMaterial` (0
+~~`MonsterSpawnPoint.cs` → класс `MarkerLabel`~~ — удалён 11.10 вместе с безумцем; `LiquidVolume.KindClipMaterial` (0
 вызовов); `WindGusts.Gust.curly` — поле структуры читается только в следующей
 строке после записи, может быть локальной. По правилу P210 — сначала спросить,
 не должен ли кто-то их звать.

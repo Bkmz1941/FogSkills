@@ -184,6 +184,12 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
   `Run/Describe`; `.Nav` — путь по сетке, спрямление, ходьба, бродяжничество;
   `.Senses` — чувства и события (`Sense/ScanObjects/Emit`); `.Actions` —
   переключатели, двери, взять/положить.
+- **`Creature`** (Monsters, 11.10, ilya-65) — общее ядро существ: этаж
+  (`Storey/StoreyY/SameStorey/CellSize` — им считают `CreaturePlan` и
+  снимок рёбер `MonsterNav`), тело-манекен (`Dummy` + `Animate` — Тень). Безумец
+  (`Monster`) удалён целиком 11.10.
+  Новое существо берёт этаж и тело отсюда, а не пишет свою копию. Гейт «по игроку
+  не бьют» для любых атак существ — `PlayerTarget.OffLimits` (Character).
 - **`LifeRules`** (Monsters, статический): `LifeRules.cs` — исполнение
   (`Tick/Hourly/Once/Applied/OnEvent/Fire*`, `Count`, `Check/Describe`);
   `.Parse` — разбор строк и групп, таблицы синонимов, словарь видов, локации.
@@ -658,7 +664,6 @@ SubShader с тегом `RenderPipeline` неподдержан, и провер
 | `InteractiveObject.Clad` | там же | `CladCuts.Sync` (врезка обшивки) |
 | `CrowPerch.All` | `Awake`/`OnDestroy` ветки | поиск гнезда и цели у птиц |
 | `CrowFlight.All` | `Awake`/`OnDestroy` рига | «занято ли место», «кто на дереве» |
-| `Monster.All` | `OnEnable`/`OnDisable` | волны, менталка, штурм |
 | `InteractiveObject.Ticking` | `JoinDefLists` + конец `Build` | общий тикер (`WorldTick.Update`) |
 
 ⭐ **Признак, выводимый из ДЕФА, не спрашивают у каждого объекта каждый кадр.**
