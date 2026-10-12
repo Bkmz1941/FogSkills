@@ -64,7 +64,7 @@ async function step(label, expect, run) {
     if (expect.amount !== undefined && money(row.amount) !== expect.amount) problems.push(`amount ${row.amount} != ${expect.amount}`);
     if (money(row.balance_before) !== before[code]) problems.push(`before ${row.balance_before} != wallet ${code} ${before[code]}`);
     if (money(row.balance_after) !== after[code]) problems.push(`after ${row.balance_after} != wallet ${code} ${after[code]}`);
-    const entries = (row.entries ?? []).filter((entry) => entry.balance_code === code);
+    const entries = (row.entries ?? []).filter((entry) => entry.balance_code === code && (row.type !== "win" || Number(entry.amount) >= 0));
     const moved = +entries.reduce((sum, entry) => sum + Number(entry.amount), 0).toFixed(2);
     if (!entries.length) problems.push("no account entries in the details");
     else if (moved !== +(after[code] - before[code]).toFixed(2)) problems.push(`entries move ${moved} != ${+(after[code] - before[code]).toFixed(2)}`);

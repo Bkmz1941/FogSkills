@@ -433,6 +433,69 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = col; c.lineWidth = w; c.stroke();
   }
   function roadTop(I, x0, x1, ya, yb, z, col) { I.quad([[x0, ya, z], [x1, ya, z], [x1, yb, z], [x0, yb, z]], col); }
+  // Bridge decks in model units: top height z, half width, half width of the driving strip, colours, curbs [y0, width, height, colour].
+  // A road whose end comes near a deck end is joined to it by a ramp, so road and bridge read as one piece.
+  var DECK = {
+    bridge1: { z: 0.55, half: 0.35, road: 0.27, body: '#A89E8A', top: '#8F8A80', curbs: [[-0.35, 0.08, 0.16, '#978E7C'], [0.27, 0.08, 0.16, '#978E7C']] },
+    bridge2: { z: 0.53, half: 0.38, road: 0.38, body: '#9C7448', top: '#AD8A64', planks: '#755636' },
+    bridge3: { z: 0.4, half: 0.38, road: 0.3, body: '#7D8288', top: '#6B6A66' },
+    bridge4: { z: 0.43, half: 0.35, road: 0.28, body: '#8C8478', top: '#7A766E' },
+    bridge5: { z: 0.34, half: 0.4, road: 0.32, body: '#B4B0A8', top: '#5E5D5A', dash: '#ECE6D6', curbs: [[-0.4, 0.06, 0.07, '#D8D4CC'], [0.34, 0.06, 0.07, '#D8D4CC']] }
+  };
+  function rampLen(d) { return Math.max(0.9, d.z * 2.6); }
+  // Where the deck ends meet the ground, on screen: per end e = ±1 the deck end Q, the ramp foot F,
+  // a point G under the ramp (the road runs on to it and hides there) and the deck width across the road in px.
+  function bridgeEnds(m) {
+    var d = DECK[m.kind], s = iconPx(m.kind), u = s * 0.27, I = Iso(null, sx(m.x), sy(m.y) + s * 0.06, u, m.rot || 0), L = rampLen(d);
+    var o = I.P(0, 0, 0), a = I.P(1, 0, 0), b = I.P(0, 1, 0), ax = a[0] - o[0], ay = a[1] - o[1], bx = b[0] - o[0], by = b[1] - o[1];
+    var wpx = 2 * d.half * Math.abs(ax * by - ay * bx) / (Math.hypot(ax, ay) || 1);
+    return [-1, 1].map(function (e) {
+      return { m: m, e: e, u: u, wpx: wpx, Q: I.P(e * 1.5, 0, 0), F: I.P(e * (1.5 + L), 0, 0), G: I.P(e * (1.5 + L * 0.85), 0, 0), F2: I.P(e * (1.5 + L * 2), 0, 0) };
+    });
+  }
+  function segDist(p, a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+    return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t);
+  }
+  var bridgeRamps = {};
+  // The ramp from the deck end down to the road: the sloped body, the driving strip, the curbs sinking to the road level.
+  // hz — how far the road's embankment goes below its surface, in model units, so the ramp's side wall meets it.
+  // curbed — the road has raised curbs like the deck (asphalt): the curbs keep their height down to the foot
+  // and the driving strip ends one curb height lower, level with the road's own bed; otherwise the curbs sink to nothing.
+  function drawRamp(c, m, px, py, s, e, hz, curbed) {
+    var d = DECK[m.kind], u = s * 0.27, I = Iso(c, px, py + s * 0.06, u, m.rot || 0), L = rampLen(d);
+    var a = e * 1.48, b = e * (1.5 + L), H = d.half, R = d.road, zA = d.z, lw = 2;
+    var ch = curbed && d.curbs ? d.curbs[0][2] : 0, zF = -ch;
+    function zAt(X) { var t = (Math.abs(X) - 1.5) / L; return zA + (zF - zA) * t; }
+    var wall = I.poly([[a, H, -hz], [b, H, -hz], [b, H, zF], [a, H, zA]]);
+    var top = I.poly([[a, -H, zA], [b, -H, zF], [b, H, zF], [a, H, zA]]);
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    wall(); c.lineWidth = lw; c.strokeStyle = EDGE; c.stroke();
+    isoLine(c, I, [[a, -H, zA], [b, -H, zF]], EDGE, lw);
+    wall(); c.fillStyle = shade(d.body, 0.08); c.fill();
+    if (e > 0 && hz > 0) { var foot = I.poly([[b, -H, -hz], [b, H, -hz], [b, H, zF], [b, -H, zF]]); foot(); c.fillStyle = shade(d.body, -0.22); c.fill(); }
+    top(); c.fillStyle = shade(d.body, 0.22); c.fill();
+    if (R < H) I.quad([[a, -R, zA], [b, -R, zF], [b, R, zF], [a, R, zA]], d.top);
+    else { top(); c.fillStyle = d.top; c.fill(); }
+    if (d.planks) for (var k = 1.5 + 0.075; k < 1.5 + L; k += 0.15) { var X = e * k, z = zAt(X); isoLine(c, I, [[X, -H, z], [X, H, z]], d.planks, Math.max(0.8, u * 0.025)); }
+    if (d.dash) for (var n = -8; n <= 8; n++) {
+      var k0 = -1.4 + n * 0.3, k1 = k0 + 0.15;
+      if (Math.max(k0, k1) <= 1.5 && Math.min(k0, k1) >= -1.5) continue;
+      var lo = Math.max(Math.min(a, b), k0), hi = Math.min(Math.max(a, b), k1);
+      if (hi <= lo || Math.abs(lo) < 1.5 && Math.abs(hi) < 1.5) continue;
+      if (e > 0) lo = Math.max(lo, 1.5); else hi = Math.min(hi, -1.5);
+      if (hi <= lo) continue;
+      isoLine(c, I, [[lo, 0, zAt(lo)], [hi, 0, zAt(hi)]], d.dash, Math.max(1, u * 0.04));
+    }
+    (d.curbs || []).forEach(function (cb) {
+      var y0 = cb[0], y1 = cb[0] + cb[1], h = cb[2];
+      var hb = ch ? h : 0;
+      var side = I.poly([[a, y1, zA], [b, y1, zF], [b, y1, zF + hb], [a, y1, zA + h]]);
+      var ctop = I.poly([[a, y0, zA + h], [b, y0, zF + hb], [b, y1, zF + hb], [a, y1, zA + h]]);
+      side(); c.fillStyle = shade(cb[3], 0.08); c.fill();
+      ctop(); c.fillStyle = shade(cb[3], 0.22); c.fill();
+    });
+  }
   function isoBridgeStone(c, x, y, s) {
     var I = bridgeIso(c, x, y, s), u = s * 0.27, stone = '#A89E8A';
     solid(c, I.box(-1.5, -0.35, 0, 3, 0.7, 0.55, stone).concat(I.box(-1.5, -0.35, 0.55, 3, 0.08, 0.16, '#978E7C')));
@@ -491,12 +554,12 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   }
   function isoBridgeGirder(c, x, y, s) {
     var I = bridgeIso(c, x, y, s), u = s * 0.27, conc = '#B4B0A8';
-    solid(c, I.box(-0.87, -0.22, 0, 0.24, 0.44, 0.4, '#A5A29B').concat(I.box(0.63, -0.22, 0, 0.24, 0.44, 0.4, '#A5A29B')));
-    solid(c, I.box(-1.5, -0.4, 0.4, 3, 0.8, 0.18, conc));
-    roadTop(I, -1.5, 1.5, -0.32, 0.32, 0.58, '#5E5D5A');
-    for (var k = -1.4; k < 1.4; k += 0.3) isoLine(c, I, [[k, 0, 0.58], [k + 0.15, 0, 0.58]], '#ECE6D6', Math.max(1, u * 0.04));
-    solid(c, I.box(-1.5, -0.4, 0.58, 3, 0.06, 0.07, '#D8D4CC'));
-    solid(c, I.box(-1.5, 0.34, 0.58, 3, 0.06, 0.07, '#D8D4CC'));
+    solid(c, I.box(-0.87, -0.22, 0, 0.24, 0.44, 0.2, '#A5A29B').concat(I.box(0.63, -0.22, 0, 0.24, 0.44, 0.2, '#A5A29B')));
+    solid(c, I.box(-1.5, -0.4, 0.2, 3, 0.8, 0.14, conc));
+    roadTop(I, -1.5, 1.5, -0.32, 0.32, 0.34, '#5E5D5A');
+    for (var k = -1.4; k < 1.4; k += 0.3) isoLine(c, I, [[k, 0, 0.34], [k + 0.15, 0, 0.34]], '#ECE6D6', Math.max(1, u * 0.04));
+    solid(c, I.box(-1.5, -0.4, 0.34, 3, 0.06, 0.07, '#D8D4CC'));
+    solid(c, I.box(-1.5, 0.34, 0.34, 3, 0.06, 0.07, '#D8D4CC'));
   }
   // Objects of the Likhovo area. All of them are built from rbox/rgable, so they turn exactly with markRot.
   function wallWin(c, I, side, b, a0, a1, za, zb, fill, frame, lw) {
@@ -736,6 +799,8 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
       if (px < -s || py < -s || px > W + s || py > H + s) return;
       if (isSel(m)) drawOutlined(m.kind, px, py, s, m.rot);
       else drawKind(ctx, m.kind, px, py, s, m.rot);
+      var rp = bridgeRamps[m.id];
+      if (rp) { ctx.save(); [-1, 1].forEach(function (e) { if (rp[e]) drawRamp(ctx, m, px, py, s, e, rp[e].hz, rp[e].curbed); }); ctx.restore(); }
     });
     if (!drag || drag.type !== 'move') sorted.forEach(function (m) { if (isSel(m)) drawCross(m, sx(m.x), sy(m.y), iconPx(m.kind)); });
   }
@@ -1242,14 +1307,23 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   function roadDot(g, x, y, r, color) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); }
   // The surface of each style at ground level. k — px per km, avg — mean width px, fine — wide enough for details,
   // seed — a number from the road's position (keeps potholes and stones where they are), box — the visible area.
+  var CURB_TOP = shade('#D8D4CC', 0.22), CURB_SIDE = shade('#D8D4CC', 0.08), DECK_TOP = shade('#B4B0A8', 0.22), CURB_H = 0.07 / (0.8 * COS);
   var ROAD_DRAW = {
     asphalt: function (g, sp, wp, nm, k, avg, fine) {
-      passPx(g, sp, wp, 1, 0, '#D8D4CC', 0);
-      passPx(g, sp, wp, 0.88, 0, '#5E5D5A', 0);
+      // The same cross-section as the concrete bridge deck: curbs 0.06 wide and 0.07 high, concrete 0.02, asphalt 0.64 of 0.8.
+      // The road bed sits lower than the curb tops by hc, so the far curb shows its inner face like on the bridge.
+      var hc = avg * CURB_H;
+      passPx(g, sp, wp, 1, 0, CURB_TOP, 0);
+      passPx(g, sp, wp, 1, 0, CURB_SIDE, hc);
+      passPx(g, sp, wp, 0.85, 0, CURB_TOP, hc);
+      passPx(g, sp, wp, 0.85, 0, DECK_TOP, hc);
+      passPx(g, sp, wp, 0.8, 0, '#5E5D5A', hc);
       if (!fine) return;
       g.lineCap = 'butt';
       var dash = Math.max(4, 0.02 * k);
-      alongLine(g, sp, wp, nm, 0, Math.max(1, 0.006 * k), '#ECE6D6', [dash, dash]);
+      g.save(); g.translate(0, hc);
+      alongLine(g, sp, wp, nm, 0, Math.max(1, 0.0054 * k), '#ECE6D6', [dash, dash]);
+      g.restore();
     },
     broken: function (g, sp, wp, nm, k, avg, fine, seed, box) {
       passPx(g, sp, wp, 1, 0, '#B9B5AD', 0);
@@ -1389,7 +1463,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   }
   // Roads have square ends: everything is drawn with round caps and clipped by two half-planes
   // that cut straight across the road at its first and last point.
-  function squareEndsPx(g, sp) {
+  function squareEndsPx(g, sp, linked) {
     var n = sp.length, L = 1e5;
     function cut(a, b) {
       var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
@@ -1399,10 +1473,12 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
       g.lineTo(a[0] - nx * L + dx * L, a[1] - ny * L + dy * L); g.lineTo(a[0] + nx * L + dx * L, a[1] + ny * L + dy * L);
       g.closePath(); g.clip();
     }
-    cut(sp[0], sp[Math.min(2, n - 1)]); cut(sp[n - 1], sp[Math.max(n - 3, 0)]);
+    if (!linked || !linked.start) cut(sp[0], sp[Math.min(2, n - 1)]);
+    if (!linked || !linked.end) cut(sp[n - 1], sp[Math.max(n - 3, 0)]);
   }
   // phase: 'base' — the halo and the roadbed, 'top' — the surface, omitted — both.
-  function paintRoad(flat, selectedRoad, extra, ghostly, ws, tip, style, phase) {
+  // linked — {start, end}: ends joined to a bridge ramp keep their round caps, the ramp covers them.
+  function paintRoad(flat, selectedRoad, extra, ghostly, ws, tip, style, phase, linked) {
     var pts = flat.slice(); ws = ws.slice();
     if (extra) { pts.push(wx(extra[0]), wy(extra[1])); ws.push(ws.length ? ws[ws.length - 1] : ROAD_W); }
     if (tip) pts.push(wx(tip[0]), wy(tip[1])); 
@@ -1411,7 +1487,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     for (var i = 0; i < n; i++) { sp.push([sx(sm[i][0]), sy(sm[i][1])]); wp.push(sampleW(ws, i, n) * view.k); }
     ctx.save();
     if (ghostly) ctx.globalAlpha = 0.7;
-    squareEndsPx(ctx, sp);
+    squareEndsPx(ctx, sp, linked);
     if (phase !== 'top') {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       if (selectedRoad === true) passPx(ctx, sp, wp, 1, 10, '#FFFFFF', 0);
@@ -1517,8 +1593,45 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     riverCore(sm, ws);
     ctx.restore();
   }
+  // A road end near a deck end runs on to the ramp foot and under the ramp, its width easing to the deck's.
+  function linkBridges(j, style, bends) {
+    var st = ROAD_STYLES[style] || ROAD_STYLES.asphalt;
+    [0, 1].forEach(function (atEnd) {
+      var n = j.flat.length / 2; if (n < 2) return;
+      var i = atEnd ? n - 1 : 0, p = [sx(j.flat[i * 2]), sy(j.flat[i * 2 + 1])], best = null, bd = Infinity;
+      bends.forEach(function (be) {
+        if (be.used) return;
+        var dd = segDist(p, be.Q, be.F2);
+        if (dd <= Math.max(10, be.u * 1.1) && dd < bd) { bd = dd; best = be; }
+      });
+      if (!best) return;
+      best.used = true;
+      (j.linked = j.linked || {})[atEnd ? 'end' : 'start'] = true;
+      var wk = best.wpx / view.k, F = [wx(best.F[0]), wy(best.F[1])], G = [wx(best.G[0]), wy(best.G[1])];
+      var keep = Math.hypot(p[0] - best.Q[0], p[1] - best.Q[1]) > Math.hypot(best.F[0] - best.Q[0], best.F[1] - best.Q[1]) + 2;
+      if (atEnd) {
+        if (!keep) { j.flat = j.flat.slice(0, -2); j.ws = j.ws.slice(0, -1); }
+        j.flat = j.flat.concat([F[0], F[1], G[0], G[1]]); j.ws = j.ws.concat([wk, wk]);
+      } else {
+        var add = keep ? 2 : 1;
+        if (!keep) { j.flat = j.flat.slice(2); j.ws = j.ws.slice(1); }
+        j.flat = [G[0], G[1], F[0], F[1]].concat(j.flat); j.ws = [wk, wk].concat(j.ws);
+        if (Array.isArray(j.hl)) j.hl = j.hl.map(function (rg) { return [rg[0] + add, rg[1] + add]; });
+      }
+      var h = st.lift ? Math.max(1.5, Math.min(10, best.wpx * st.lift)) : 0;
+      (bridgeRamps[best.m.id] = bridgeRamps[best.m.id] || {})[best.e] = { hz: h / best.u, curbed: style === 'asphalt' };
+    });
+  }
   function drawRoads() {
     var skip = draftDoc ? draftDoc.id : null;
+    bridgeRamps = {};
+    var bends = [];
+    marks.forEach(function (m) {
+      if (!DECK[m.kind]) return;
+      var s = iconPx(m.kind), px = sx(m.x), py = sy(m.y);
+      if (px < -3 * s || py < -3 * s || px > W + 3 * s || py > H + 3 * s) return;
+      bends = bends.concat(bridgeEnds(m));
+    });
     var layers = [['river', function (r) { return r.kind === 'river'; }]];
     ROAD_LAYERS.forEach(function (s) { layers.push([s, function (r) { return r.kind !== 'river' && roadStyleOf(r) === s; }]); });
     layers.forEach(function (ly) {
@@ -1531,9 +1644,10 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
         });
         return { flat: flat, ws: ws, hl: ch.length === 1 ? marked.length > 0 : (marked.length ? marked : false) };
       });
+      if (ly[0] !== 'river') jobs.forEach(function (j) { linkBridges(j, ly[0], bends); });
       if (ly[0] === 'river') { jobs.forEach(function (j) { paintRiver(j.flat, j.hl, null, false, j.ws); }); return; }
-      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'base'); });
-      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'top'); });
+      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'base', j.linked); });
+      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'top', j.linked); });
     });
     if (draft && draft.length) {
       var flat = []; draft.forEach(function (q) { flat.push(q[0], q[1]); });
