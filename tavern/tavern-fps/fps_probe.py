@@ -15,6 +15,10 @@ python3 fps_probe.py cost [N] 'метка::C#' …     цена куска ко�
                                               Код с побочными эффектами (таймеры, deltaTime) сюда не давать.
 python3 fps_probe.py ab <C#-вкл> <C#-выкл> [кадров]   A/B: кадр с выражением «выкл» против «вкл» (оба — код
                                               execute_code; «вкл» обязан вернуть как было) — по 2 замера на сторону
+python3 fps_probe.py spikes [кадров] [маркер ...]  РЫВКИ по кадрам: сред/медиана/p95/макс кадра, 8 самых медленных кадров
+                                              с их маркерами (self ≥ 0,25 мс) и для маркеров по подстроке — сред/макс self
+                                              и мусор ПО КАДРАМ. Профиль-среднее прячет рывок: 4 мс раз в 0,5 с выглядят
+                                              как 0,07 мс/кадр (11.10: PowerLines.Signature, косяки дверей и окон разом)
 
 ⚠️ Редактор врёт втрое против сборки: числа здесь — ОТНОСИТЕЛЬНЫЕ (до/после правки, сценарий против сценария).
 ⚠️ Game view должен быть в фокусе, иначе редактор троттлит кадр (P687); мерить дважды, первый замер после play скачет.
@@ -214,6 +218,59 @@ return sb.ToString();
 """
 
 
+SPIKES_CODE = r"""
+int last = UnityEditorInternal.ProfilerDriver.lastFrameIndex, first = UnityEditorInternal.ProfilerDriver.firstFrameIndex;
+var V = UnityEditor.Profiling.HierarchyFrameDataView.ViewModes.Default;
+int ST = UnityEditor.Profiling.HierarchyFrameDataView.columnSelfTime;
+int GCc = UnityEditor.Profiling.HierarchyFrameDataView.columnGcMemory;
+string[] pats = new string[] { PATS };
+var sb = new System.Text.StringBuilder();
+var frames = new System.Collections.Generic.List<double>();
+var perFrame = new System.Collections.Generic.List<string>();
+var patSum = new double[pats.Length]; var patMax = new double[pats.Length]; var patGcSum = new double[pats.Length]; var patGcMax = new double[pats.Length]; int n = 0;
+var ids = new System.Collections.Generic.List<int>();
+for (int f = System.Math.Max(first, last - FRAMES); f <= last; f++)
+using (var v = UnityEditorInternal.ProfilerDriver.GetHierarchyFrameDataView(f, 0, V, ST, false))
+{
+    if (v == null || !v.valid) continue;
+    n++;
+    frames.Add(v.frameTimeMs);
+    var top = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, double>>();
+    var pv = new double[pats.Length]; var pg = new double[pats.Length];
+    var st = new System.Collections.Generic.Stack<int>(); st.Push(v.GetRootItemID());
+    while (st.Count > 0)
+    {
+        int id = st.Pop(); v.GetItemChildren(id, ids); foreach (var c in ids.ToArray()) st.Push(c);
+        if (id == v.GetRootItemID()) continue;
+        string name = v.GetItemName(id);
+        double self = v.GetItemColumnDataAsSingle(id, ST);
+        double gc = v.GetItemColumnDataAsSingle(id, GCc);
+        if (self >= 0.25) top.Add(new System.Collections.Generic.KeyValuePair<string, double>(name, self));
+        for (int p = 0; p < pats.Length; p++) if (name.Contains(pats[p])) { pv[p] += self; pg[p] += gc; }
+    }
+    for (int p = 0; p < pats.Length; p++) { patSum[p] += pv[p]; patGcSum[p] += pg[p]; if (pv[p] > patMax[p]) patMax[p] = pv[p]; if (pg[p] > patGcMax[p]) patGcMax[p] = pg[p]; }
+    top.Sort((a, b) => b.Value.CompareTo(a.Value));
+    var line = new System.Text.StringBuilder();
+    line.Append(v.frameTimeMs.ToString("0.00")).Append(" мс:");
+    for (int i = 0; i < System.Math.Min(6, top.Count); i++) line.Append("  ").Append(top[i].Key).Append('=').Append(top[i].Value.ToString("0.00"));
+    perFrame.Add(line.ToString());
+}
+if (n == 0) return "no frames";
+var sorted = new System.Collections.Generic.List<double>(frames); sorted.Sort();
+double avg = 0; foreach (var x in frames) avg += x; avg /= n;
+sb.Append("кадров=").Append(n).Append(" сред=").Append(avg.ToString("0.00")).Append(" медиана=").Append(sorted[n / 2].ToString("0.00"))
+  .Append(" p95=").Append(sorted[(int)(n * 0.95)].ToString("0.00")).Append(" макс=").Append(sorted[n - 1].ToString("0.00")).Append('\n');
+var order = new System.Collections.Generic.List<int>(); for (int i = 0; i < n; i++) order.Add(i);
+order.Sort((a, b) => frames[b].CompareTo(frames[a]));
+sb.Append("--- самые медленные кадры (self ≥ 0,25 мс) ---\n");
+for (int i = 0; i < System.Math.Min(8, n); i++) sb.Append('#').Append(order[i]).Append("  ").Append(perFrame[order[i]]).Append('\n');
+sb.Append("--- маркеры по шаблону: сред / макс self мс; сред / макс мусор Б ---\n");
+for (int p = 0; p < pats.Length; p++) sb.Append(pats[p]).Append(": ").Append((patSum[p] / n).ToString("0.000")).Append(" / ").Append(patMax[p].ToString("0.00"))
+  .Append(" мс; ").Append((patGcSum[p] / n).ToString("0")).Append(" / ").Append(patGcMax[p].ToString("0")).Append(" Б\n");
+return sb.ToString();
+"""
+
+
 COST_RUN = r"""
 int left = 3;
 var marks = new System.IntPtr[COUNT];
@@ -318,6 +375,11 @@ def main():
     if cmd == 'scripts':
         frames = min(int(a[1]) if len(a) > 1 else 200, 250)
         print(where()); print(profiled(SCRIPTS_CODE, frames)); return 0
+    if cmd == 'spikes':
+        frames = min(int(a[1]) if len(a) > 1 and a[1].isdigit() else 300, 300)
+        pats = [x for x in a[1:] if not x.isdigit()] or ['PieceViewTicker', 'PowerLines.Update', 'DoorPiece.Update', 'WindowPiece.Update', 'GC.Collect']
+        code = SPIKES_CODE.replace('PATS', ', '.join('"%s"' % x for x in pats)).replace('FRAMES', str(frames))
+        print(where()); print(profiled(code, frames)); return 0
     if cmd == 'census':
         print(where()); print(run(CENSUS_CODE, timeout=300)); return 0
     if cmd == 'cost':

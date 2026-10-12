@@ -3620,3 +3620,104 @@ P651/P696 получили «Защиту», P652 обновлён (проба �
 - 22 `look-plan`: осмотр стоя и на ходу — одна `ReadLook(spec, into, otherwise)`.
 Отвергнуто: перевод безумца на `CreaturePlan` и `LiveVisibilityGate` (поведение), интерфейс тела в `CreaturePlan` (нужна живая проба), сведение `SectantSenses/CrowSenses` (ключи `DebugTune`), переименование `CrowZoneSpawn` (проба по имени), `Monster.Replan` (нет защиты), `Flat(Vector3)` (решено раньше не брать), `CrowAttack`/`CrowFlight` (домены стычки и птиц). Всё — в `TARGETS.md` T-MONSTERS.
 - 23 `remove-madman` (Илья 11.10 днём: «безумца и все что с ним связано удали полностью»): `Monster*.cs`, `MonsterSpawnPoint` (+ мёртвый `MarkerLabel`), волны/Shift+F3/кнопки в `MonsterManager`, `PlayerEffects.MonsterMindDrain` (ползунок, ключ `DebugTune`), `ZonePiece.Attacker.Madman`, `ZoneKind.MonstersMadman` (+ `ZoneKindCanonTests`), `monster_hit.mp3`, 10 переводов; проба `invariants_play.py` переведена с `MonsterSpawnPoint`. Проверено: офлайн-сборка чистая; редактор к этому времени поднят — скомпилировал, в play 0 ошибок консоли, `Creature.Dummy` собирает тело, сектант с планом и чувствами на месте, кнопок безумца в F1 нет. Хвост: аниматор героя (Pound/Hammer/Ram) и `Monster_*.fbx` — при стопнутом редакторе. `Creature.cs.meta` создан редактором после шага 17 — при коммите добавить.
+
+## 2026-10-11 вечер (ilya-63) — архитектура: список глобальных модулей и первые переезды (Илья: «архитектурный рефакторинг, глубоко и серьёзно… написать список глобальных модулей, и рефакторить»)
+
+Мост MCP лежал весь вечер (порт 8090 никто не слушал, редактор жив, Илья в play) — защита только
+офлайн: `offline_build.py` после каждого шага, `offline_tests.py` (чистая логика 13/13 и 36/36 в
+широком наборе; красные — только натив Unity вне редактора, те же, что и до), `probes_lint.py`
+0 мёртвых, `skills_lint.py`. Живые пробы и `night.py verify` — НЕ гонялись: ⏳ при первом play
+прогнать `ai_plan_probe.py`, `hud_menu_probe.cs`, `invariants_play.py`, открыть F1 → «ИИ» и
+«Игрок» (кнопки DebugActions: «Тень…», «Возродиться», «Прогнать правила сейчас»), написать СМС
+полиции (хуки LlmBridge) и убедиться, что журнал событий (F1 → Система) пишет время.
+
+Анализ — скрипты `depgraph.py` (типы между сборками) и `intragraph.py` (подмодули внутри Grid)
+по всем 509 файлам: 14 сборок, Grid 72k строк — одна компонента сильной связности из 14
+подмодулей; реальные нарушения направления — только Monsters → UI (AiConsole, PlanStep,
+GameEvents, SpeechBubbles) и Monsters → Core (DebugActions), плюс логика без UI внутри Tavern.UI
+(AiConsole 608 строк, LlmBridge 513, TelegramBridge 129) и пустая сборка Tavern.Data.
+Результат — раздел «⭐ ГЛОБАЛЬНЫЕ МОДУЛИ» в `ARCHITECTURE.md` (четыре слоя, 14 подмодулей Мира с
+числом швов у каждого, шесть правил направления, схема сборок).
+
+Шаги `night.py step` (не закоммичены, ждут «коммить»):
+1. `monsters-flip` — Monsters больше не знает UI и Core: AiConsole+PlanStep → `Modules/Monsters`,
+   DeathScreenUI → `Game/UI` (хук `MonsterManager.Attach`), DebugActions и GameEvents → `Modules/View`
+   (`GameEvents.Clock` из GameClock, `DefaultTone` из UiTheme), LlmBridge/LlmHost и TelegramBridge →
+   `Game/Net` (хуки `TelOf/Typing/Deliver` из PhoneUI, часы `HasClock/Day/Hours` из GameClock,
+   исходящие СМС — `LlmBridge.Sent`/`TelegramBridge.Sent` вместо события `PhoneUI.Sent`), пузырь
+   существ — `CreaturePlan.Bubble`. asmdef: UI +Monsters; Monsters −UI −Core +Net; Net +Grid
+   +Character. 31 файл.
+2. `drop-data-asm` — Tavern.Data (0 .cs) снята с Core/UI/Tests.
+3. `ai-hooks-direct` — пять делегатов AiConsole (RunPlan/DescribePlan/RulesCheck/RulesRunNow/
+   RulesApplied) → прямые вызовы CreaturePlan.Run/Describe, LifeRules.Check/Applied/RunNow; две
+   мёртвые ветки «не подключён» сняты. `ai_plan_probe.py` зовёт `CreaturePlan.Run` напрямую.
+4. `crow-zone-spawn-to-monsters` — CrowZoneSpawn (спавн всех существ) из Combat в Monsters.
+
+Вне `step` (step не умеет переезды; откат — `.git/night/grid_moves_undo.sh`, `ui_moves_undo.sh`,
+карты — `grid_moves.tsv`, `ui_moves.tsv`):
+- Grid по 15 папкам: Core 26 файлов, Cursor 37 (все партиалы GridCursor), Build 42, Objects 42 +
+  Objects/Features 14, Place 6, View 13, Save 1, Inventory (была), Liquids 7, Fire 12, Weather 12,
+  Power 10, Birds 7, Zones 4, Kitchen 10, Shaders 20 (.shader/.hlsl, инклуды относительные —
+  между собой живы; один внешний `Character/DarknessVeil.shader` → `../Grid/Shaders/…` поправлен,
+  нашёл ilya-27 по консоли). `.meta` переехали с файлами (GUID целы), метки папок созданы.
+- UI по 5 папкам: Hud 57 (44 партиала HudUI + панели HUD), Screens 28, Phone 11, Kit 27, System 2.
+- Белые списки `SourceRulesTests` (25 путей) и `DebugPanelSources` («Game/UI/Hud») переведены;
+  пути в скилах — регексом по картам переезда (ARCHITECTURE, BUILD, VIEW, WEATHER, CHARACTER,
+  UI, OPEN, hands, cooking, life, story, level1, crafting, ai-chat); `gc_probe.py`, `stage_mine.py`.
+- Незакоммиченные правки соседей (110 M + 230 ?? на старте) переехали содержимым рабочего дерева,
+  ilya-27 подтвердил, что его пять файлов на новых путях целы.
+
+Метрики (`night.py metrics`): 482 файла / 138 856 строк / методов >60: 71, >100: 5 (база ilya-58 ночью:
+480 / 136 101 / 85 / 9 — рост строк от соседей за день, не от переездов). Кадр не мерили (мост, драйвер).
+
+Не взято и почему: вынос подмодулей Grid в сборки (Birds первым, 9 швов) — только с живыми
+пробами; namespace по папкам — вопрос Илье (OPEN); CreatureSenses/Sectant из Character — их читает
+Combat ниже Monsters; Cozy.Weather (36 строк) — вместе со стихиями.
+
+### Продолжение той же ночи 11.10 (ilya-63), Илья ушёл: «главное не ломай, регресс потом»
+
+Шаги 5–8 (`night.py step`, не закоммичены): `creatures-assembly` (Cozy.Monsters → Cozy.Creatures по
+содержимому), `editor-folder` (Game/Editor слит в Assets/Editor), `asmdef-tighten` (снято пять
+ссылок сборок, которые компилятор не использует: Core −AI.Navigation −Character, Combat −Loc,
+Cooking −View, Weather −View, тесты −View), `creatures-split` (тела и чувства существ из Character в
+`Cozy.Creatures` ниже Combat; разум в `Cozy.Life` выше). Сканы: мёртвых приватных методов нет (11
+кандидатов — все `[RuntimeInitializeOnLoadMethod]`); длинные методы >60 — геометрия, горячие пути и
+панели F1, без моста не трогались. Защита та же: офлайн-сборка после каждого шага, офлайн-тесты
+13/13, `probes_lint` 0, `skills_lint`. Решения: namespace Grid плоский, `Tavern.Core` не
+переименовывать, `People` остаётся в Character (его читает `PhoneState`).
+
+## Ночь 11→12.10 (ilya-f6) — кадр в доме level1: замер, зеркала, рывки раз в 0,5 с
+
+Илья 11.10 вечером: «изучи глобально фпс и сделай замеры внутри дома на уровне level1, что съедает фпс и как
+улучшить» → «убери совсем зеркала с уровня» → «я отхожу — занимайся глубоко исследованием фпс и улучшениями».
+Картинку не трогал (правило 03.10). Замеры по комнатам, A/B по видеокарте и таблица рывков — `tavern-fps/SKILL.md`
+(«Замер 11.10» и «Ночь 11→12.10»). Редактор делил с ilya-27 (переходы между уровнями) и ilya-63 (переезд существ в
+`Cozy.Creatures`/`Cozy.Life`): все мои файлы были грязными от их переезда — шаги открыты `step begin … --force`.
+
+Защита ночи: офлайн-сборка после каждой правки, компиляция редактора 0 ошибок, новая проба `fps_probe.py spikes`
+(макс self по кадрам) до/после, прямые сверки эквивалентности в play через рефлексию (подпись ЛЭП, снимок
+проходимости по всем 8 176 рёбрам), `gc_probe`. `ai_plan_probe` на level1 не применима (нет зоны с двумя маркерами).
+
+Данные (не код): зеркала `home_hall_mirror` и `home_bathroom_mirror` вырезаны из `level1.json` (копия
+`level1.json.bak-before-mirrors-1110`); ванная 9,55 → 7,1 мс. DESIGN_LOG 11.10 вечер.
+
+Шаги (`night.py step list`, ждут «коммить»):
+10. `creatureplan-scan-order` — ScanObjects: геометрические фильтры до строковых. CreaturePlan.Update 0,23–0,26 мс и
+    1 653 Б/кадр → 0,000 / 0.
+11. `powerlines-signature-cache` — Signature() по кэшу `_lineParts` (AllRevision). Рывок 4,0–4,4 мс раз в 0,5 с → 0,02;
+    подпись побитно равна старому расчёту (1496688085).
+12. `jamb-sync-stagger` — DoorPiece/WindowPiece на решётке `Time.time` с фазой (`JambPaint.NextPhase/NextSync`). Две неудачные
+    попытки до этого (сдвиг по GetInstanceID, счётчик фаз без решётки): после длинного кадра все таймеры снова на одном
+    значении — P1025. Рывок 2,4 + 1,3 мс → 0,85 + 0,66.
+13. `monsternav-snapshot-prefilter` — OverlapBox только у преград по реестрам `GridBlock/DoorPiece/WindowPiece.All`.
+    Первая версия через FindObjectsByType — 41 мс (обход сцены), заменена. Холодный снимок 31,7 → 1,65 мс, DIFF=0 — P1026.
+14. `monsternav-flood-buffers` — статические словарь и очередь заливки. 454 КБ → 0 Б за вызов, пик мусора кадра 467 → 25 КБ.
+
+Отвергнуто/отложено: троттлинг живых строк F1 (поведение инструмента — OPEN.md); снятие `SnapshotMaxAge` (риск коллайдера
+того же кадра — OPEN.md, владелец существ); `PhoneBook.All` 320 Б/кадр; прогрев ресурса `PlayerExposure` (не найден какой);
+GPU по проходам в редакторе недоступен (нет GPU-потока). Инвариант 544, грабли P1025–P1026.
+
+Шаг 15 `headicon-to-creatures` (та же ночь): `HeadIcon` из Effects в Creatures — Effects теперь только
+про игрока. Шаги 10–14 в списке ночи — ilya-f6 (кэш чувств, ЛЭП, косяки, MonsterNav), не мои.
+Итог ночи: 9 шагов ilya-63 + два переезда папок; офлайн-сборка чистая, офлайн-тесты 14/14 чистой
+логики, `probes_lint` 0, `skills_lint` без новых предупреждений. ⏳ живой регресс — при первом мосте.

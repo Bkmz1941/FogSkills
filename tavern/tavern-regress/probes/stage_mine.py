@@ -21,7 +21,7 @@
 
     python3 stage_mine.py --repo /media/ilya/T714/Unity/Tavern-fresh \\
         --mine ворон,perch,CrowPerch --foreign камин,Fire,fireplace \\
-        Assets/Modules/Grid/GridCursor.cs Assets/Game/UI/HudUI.cs
+        Assets/Modules/Grid/Cursor/GridCursor.cs Assets/Game/UI/Hud/HudUI.cs
 
 Дальше обычный `git commit` (без -a!) и ОБЯЗАТЕЛЬНО `git diff --cached` —
 глазами найти в нём чужие слова. Скрипт помогает, но не отменяет проверку.

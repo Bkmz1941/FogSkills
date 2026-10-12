@@ -118,7 +118,7 @@ B=Library/Bee/artifacts/2400b0aE.dag; S=<scratchpad>/oc; mkdir -p $S
 DN=~/Unity/Hub/Editor/6000.3.10f1/Editor/Data/NetCoreRuntime/dotnet
 CSC=~/Unity/Hub/Editor/6000.3.10f1/Editor/Data/DotNetSdkRoslyn/csc.dll
 cp $B/*.ref.dll $B/*.UnityAdditionalFile.txt $S/
-names="Cozy.Loc Cozy.View Cozy.Grid Cozy.Character Cozy.Effects Cozy.Weather Cozy.Cooking Cozy.Story Cozy.Combat Cozy.Monsters Tavern.Net Tavern.Core Tavern.UI Tavern.Tests.EditMode"
+names="Cozy.Loc Cozy.View Cozy.Grid Cozy.Character Cozy.Effects Cozy.Weather Cozy.Cooking Cozy.Story Cozy.Combat Cozy.Creatures Tavern.Net Tavern.Core Tavern.UI Tavern.Tests.EditMode"
 for a in $names; do sed "s#$B/#$S/#g" $B/$a.rsp > $S/$a.rsp; done   # выход и ref — в scratch
 for pass in 1 2; do for a in $names; do $DN $CSC /nologo @$S/$a.rsp 2>&1 | grep " error "; done; done
 ```

@@ -154,7 +154,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   function markDoc(m) { var d = { kind: m.kind, x: Math.round(m.x * 1000) / 1000, y: Math.round(m.y * 1000) / 1000 }; if (m.rot) d.rot = m.rot; return d; }
   function putMark(m) { marks.push(m); if (col) col.doc(m.id).set(markDoc(m)).catch(function () {}); }
   function dropMark(m) { marks = marks.filter(function (o) { return o.id !== m.id; }); delete sel[m.id]; if (col) col.doc(m.id).delete().catch(function () {}); }
-  function putRoad(r) { roads.push(r); if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0 || null, ws: r.ws || null, kind: r.kind || 'road', t: r.t || Date.now() }).catch(function () {}); }
+  function putRoad(r) { roads.push(r); if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0 || null, ws: r.ws || null, kind: r.kind || 'road', style: r.style || null, t: r.t || Date.now() }).catch(function () {}); }
   function dropRoad(r) { roads = roads.filter(function (o) { return o.id !== r.id; }); delete sel[r.id]; if (roadsCol) roadsCol.doc(r.id).delete().catch(function () {}); }
   function isSel(m) { return !!sel[m.id]; }
   function selCount() { return Object.keys(sel).length; }
@@ -1121,7 +1121,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
       wA = kind === 'river' ? structW.river : structW.road;
       wB = kind === 'river' ? wA * RIVER_GROW : wA;
     }
-    draftDoc = { id: newId('r'), kind: kind, wA: wA, wB: wB, wNext: wA, t: Date.now(), saved: false, reversed: !!(from && from.end === 'start'), fresh: !from };
+    draftDoc = { id: newId('r'), kind: kind, style: kind === 'river' ? null : (from ? roadStyleOf(from.r) : roadStyle), wA: wA, wB: wB, wNext: wA, t: Date.now(), saved: false, reversed: !!(from && from.end === 'start'), fresh: !from };
     draft = []; draftWs = [];
     if (from) {
       var n = from.r.pts.length, i0 = from.end === 'start' ? 0 : n - 2;
@@ -1139,7 +1139,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     var w = draftWidths();
     var ws = draftWs.map(function (v) { return Math.round(v * 10000) / 10000; }); if (draftDoc.reversed) ws.reverse();
     var isRiver = draftDoc.kind === 'river';
-    return { id: draftDoc.id, pts: draftFlat(), w: ws[ws.length - 1], w0: isRiver ? ws[0] : null, ws: ws, kind: draftDoc.kind, t: draftDoc.t };
+    return { id: draftDoc.id, pts: draftFlat(), w: ws[ws.length - 1], w0: isRiver ? ws[0] : null, ws: ws, kind: draftDoc.kind, style: draftDoc.style, t: draftDoc.t };
   }
   function addDraftPoint(x, y) { draft.push([x, y]); draftWs.push(draftDoc.wNext); }
   function saveDraft(msg) {
@@ -1147,7 +1147,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     var r = draftRoad();
     draftDoc.saved = true;
     if (!roadsCol) return;
-    roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, t: r.t }).then(function () { setStatus(msg || 'Точка сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+    roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, style: r.style || null, t: r.t }).then(function () { setStatus(msg || 'Точка сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
   }
   function discardDraft() {
     if (draftDoc) {
@@ -1158,41 +1158,274 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     draft = null; draftDoc = null; draftWs = null;
   }
   function cancelDraft() { if (draft && draft.length >= 2) finishRoad(); else discardDraft(); }
+  // ---- Roads are isometric objects, like the houses (Ilya 11.10). Ten kinds of surface. ----
+  // A road is a raised ribbon: its roadbed is the same ribbon lowered by h px, so below the surface the slope that
+  // faces down the screen shows (vertical = screen-up, as in Iso). It is lit like the buildings: slopes turned
+  // down-left are light, down-right dark. Details (marking, planks, sleepers, slabs, stones) are laid along the path
+  // at fixed distances in km, so they stay put while panning and zooming, and are skipped when the road is thin on screen.
+  var ROAD_STYLES = {
+    asphalt:   { name: 'Шоссе — асфальт', lift: 0.22, side: '#8A7A62' },
+    broken:    { name: 'Разбитый асфальт', lift: 0.2, side: '#8A7A62' },
+    concrete:  { name: 'Бетонка — плиты', lift: 0.2, side: '#7D7A72' },
+    tiles:     { name: 'Плитка', lift: 0.15, side: '#7F7A70' },
+    cobble:    { name: 'Брусчатка', lift: 0.18, side: '#6B6760' },
+    gravel:    { name: 'Гравийка', lift: 0.15, side: '#857B6B' },
+    dirt:      { name: 'Грунтовка', lift: 0.1, side: '#6E5637' },
+    trail:     { name: 'Тропа', lift: 0, side: '#6E5637', soft: true },
+    boardwalk: { name: 'Гать — дощатый настил', lift: 0.3, side: '#4E3A28' },
+    rail:      { name: 'Железная дорога', lift: 0.25, side: '#7A7268' }
+  };
+  var ROAD_ORDER = ['asphalt', 'broken', 'concrete', 'tiles', 'cobble', 'gravel', 'dirt', 'trail', 'boardwalk', 'rail'];
+  // drawing order: paths at the bottom, the railway on top of everything
+  var ROAD_LAYERS = ['trail', 'dirt', 'gravel', 'tiles', 'cobble', 'boardwalk', 'concrete', 'broken', 'asphalt', 'rail'];
+  function roadStyleOf(r) { return r && ROAD_STYLES[r.style] ? r.style : 'asphalt'; }
+  var roadStyle = 'asphalt';
+  try { var savedRS = localStorage.getItem('sosnyMapRoadStyle'); if (ROAD_STYLES[savedRS]) roadStyle = savedRS; } catch (e) {}
+  function keepRoadStyle() { try { localStorage.setItem('sosnyMapRoadStyle', roadStyle); } catch (e) {} }
+  function selRoads() { return roads.filter(function (r) { return sel[r.id] && r.kind !== 'river'; }); }
+  function setRoadStyle(list, style) {
+    var was = list.map(function (r) { return [r.id, r.style || null]; });
+    list.forEach(function (r) { r.style = style; if (roadsCol) roadsCol.doc(r.id).update({ style: style }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); }); });
+    record(function () { was.forEach(function (p) { var r = riverById(p[0]); if (r) { r.style = p[1]; if (roadsCol) roadsCol.doc(r.id).update({ style: p[1] }).catch(function () {}); } }); renderSamples(); draw(); });
+    setStatus('Покрытие: ' + ROAD_STYLES[style].name); renderSamples(); draw();
+  }
+  function hashN(a, b, c) { var v = Math.sin(a * 127.1 + b * 311.7 + (c || 0) * 74.7) * 43758.5453; return v - Math.floor(v); }
+  // sp — points on screen, wp — width in px at each of them
+  function passPx(g, sp, wp, scale, extra, color, dy, from, to) {
+    var n = sp.length, i0 = from || 0; g.strokeStyle = color;
+    for (var i = i0; i + 1 < n && (to === undefined || i < to); i++) {
+      g.lineWidth = Math.max(3, (wp[i] + wp[i + 1]) / 2 * scale) + extra;
+      g.beginPath(); g.moveTo(sp[i][0], sp[i][1] + dy); g.lineTo(sp[i + 1][0], sp[i + 1][1] + dy); g.stroke();
+    }
+  }
+  // The roadbed lowered by h: each piece is shaded by where its downhill side faces (left — light, right — dark).
+  function sidePass(g, sp, wp, col, h) {
+    for (var i = 0; i + 1 < sp.length; i++) {
+      var dx = sp[i + 1][0] - sp[i][0], dy = sp[i + 1][1] - sp[i][1], len = Math.hypot(dx, dy) || 1, nx = -dy / len;
+      if (dx < 0) nx = -nx;
+      g.strokeStyle = shade(col, -0.08 - 0.12 * nx);
+      g.lineWidth = Math.max(3, (wp[i] + wp[i + 1]) / 2);
+      g.beginPath(); g.moveTo(sp[i][0], sp[i][1] + h); g.lineTo(sp[i + 1][0], sp[i + 1][1] + h); g.stroke();
+    }
+  }
+  function normalsPx(sp) {
+    var n = sp.length, out = [];
+    for (var i = 0; i < n; i++) {
+      var a = sp[Math.max(0, i - 1)], b = sp[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+      out.push([-dy / len, dx / len]);
+    }
+    return out;
+  }
+  // A line along the road, shifted sideways by frac of the half width (0 — the axis, ±1 — the edges).
+  function alongLine(g, sp, wp, nm, frac, lw, color, dash) {
+    g.beginPath();
+    for (var i = 0; i < sp.length; i++) { var o = wp[i] / 2 * frac, x = sp[i][0] + nm[i][0] * o, y = sp[i][1] + nm[i][1] * o; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.lineWidth = lw; g.strokeStyle = color; g.setLineDash(dash || []); g.stroke(); g.setLineDash([]);
+  }
+  // Calls cb every step px along the path (skipping what lies outside box): point, tangent, normal, width, distance.
+  function walkPx(sp, wp, step, box, cb) {
+    var acc = 0, d = 0;
+    for (var i = 0; i + 1 < sp.length; i++) {
+      var ax = sp[i][0], ay = sp[i][1], len = Math.hypot(sp[i + 1][0] - ax, sp[i + 1][1] - ay);
+      if (!len) continue;
+      var tx = (sp[i + 1][0] - ax) / len, ty = (sp[i + 1][1] - ay) / len;
+      for (; acc <= len; acc += step) {
+        var x = ax + tx * acc, y = ay + ty * acc;
+        if (x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3]) cb(x, y, tx, ty, -ty, tx, wp[i] + (wp[i + 1] - wp[i]) * acc / len, d + acc);
+      }
+      acc -= len; d += len;
+    }
+  }
+  function across(g, x, y, nx, ny, w, frac, lw, color) {
+    var o = w / 2 * frac; g.beginPath(); g.moveTo(x + nx * o, y + ny * o); g.lineTo(x - nx * o, y - ny * o); g.lineWidth = lw; g.strokeStyle = color; g.stroke();
+  }
+  function roadDot(g, x, y, r, color) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); }
+  // The surface of each style at ground level. k — px per km, avg — mean width px, fine — wide enough for details,
+  // seed — a number from the road's position (keeps potholes and stones where they are), box — the visible area.
+  var ROAD_DRAW = {
+    asphalt: function (g, sp, wp, nm, k, avg, fine) {
+      passPx(g, sp, wp, 1, 0, '#D8D4CC', 0);
+      passPx(g, sp, wp, 0.88, 0, '#5E5D5A', 0);
+      if (!fine) return;
+      g.lineCap = 'butt';
+      var dash = Math.max(4, 0.02 * k);
+      alongLine(g, sp, wp, nm, 0, Math.max(1, 0.006 * k), '#ECE6D6', [dash, dash]);
+    },
+    broken: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#B9B5AD', 0);
+      passPx(g, sp, wp, 0.88, 0, '#6A6966', 0);
+      if (!fine) return;
+      g.lineCap = 'butt';
+      var ga = g.globalAlpha, dash = Math.max(4, 0.02 * k);
+      g.globalAlpha = ga * 0.4; alongLine(g, sp, wp, nm, 0, Math.max(1, 0.006 * k), '#ECE6D6', [dash, dash * 1.6]); g.globalAlpha = ga;
+      walkPx(sp, wp, Math.max(6, 0.012 * k), box, function (x, y, tx, ty, nx, ny, w, d) {
+        var u = d / k, r1 = hashN(u, seed, 1), r2 = hashN(u, seed, 2), r3 = hashN(u, seed, 3);
+        if (r1 > 0.55) return;
+        var o = (r2 - 0.5) * w * 0.6, px = x + nx * o, py = y + ny * o, ang = Math.atan2(ty, tx);
+        g.beginPath();
+        if (r1 < 0.2) { g.ellipse(px, py, w * (0.06 + r3 * 0.08), w * (0.04 + r3 * 0.05), ang, 0, Math.PI * 2); g.fillStyle = '#3F3E3C'; g.fill(); }
+        else if (r1 < 0.4) { g.ellipse(px, py, w * (0.1 + r3 * 0.12), w * (0.07 + r3 * 0.08), ang + r2, 0, Math.PI * 2); g.fillStyle = '#7C7A75'; g.fill(); }
+        else {
+          var l = w * 0.25;
+          g.moveTo(px - tx * l, py - ty * l); g.lineTo(px + nx * l * 0.6 * (r3 - 0.5), py + ny * l * 0.6 * (r3 - 0.5)); g.lineTo(px + tx * l + nx * (r2 - 0.5) * 2, py + ty * l + ny * (r2 - 0.5) * 2);
+          g.lineWidth = 1; g.strokeStyle = '#3F3E3C'; g.stroke();
+        }
+      });
+    },
+    concrete: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#BDB9B0', 0);
+      passPx(g, sp, wp, 0.94, 0, '#A9A69E', 0);
+      if (!fine) return;
+      g.lineCap = 'butt';
+      alongLine(g, sp, wp, nm, 0, 1, '#86837B');
+      walkPx(sp, wp, Math.max(8, 0.03 * k), box, function (x, y, tx, ty, nx, ny, w) { across(g, x, y, nx, ny, w, 0.94, 1, '#86837B'); });
+    },
+    tiles: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#CFC9BC', 0);
+      passPx(g, sp, wp, 0.9, 0, '#B3ADA0', 0);
+      if (avg < 9) return;
+      g.lineCap = 'butt';
+      [-0.3, 0.3].forEach(function (f) { alongLine(g, sp, wp, nm, f, 1, '#938E82'); });
+      walkPx(sp, wp, Math.max(4, 0.008 * k), box, function (x, y, tx, ty, nx, ny, w) { across(g, x, y, nx, ny, w, 0.9, 1, '#938E82'); });
+    },
+    cobble: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#9A968C', 0);
+      passPx(g, sp, wp, 0.9, 0, '#6F6D67', 0);
+      if (avg < 10) return;
+      var step = Math.max(3.5, 0.006 * k), row = 0;
+      walkPx(sp, wp, step, box, function (x, y, tx, ty, nx, ny, w, d) {
+        row++;
+        var span = w * 0.9, cols = Math.max(2, Math.round(span / step)), cw = span / cols, sh = row % 2 ? 0.5 : 0;
+        g.save(); g.translate(x, y); g.rotate(Math.atan2(ty, tx));
+        for (var c = 0; c < cols; c++) {
+          var o = -span / 2 + cw * (c + 0.5 + sh); if (o + cw / 2 > span / 2) continue;
+          g.fillStyle = shade('#7C7A74', (hashN(c, d / k, seed) - 0.5) * 0.3);
+          g.fillRect(-step * 0.42, o - cw * 0.42, step * 0.84, cw * 0.84);
+        }
+        g.restore();
+      });
+    },
+    gravel: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#A79F8F', 0);
+      if (avg >= 5) [-0.3, 0.3].forEach(function (f) { alongLine(g, sp, wp, nm, f, Math.max(1, avg * 0.1), 'rgba(110,100,86,0.4)'); });
+      if (!fine) return;
+      walkPx(sp, wp, Math.max(3, 0.004 * k), box, function (x, y, tx, ty, nx, ny, w, d) {
+        for (var j = 0; j < 3; j++) {
+          var o = (hashN(d / k, seed, j) - 0.5) * w * 0.9;
+          roadDot(g, x + nx * o, y + ny * o, Math.max(0.6, w * 0.02), j % 2 ? '#C2BBAC' : '#8E8678');
+        }
+      });
+    },
+    dirt: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#8C6E4E', 0);
+      if (avg >= 5) [-0.3, 0.3].forEach(function (f) { alongLine(g, sp, wp, nm, f, Math.max(1.2, avg * 0.16), '#6F5538'); });
+      if (avg >= 12) alongLine(g, sp, wp, nm, 0, Math.max(1, avg * 0.12), '#7D8F4C');
+      if (!fine) return;
+      walkPx(sp, wp, Math.max(8, 0.02 * k), box, function (x, y, tx, ty, nx, ny, w, d) {
+        var u = d / k; if (hashN(u, seed, 5) > 0.5) return;
+        var o = (hashN(u, seed, 6) - 0.5) * w * 0.8; roadDot(g, x + nx * o, y + ny * o, Math.max(0.7, w * 0.03), '#8A8A80');
+      });
+    },
+    trail: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      var ga = g.globalAlpha;
+      g.globalAlpha = ga * 0.55; passPx(g, sp, wp, 1, 0, '#7A6245', 0); g.globalAlpha = ga;
+      passPx(g, sp, wp, 0.6, 0, '#8C6E4E', 0);
+      if (!fine) return;
+      walkPx(sp, wp, Math.max(6, 0.015 * k), box, function (x, y, tx, ty, nx, ny, w, d) {
+        var u = d / k, r = hashN(u, seed, 7); if (r > 0.4) return;
+        var o = (hashN(u, seed, 8) - 0.5) * w * 0.9;
+        if (r < 0.2) roadDot(g, x + nx * o, y + ny * o, Math.max(0.7, w * 0.04), '#8A8A80');
+        else { g.beginPath(); g.moveTo(x + nx * o - tx * w * 0.1, y + ny * o - ty * w * 0.1); g.lineTo(x + nx * (o + w * 0.25), y + ny * (o + w * 0.25)); g.lineWidth = Math.max(1, w * 0.04); g.strokeStyle = '#5A4330'; g.stroke(); }
+      });
+    },
+    boardwalk: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#9C7448', 0);
+      if (!fine) return;
+      g.lineCap = 'butt';
+      var step = Math.max(3, 0.006 * k);
+      walkPx(sp, wp, step, box, function (x, y, tx, ty, nx, ny, w, d) {
+        var r = hashN(d / k, seed, 9);
+        if (r < 0.3) { g.save(); g.translate(x, y); g.rotate(Math.atan2(ty, tx)); g.fillStyle = shade('#9C7448', r < 0.15 ? -0.12 : 0.08); g.fillRect(0, -w / 2, step, w); g.restore(); }
+        across(g, x, y, nx, ny, w, 1, Math.max(1, step * 0.16), '#5A3E2A');
+      });
+      [-0.84, 0.84].forEach(function (f) { alongLine(g, sp, wp, nm, f, Math.max(1, avg * 0.05), '#6E4E30'); });
+    },
+    rail: function (g, sp, wp, nm, k, avg, fine, seed, box) {
+      passPx(g, sp, wp, 1, 0, '#9A9388', 0);
+      g.lineCap = 'butt';
+      if (fine) {
+        walkPx(sp, wp, Math.max(4, 0.006 * k), box, function (x, y, tx, ty, nx, ny, w, d) {
+          var o = (hashN(d / k, seed, 10) - 0.5) * w * 0.95; roadDot(g, x + nx * o, y + ny * o, Math.max(0.6, w * 0.02), hashN(d / k, seed, 11) > 0.5 ? '#B5AEA2' : '#7E776C');
+        });
+        var sl = Math.max(4, 0.009 * k);
+        walkPx(sp, wp, sl, box, function (x, y, tx, ty, nx, ny, w) { across(g, x, y, nx, ny, w, 0.72, Math.max(1.5, sl * 0.3), '#5A4532'); });
+      }
+      var rw = Math.max(1, avg * 0.05);
+      [-0.24, 0.24].forEach(function (f) { alongLine(g, sp, wp, nm, f, rw + 1, '#4A4D52'); alongLine(g, sp, wp, nm, f, rw, '#A4A7AC'); });
+    }
+  };
+  function roadLift(wp, style) {
+    var st = ROAD_STYLES[style] || ROAD_STYLES.asphalt, avg = 0;
+    for (var i = 0; i < wp.length; i++) avg += wp[i]; avg /= wp.length || 1;
+    return { st: st, avg: avg, h: st.lift ? Math.max(1.5, Math.min(10, avg * st.lift)) : 0 };
+  }
+  // The shadow, the roadbed and the dark edges. Drawn for all roads of a layer before any surface,
+  // so roads of one kind that cross or meet merge without a seam.
+  function roadBase(g, sp, wp, style) {
+    var L = roadLift(wp, style);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    if (L.h) {
+      passPx(g, sp, wp, 1, 3, 'rgba(10,18,12,0.25)', L.h + 1.5);
+      passPx(g, sp, wp, 1, 2, EDGE, L.h);
+      sidePass(g, sp, wp, L.st.side, L.h);
+    }
+    if (!L.st.soft) passPx(g, sp, wp, 1, 2, EDGE, 0);
+  }
+  function roadSurface(g, sp, wp, style, k, seed, box) {
+    var L = roadLift(wp, style);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    ROAD_DRAW[ROAD_STYLES[style] ? style : 'asphalt'](g, sp, wp, normalsPx(sp), k, L.avg, L.avg >= 7, seed, box);
+    g.setLineDash([]);
+  }
   // Roads have square ends: everything is drawn with round caps and clipped by two half-planes
   // that cut straight across the road at its first and last point.
-  function squareEnds(sm) {
-    var n = sm.length, L = 1e5;
+  function squareEndsPx(g, sp) {
+    var n = sp.length, L = 1e5;
     function cut(a, b) {
-      var ax = sx(a[0]), ay = sy(a[1]), dx = sx(b[0]) - ax, dy = sy(b[1]) - ay, len = Math.hypot(dx, dy) || 1;
+      var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len; var nx = -dy, ny = dx;
-      ctx.beginPath();
-      ctx.moveTo(ax + nx * L, ay + ny * L); ctx.lineTo(ax - nx * L, ay - ny * L);
-      ctx.lineTo(ax - nx * L + dx * L, ay - ny * L + dy * L); ctx.lineTo(ax + nx * L + dx * L, ay + ny * L + dy * L);
-      ctx.closePath(); ctx.clip();
+      g.beginPath();
+      g.moveTo(a[0] + nx * L, a[1] + ny * L); g.lineTo(a[0] - nx * L, a[1] - ny * L);
+      g.lineTo(a[0] - nx * L + dx * L, a[1] - ny * L + dy * L); g.lineTo(a[0] + nx * L + dx * L, a[1] + ny * L + dy * L);
+      g.closePath(); g.clip();
     }
-    cut(sm[0], sm[Math.min(2, n - 1)]); cut(sm[n - 1], sm[Math.max(n - 3, 0)]);
+    cut(sp[0], sp[Math.min(2, n - 1)]); cut(sp[n - 1], sp[Math.max(n - 3, 0)]);
   }
-  function paintRoad(flat, selectedRoad, extra, ghostly, ws, tip) {
+  // phase: 'base' — the halo and the roadbed, 'top' — the surface, omitted — both.
+  function paintRoad(flat, selectedRoad, extra, ghostly, ws, tip, style, phase) {
     var pts = flat.slice(); ws = ws.slice();
     if (extra) { pts.push(wx(extra[0]), wy(extra[1])); ws.push(ws.length ? ws[ws.length - 1] : ROAD_W); }
-    if (tip) pts.push(wx(tip[0]), wy(tip[1]));
+    if (tip) pts.push(wx(tip[0]), wy(tip[1])); 
     var sm = smooth(pts); if (sm.length < 2) return;
-    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    var n = sm.length, sp = [], wp = [];
+    for (var i = 0; i < n; i++) { sp.push([sx(sm[i][0]), sy(sm[i][1])]); wp.push(sampleW(ws, i, n) * view.k); }
+    ctx.save();
     if (ghostly) ctx.globalAlpha = 0.7;
-    squareEnds(sm);
-    if (selectedRoad === true) riverPass(sm, ws, 1, 10, '#FFFFFF', 0);
-    else if (selectedRoad) selectedRoad.forEach(function (rg) { riverPass(sm, ws, 1, 10, '#FFFFFF', 0, rg[0] * 10, rg[1] * 10); });
-    riverPass(sm, ws, 1, 2, 'rgba(16,28,21,0.55)', 0);
-    riverPass(sm, ws, 1, 0, '#D8D4CC', 0);
-    riverPass(sm, ws, 0.88, 0, '#5E5D5A', 0);
-    ctx.lineCap = 'butt';
-    var avg = ws.reduce(function (a, b) { return a + b; }, 0) / ws.length * view.k;
-    if (avg >= 7) {
-      ctx.beginPath(); ctx.moveTo(sx(sm[0][0]), sy(sm[0][1]));
-      for (var i = 1; i < sm.length; i++) ctx.lineTo(sx(sm[i][0]), sy(sm[i][1]));
-      var dash = Math.max(4, 0.02 * view.k); ctx.lineWidth = Math.max(1, 0.006 * view.k); ctx.setLineDash([dash, dash]); ctx.strokeStyle = '#ECE6D6'; ctx.stroke();
+    squareEndsPx(ctx, sp);
+    if (phase !== 'top') {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (selectedRoad === true) passPx(ctx, sp, wp, 1, 10, '#FFFFFF', 0);
+      else if (selectedRoad) selectedRoad.forEach(function (rg) { passPx(ctx, sp, wp, 1, 10, '#FFFFFF', 0, rg[0] * 10, rg[1] * 10); });
+      roadBase(ctx, sp, wp, style);
     }
+    if (phase !== 'base') roadSurface(ctx, sp, wp, style, view.k, hashN(pts[0], pts[1]) * 100, [-60, -60, W + 60, H + 60]);
     ctx.restore();
+  }
+  // Sample of a style for the tray: a short bend of road, 15 px wide, at 520 px per km.
+  function roadThumb(g, style) {
+    var sp = [], wp = [];
+    for (var i = 0; i <= 16; i++) { var t = i / 16; sp.push([6 + 44 * t, 46 - 40 * t + Math.sin(t * Math.PI) * 7]); wp.push(15); }
+    g.save(); squareEndsPx(g, sp); roadBase(g, sp, wp, style); roadSurface(g, sp, wp, style, 520, 3, [-10, -10, 66, 66]); g.restore();
   }
   var RIVER_W0 = 0.05, RIVER_W1 = 0.09;
   var structTool = null;
@@ -1286,21 +1519,27 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
   }
   function drawRoads() {
     var skip = draftDoc ? draftDoc.id : null;
-    ['river', 'road'].forEach(function (kind) { riverChains(roads.filter(function (r) { return r.kind === kind && r.id !== skip; })).forEach(function (ch) {
-      var flat = [], ws = [], marked = [];
-      ch.forEach(function (r, k) {
-        var a = flat.length / 2 - (k ? 1 : 0), rw = riverWs(r);
-        flat = flat.concat(k ? r.pts.slice(2) : r.pts); ws = ws.concat(k ? rw.slice(1) : rw);
-        if (sel[r.id]) marked.push([a, a + rw.length - 1]);
+    var layers = [['river', function (r) { return r.kind === 'river'; }]];
+    ROAD_LAYERS.forEach(function (s) { layers.push([s, function (r) { return r.kind !== 'river' && roadStyleOf(r) === s; }]); });
+    layers.forEach(function (ly) {
+      var jobs = riverChains(roads.filter(function (r) { return ly[1](r) && r.id !== skip; })).map(function (ch) {
+        var flat = [], ws = [], marked = [];
+        ch.forEach(function (r, k) {
+          var a = flat.length / 2 - (k ? 1 : 0), rw = riverWs(r);
+          flat = flat.concat(k ? r.pts.slice(2) : r.pts); ws = ws.concat(k ? rw.slice(1) : rw);
+          if (sel[r.id]) marked.push([a, a + rw.length - 1]);
+        });
+        return { flat: flat, ws: ws, hl: ch.length === 1 ? marked.length > 0 : (marked.length ? marked : false) };
       });
-      var hl = ch.length === 1 ? marked.length > 0 : (marked.length ? marked : false);
-      if (kind === 'river') paintRiver(flat, hl, null, false, ws); else paintRoad(flat, hl, null, false, ws);
-    }); });
+      if (ly[0] === 'river') { jobs.forEach(function (j) { paintRiver(j.flat, j.hl, null, false, j.ws); }); return; }
+      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'base'); });
+      jobs.forEach(function (j) { paintRoad(j.flat, j.hl, null, false, j.ws, null, ly[0], 'top'); });
+    });
     if (draft && draft.length) {
       var flat = []; draft.forEach(function (q) { flat.push(q[0], q[1]); });
       var tip = hover && roading() ? hover : null;
       var dws = tip ? draftWs.concat([draftDoc.wNext]) : draftWs;
-      if (draftDoc.kind === 'river') paintRiver(flat, false, null, true, dws, tip); else paintRoad(flat, false, null, true, dws, tip);
+      if (draftDoc.kind === 'river') paintRiver(flat, false, null, true, dws, tip); else paintRoad(flat, false, null, true, dws, tip, draftDoc.style);
       ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1F2A22'; ctx.lineWidth = 1.5;
       draft.forEach(function (q) { ctx.beginPath(); ctx.arc(sx(q[0]), sy(q[1]), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
       ctx.restore();
@@ -1411,33 +1650,42 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     draft = null; draftDoc = null; draftWs = null;
     if (roads.some(function (x) { return x.id === r.id; })) roads = roads.map(function (x) { return x.id === r.id ? r : x; }); else roads.push(r);
     record(function () { dropRoad(r); });
-    if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, t: r.t }).then(function () { setStatus(isRiver ? 'Часть реки сохранена' : 'Дорога сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
+    if (roadsCol) roadsCol.doc(r.id).set({ pts: r.pts, w: r.w, w0: r.w0, ws: r.ws, kind: r.kind, style: r.style || null, t: r.t }).then(function () { setStatus(isRiver ? 'Часть реки сохранена' : 'Дорога сохранена'); }).catch(function () { setStatus('Не сохранилось — попробуйте ещё раз'); });
     else setStatus(isRiver ? 'Часть реки готова' : 'Дорога готова');
     draw();
   }
   function renderRoadTool(box) {
     var wrap = document.createElement('div'); wrap.className = 'brushbar';
-    [['road', 'Простая дорога'], ['river', 'Река']].forEach(function (tl) {
-      var on = structTool === tl[0];
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'sample' + (on ? ' on' : ''); b.title = tl[1];
-      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', tl[1] + ': щелчками ставьте точки, двойной щелчок или Enter — закончить, Esc — отменить');
+    var selR = selRoads();
+    ROAD_ORDER.forEach(function (st) {
+      var on = selR.length ? selR.every(function (r) { return roadStyleOf(r) === st; }) : (structTool === 'road' && roadStyle === st);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sample' + (on ? ' on' : ''); b.title = ROAD_STYLES[st].name;
+      b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', ROAD_STYLES[st].name + (selR.length ? ': сменить покрытие выделенной дороги' : ': щелчками ставьте точки, двойной щелчок или Enter — закончить, Esc — отменить'));
+      var c = document.createElement('canvas'); c.width = 112; c.height = 112; c.style.width = '56px'; c.style.height = '56px';
+      var g = c.getContext('2d'); g.scale(2, 2); roadThumb(g, st);
+      b.appendChild(c);
+      b.addEventListener('click', function () {
+        var rs = selRoads();
+        if (rs.length) { roadStyle = st; keepRoadStyle(); setRoadStyle(rs, st); return; }
+        if (structTool === 'road' && roadStyle === st) structTool = null; else { structTool = 'road'; roadStyle = st; keepRoadStyle(); }
+        cancelDraft(); renderSamples(); draw();
+      });
+      wrap.appendChild(b);
+    });
+    (function () {
+      var on = structTool === 'river';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sample' + (on ? ' on' : ''); b.title = 'Река';
+      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', 'Река: щелчками ставьте точки, двойной щелчок или Enter — закончить, Esc — отменить');
       var c = document.createElement('canvas'); c.width = 112; c.height = 112; c.style.width = '56px'; c.style.height = '56px';
       var g = c.getContext('2d'); g.scale(2, 2); g.lineCap = 'round'; g.lineJoin = 'round';
       function path() { g.beginPath(); g.moveTo(8, 46); g.quadraticCurveTo(26, 40, 30, 26); g.quadraticCurveTo(34, 12, 50, 9); }
-      if (tl[0] === 'road') {
-        g.lineCap = 'butt';
-        path(); g.lineWidth = 13; g.strokeStyle = 'rgba(16,28,21,0.55)'; g.stroke();
-        path(); g.lineWidth = 11; g.strokeStyle = '#D8D4CC'; g.stroke();
-        path(); g.lineWidth = 8; g.strokeStyle = '#5E5D5A'; g.stroke();
-        path(); g.lineWidth = 1.2; g.setLineDash([4, 4]); g.strokeStyle = '#ECE6D6'; g.stroke();
-      } else {
-        path(); g.lineWidth = 10; g.strokeStyle = '#3D6A80'; g.stroke();
-        path(); g.lineWidth = 4; g.strokeStyle = '#5687A0'; g.stroke();
-      }
+      path(); g.lineWidth = 10; g.strokeStyle = '#3D6A80'; g.stroke();
+      path(); g.lineWidth = 4; g.strokeStyle = '#5687A0'; g.stroke();
       b.appendChild(c);
-      b.addEventListener('click', function () { structTool = structTool === tl[0] ? null : tl[0]; cancelDraft(); renderSamples(); draw(); });
+      b.addEventListener('click', function () { structTool = structTool === 'river' ? null : 'river'; cancelDraft(); renderSamples(); draw(); });
       wrap.appendChild(b);
-    });
+    })();
     var sizeBox = document.createElement('div'); sizeBox.className = 'brushsize';
     var lab = document.createElement('label'); lab.setAttribute('for', 'structWidth'); lab.textContent = 'Ширина';
     var range = document.createElement('input'); range.type = 'range'; range.id = 'structWidth'; range.min = '10'; range.max = '300'; range.step = '5';
@@ -1471,7 +1719,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
     sizeBox.appendChild(lab); sizeBox.appendChild(range); sizeBox.appendChild(val); showW();
     var hint = document.createElement('div'); hint.className = 'empty';
     hint.textContent = target
-      ? 'Щёлкните точку и меняйте ширину в ней ползунком. Точку можно тащить, Alt+щелчок или Delete — убрать точку.'
+      ? 'Щёлкните точку и меняйте ширину в ней ползунком. Точку можно тащить, Alt+щелчок или Delete — убрать точку.' + (target.kind === 'river' ? '' : ' Щелчок по другому покрытию — сменить его у дороги.')
       : 'Щелчками ставьте точки. Двойной щелчок или Enter — закончить, Esc — отменить.';
     var hb = document.createElement('button'); hb.type = 'button'; hb.className = 'sample'; hb.title = KINDS.hill.name;
     hb.setAttribute('aria-label', 'Поставить: ' + KINDS.hill.name + ' (перетащите на карту или нажмите, чтобы поставить в центр)');
@@ -1499,7 +1747,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
       bb.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addMark(k, view.x, view.y); } });
       wrap.insertBefore(bb, sep);
     });
-    if (!target && !structTool) { sizeBox.hidden = true; hint.textContent = 'Выберите «Простую дорогу» или «Реку», чтобы рисовать. Правый щелчок по карте — снять выбор.'; }
+    if (!target && !structTool) { sizeBox.hidden = true; hint.textContent = 'Выберите покрытие дороги или «Реку», чтобы рисовать. Правый щелчок по карте — снять выбор.'; }
     else if (!target) hint.textContent = structTool === 'river'
       ? 'Река рисуется частями: каждая точка сохраняется сразу. Двойной щелчок или Enter — закончить часть, Esc — убрать её. Потяните за кружок на конце — продолжить новой частью.'
       : 'Щелчками ставьте точки, каждая сохраняется сразу. Двойной щелчок или Enter — закончить, Esc — убрать. Правый щелчок — снять выбор.';
@@ -1717,7 +1965,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
         var xc = crossAt(p[0], p[1]);
         if (xc) { removeMark(xc); renderSamples(); return; }
         var hitR = roadHit(p[0], p[1]);
-        if (hitR) { if (!sel[hitR.id]) selPt = null; sel = {}; sel[hitR.id] = true; structTool = hitR.kind === 'river' ? 'river' : 'road'; renderSamples(); draw(); return; }
+        if (hitR) { if (!sel[hitR.id]) selPt = null; sel = {}; sel[hitR.id] = true; structTool = hitR.kind === 'river' ? 'river' : 'road'; if (hitR.kind !== 'river') { roadStyle = roadStyleOf(hitR); keepRoadStyle(); } renderSamples(); draw(); return; }
         if (selectedLine()) { sel = {}; selPt = null; renderSamples(); draw(); return; }
       }
       if (!draft) startDraft(structTool, null);
@@ -1952,7 +2200,7 @@ body { margin: 0; background: var(--ground); color: var(--ink); font-family: var
           var v = d.data();
           if (!v || !Array.isArray(v.pts) || v.pts.length < 4) return;
           var ws = Array.isArray(v.ws) && v.ws.length * 2 === v.pts.length ? v.ws.map(function (x) { return Number(x) || RIVER_W0; }) : null;
-          next.push({ id: d.id, pts: v.pts.map(Number), w: Number(v.w) || ROAD_W, w0: Number(v.w0) || null, ws: ws, kind: v.kind === 'river' ? 'river' : 'road', t: Number(v.t) || 0 });
+          next.push({ id: d.id, pts: v.pts.map(Number), w: Number(v.w) || ROAD_W, w0: Number(v.w0) || null, ws: ws, kind: v.kind === 'river' ? 'river' : 'road', style: v.kind !== 'river' && ROAD_STYLES[v.style] ? v.style : null, t: Number(v.t) || 0 });
         });
         roads = next;
         var keep = {}; Object.keys(sel).forEach(function (id) { if (marks.some(function (m) { return m.id === id; }) || roads.some(function (r) { return r.id === id; }) || areas.some(function (a) { return a.id === id; })) keep[id] = true; }); sel = keep;

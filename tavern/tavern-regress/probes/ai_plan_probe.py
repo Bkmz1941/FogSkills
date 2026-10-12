@@ -3,7 +3,7 @@
 
 python3 ai_plan_probe.py [зона] [--keep]
 
-План подаётся прямо в хук AiConsole.RunPlan (то, что пульт делает после ответа
+План подаётся прямо в CreaturePlan.Run (то, что пульт делает после ответа
 модели): appear в маркер A → go к маркеру B → wait 1 с → vanish. Ждёт до 90 с
 и сверяет: существо появилось у маркера A, дошло до B (в 1,5 м), исчезло.
 Второй случай — план поверх плана: пока идёт к B, подать «wait 2 с» — Describe
@@ -62,21 +62,21 @@ def set_marks(zone):
 
 
 def start_plan(zone, ma, mb):
-    code = ('if (Tavern.UI.AiConsole.RunPlan == null) return "хук AiConsole.RunPlan не выставлен"; '
-            'var steps = new Tavern.UI.PlanStep[] { new Tavern.UI.PlanStep { @do = "appear", zone = %s, mark = %d }, new Tavern.UI.PlanStep { @do = "go", zone = %s, mark = %d, run = false }, new Tavern.UI.PlanStep { @do = "wait", seconds = 1f }, new Tavern.UI.PlanStep { @do = "vanish", mode = "now" } }; '
-            'return "run: " + Tavern.UI.AiConsole.RunPlan(%s, steps, false);') % (cs(zone), ma, cs(zone), mb, cs(WHO))
+    code = (''
+            'var steps = new Cozy.Life.PlanStep[] { new Cozy.Life.PlanStep { @do = "appear", zone = %s, mark = %d }, new Cozy.Life.PlanStep { @do = "go", zone = %s, mark = %d, run = false }, new Cozy.Life.PlanStep { @do = "wait", seconds = 1f }, new Cozy.Life.PlanStep { @do = "vanish", mode = "now" } }; '
+            'return "run: " + Cozy.Life.CreaturePlan.Run(%s, steps, false);') % (cs(zone), ma, cs(zone), mb, cs(WHO))
     return run(code)
 
 
 def push_wait():
-    code = ('var steps = new Tavern.UI.PlanStep[] { new Tavern.UI.PlanStep { @do = "wait", seconds = 2f } }; '
-            'return "run2: " + Tavern.UI.AiConsole.RunPlan(%s, steps, false);') % cs(WHO)
+    code = ('var steps = new Cozy.Life.PlanStep[] { new Cozy.Life.PlanStep { @do = "wait", seconds = 2f } }; '
+            'return "run2: " + Cozy.Life.CreaturePlan.Run(%s, steps, false);') % cs(WHO)
     return run(code)
 
 
 def state(mb):
     code = ('var io = Cozy.Grid.InteractiveObject.BySlug(%s); if (io == null) return "нет"; var z = Cozy.Grid.ZonePiece.BySlug(%s); Vector3 b; z.MarkCell(%d, out b); '
-            'return io.transform.position.ToString("0.0") + " | до B " + Vector3.Distance(io.transform.position, b).ToString("0.0") + " | " + (Tavern.UI.AiConsole.DescribePlan != null ? Tavern.UI.AiConsole.DescribePlan(io) : "?");')
+            'return io.transform.position.ToString("0.0") + " | до B " + Vector3.Distance(io.transform.position, b).ToString("0.0") + " | " + (Cozy.Life.CreaturePlan.Describe != null ? Cozy.Life.CreaturePlan.Describe(io) : "?");')
     return lambda zone: run(code % (cs(WHO), cs(zone), mb))
 
 
@@ -93,7 +93,7 @@ def main():
         print('КРАСНОЕ: нет зоны монстров с клетками'); return 1
     red = []
     own = False
-    think = run('float t = Cozy.Character.Sectant.ThinkSeconds; Cozy.Character.Sectant.ThinkSeconds = 0f; return t.ToString(System.Globalization.CultureInfo.InvariantCulture);')
+    think = run('float t = Cozy.Creatures.Sectant.ThinkSeconds; Cozy.Creatures.Sectant.ThinkSeconds = 0f; return t.ToString(System.Globalization.CultureInfo.InvariantCulture);')
     try:
         ma, mb, note = set_marks(zone)
         own = ma == MA
@@ -128,7 +128,7 @@ def main():
         if not walked: red.append('не дошло до маркера B')
         if not vanished: red.append('не исчезло за 90 с')
     finally:
-        run('Cozy.Character.Sectant.ThinkSeconds = %sf; return "think back";' % think)
+        run('Cozy.Creatures.Sectant.ThinkSeconds = %sf; return "think back";' % think)
         if not keep:
             cleanup(zone, own)
     if red:

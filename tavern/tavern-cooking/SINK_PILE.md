@@ -4,7 +4,7 @@
 максимально аккуратно теперь с этим работаем». Это единственное место, где
 описан механизм целиком. COOKING.md держит краткие правила и ссылается сюда.
 
-Код: `Assets/Modules/Grid/SinkPile.cs` (планировщик, позы, память),
+Код: `Assets/Modules/Grid/Kitchen/SinkPile.cs` (планировщик, позы, память),
 `GridCursor.ObjectMove.cs` (жест «сложить в мойку»), `GridCursor.Transfer.cs`
 (`ServeTargetUnder`: цель внутри горки = мойка). Эталон и проверка:
 `BlenderWork/sink_combos.blend` и `BlenderWork/sink_game_check/`.

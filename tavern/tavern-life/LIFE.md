@@ -3,7 +3,7 @@
 ## 0. ДЕЙСТВУЮЩАЯ МОДЕЛЬ (08.10): строгие правила кодом; модель — только чат
 
 ⭐ Утро 08.10, Илья: «давай 1» — поведение задаётся СТРОКАМИ строгого формата,
-исполняет код (`Cozy.Monsters.LifeRules`), модель в рантайме не участвует.
+исполняет код (`Cozy.Life.LifeRules`), модель в рантайме не участвует.
 Строка = `[условия…] → [действия…]`, токены только из словаря уровня (вкладка
 «ИИ» → «Правила уровня» → [словарь уровня]); непонятая строка — ✗ в «Проверке
 правил» и не исполняется.
@@ -70,7 +70,7 @@ load`).
   в `Defaults`); ворона в рантайме — «ворона так не умеет».
 - Исполнение — `CreaturePlan.BeginPoint` (шаг `Point`): стоит на месте, как `[wait]`, корпус к герою, голова на
   него; не видит на старте — шаг пропущен; перестал видеть (`CreatureSenses.SeesPlayer`) или вышло время —
-  шаг кончен, рука опускается за 0.5 с. Тело и нож — `Assets/Modules/Monsters/SectantPoint.cs`, клипы и
+  шаг кончен, рука опускается за 0.5 с. Тело и нож — `Assets/Modules/Life/SectantPoint.cs`, клипы и
   хват — `tavern-sectant/SECTANT.md` §16.
 - Пример:
   ```
@@ -170,9 +170,9 @@ load`).
 оператора и как будущий переводчик прозы в строки.
 
 ⭐ Код с 08.10 вечера (глубокий рефакторинг, ilya-81): пульт — статический
-`Tavern.UI.AiConsole` (`Assets/Game/UI/AiConsole.cs`): тик, чат, события,
+`Cozy.Life.AiConsole` (`Assets/Modules/Life/AiConsole.cs`, с 11.10; до того `Tavern.UI`): тик, чат, события,
 разбор ответа, `spawn/remove/plan`, промпт, ленты; вкладка «ИИ» (`HudUI.Ai.cs`)
-— только виджеты. Хуки из `Cozy.Monsters`: `AiConsole.RunPlan/DescribePlan`
+— только виджеты. Хуки из `Cozy.Creatures`: `AiConsole.RunPlan/DescribePlan`
 (`CreaturePlan.Hook`), `RulesCheck/RulesRunNow/RulesApplied` (`LifeRules.Hook`);
 тумблеры `AiConsole.HourlyEnabled/RulesEnabled/EventsToModel`. Тип шага —
 `Tavern.UI.PlanStep`. Эмоции `(thinking 10s)` CreaturePlan показывает сам:
@@ -290,7 +290,7 @@ load`).
   `who` (системное имя), `kind` (пока только сектант), `brief` (текст для
   модели), `thinkSeconds`, `enabled`. Редактор: карточка зоны существ → блок
   «Жители» → «Добавить жителя» (`HudUI.Life.cs`, `ZoneResidentsSection`).
-- **Мозг** (`LifeBrain`, `Modules/Monsters/LifeActor.cs`): `LifeDirector`
+- **Мозг** (`LifeBrain`, `Modules/Creatures/LifeActor.cs`): `LifeDirector`
   (сцена-синглтон) раз в секунду сверяет жителей и мозги; мозг тикает: когда
   тело свободно и пришло время (`thinkSeconds`), строит СНИМОК МИРА и шлёт
   на сервер; ответ — один JSON-действие. Снимок: кто ты, зона, время суток,

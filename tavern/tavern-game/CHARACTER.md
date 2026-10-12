@@ -37,7 +37,7 @@
 - Ядро инвентаря (`GridInventory`/`ItemDef`/`Items`) физически в
   `Assets/Modules/Grid/Inventory/` (ns `Cozy.Grid`) — объекты Grid владеют
   инвентарём, цикл сборок разорван переносом.
-- `Assets/Modules/Grid/Interactor.cs` — взаимодействие со стороны игрока.
+- `Assets/Modules/Grid/Place/Interactor.cs` — взаимодействие со стороны игрока.
 - Принцип «прицел на сервер»: логика персонажа/инвентаря — чистые C#-типы без
   MonoBehaviour; по онлайн-плану инвентарь персонажа станет серверным.
 
@@ -927,7 +927,7 @@ Humanoid-аватар и клипы считают от исходного ск�
 ### ⭐ Позы игрока — одно состояние `PlayerPosture` (2026-09-05, ilya-44)
 
 «Спрятаться», «Сесть» и «Лечь» — это ОДИН механизм «объект держит игрока», а
-не три. Живёт в `Assets/Modules/Grid/Features/PostureFeature.cs`:
+не три. Живёт в `Assets/Modules/Grid/Objects/Features/PostureFeature.cs`:
 
 - `PlayerPosture` — единственная правда: `Current` (какая фича держит),
   `Busy`, `Clip` (клип позы для `CharacterAvatar`), `Veiled` (экран затемнён),
@@ -972,7 +972,7 @@ Humanoid-аватар и клипы считают от исходного ск�
   80). Существам лежащий игрок виден — «спрятан» и «занят позой» это разные
   вещи: гейт атак — `PlayerTarget.Hidden` (`HideFeature.PlayerHidden`).
 
-- **«Сесть» в игре — `Assets/Modules/Grid/Features/SitFeature.cs`
+- **«Сесть» в игре — `Assets/Modules/Grid/Objects/Features/SitFeature.cs`
   (2026-09-02, ilya-43; с 05.09 — наследник `PostureFeature`).** Вешается на
   любой деф с `chair` (см. `InteractiveObject.Build`). Кнопки «Сесть»/«Встать»
   в карточке стула; бейдж «Стул: занят». «Сесть» закрывает карточку и
@@ -1565,7 +1565,7 @@ FBX и видео не делаются. Три манекена KI рядом (
   +14° (70–104) и −12° (156–190), шея треть; правая кисть — подъём
   предплечья Rx(+7°/+4°) в 16–72 и поворот кисти вокруг Y +10° в 150–206.
   `close_loop` возвращает все кости в базу на 240-м кадре.
-- **В игре (2026-09-05, ilya-44): «Лечь» — `Assets/Modules/Grid/Features/SleepFeature.cs`.**
+- **В игре (2026-09-05, ilya-44): «Лечь» — `Assets/Modules/Grid/Objects/Features/SleepFeature.cs`.**
   FBX `Assets/Game/Resources/Lie_Idle.fbx` выгружен из открытой сцены
   `Animations/Lie_Idle.blend` тем же `anim_common.export_clip`; `.meta` — копия
   `Sit_Idle.fbx.meta` с новым guid (Humanoid, loop, Bake Into Pose «Original»).
@@ -2182,6 +2182,64 @@ FBX и видео не делаются. Три манекена KI рядом (
   осталось только для моделей без параметра `Crouch` в аниматоре.
 - `CharacterAvatar.SyncCrouch` ставит `Crouch` из `PlayerMovement.Crouched`
   (только у игрока), и в верхний слой `_upperCtrl` тоже.
+
+### Парень: пьяный (2026-10-11, Илья, пока только Blender)
+
+Илья: «нужен эффект пьяный + анимация походки пьяного в блендере». ⭐ Свой файл —
+`BlenderWork/Animations/Walk_Drunk.blend`: фигура `_Drunk` в нуле (подпись «пьяный»),
+действие `Walk_Drunk`, кадры 2..105 (103 @24 ≈ 4,3 с), луп. Сборка
+`blender -b --factory-startup -P BlenderWork/human_skin_walk.py -- drunk` (`drunk_file`
+→ `figures_file`) или `python3 anim_kit.py build Walk_Drunk`; экспорт `-- export-drunk`
+→ `Resources/Walk_Drunk.fbx` (НЕ выгружен). Числа — блок `boy.drunk` в `human_skin_params.json`.
+- **Устройство (`boy_drunk`):** как хромота — пересэмпл `Walk_Raw` по карте фаз, но на
+  ДВА цикла исходника = 4 шага, у каждого шага свои `double/single` (ритм неровный: 27 /
+  22 / 30 / 24 кадра), `reach` (посадка подушечки впереди), `dx` (занос стопы вбок —
+  почти в линию и через линию), `lift` (низкий мах — ноги волочит), `toe` (разворот носка).
+  Стопы — `drunk_feet`: в опоре равномерно идёт ПОДУШЕЧКА (`speed` 0,6), мах — smoothstep
+  по ходу, вбок — `cross_late`, арка — синус.
+- **Тело:** таз уходит вбок за опорной стопой (сглаженная опора, `sway_smooth` 4,
+  `sway_follow` 1 → −18…+15 см), корпус кренится следом с запаздыванием `roll_lag` 4 кадра
+  (`roll_per_cm` 0,9°), голова — ещё позже и сильнее (`head_lag` 8, `head_roll_per_cm` 1,4),
+  кивает `head_nod` 4° и висит `head_up` −3; скрутка корпуса `twist` 5°; сутулость
+  `spine_up` −6 / `chest_up` −5; руки наружу `arm_in` −12, локти 16/12°, мах 0,5, висят
+  против крена `arm_hang` 0,7 и раскидываются для равновесия `arm_flare` 10°; колени
+  наружу `knee_out` 4°.
+- **Замеры (11.10):** `anim_quality_probe --file Animations/Walk_Drunk.blend#Armature_Drunk` —
+  шаг 17,0°/кадр (голень L, как у хромоты 16,7), стык лупа 0,0°, пол −0,0 см, опора L
+  0,32 ± 0,00 / R 0,33 ± 0,04 м/с; оси ног не ближе 13,8 см (ноги не сталкиваются).
+- ⚠️ Грабли: `build_variant` назначал клип `animation_data.action = …` без слота — в
+  Blender 5 фигура стояла в покое, `stance_run` падал StopIteration (сломало и `-- limp`);
+  теперь `bl_compat.assign_action`.
+- ⭐ **В игре с 11.10** (Илья: «переноси в игру походку»): `Resources/Walk_Drunk.fbx` (+ мета —
+  копия `Walk_Limp.fbx.meta`, новый guid, кадры 2–105, тот же internalID клипа).
+  `PlayerAvatar.controller` правлен РУКАМИ (Илья был в play): параметры `Drunk` (bool),
+  `DrunkRate` (float), состояние `DrunkWalk` (id 7171…) — блендтри по Speed `Idle01` 0 →
+  `Walk_Drunk` 1, скорость = `DrunkRate`. `CharacterAvatar.SyncDrunk`: `Drunk =
+  PlayerEffects.Staggering()` (стадии 1–2 опьянения, не во сне), `DrunkRate = max(0,3;
+  Speed / DrunkPace)`, `DrunkPace` 0,8 (опора клипа 0,32 м/с × 2,5). Переходы как у боли, боль
+  главнее: Idle → DrunkWalk (Drunk, !Pain, !Crouch, Speed > 0,5; сразу за переходом в
+  PainWalk), Locomotion → DrunkWalk (Drunk, !Pain, !Crouch, Speed < 3), DrunkWalk →
+  Locomotion (!Drunk / Pain / Speed > 3,2), → CrouchMove (Crouch), → Idle (Speed < 0,4).
+  ⏳ В play не проверено (компиляции не было).
+
+### Опьянение, стадия 3: `Drunk_Fall` и `Drunk_Sleep` (2026-10-11, Илья, пока только Blender)
+
+Илья: «пьяный — 3 степени… только анимацию на 3 стадии надо — падает просто от опьянения —
+будет засыпать — сделай в блендере». Режимы `drunkfall` / `drunksleep` в `crow_fight.py`
+(ветка `build_poison_fours_clip(..., drunk='fall'|'sleep')`, числа — словарь `DRK`,
+`DRK_BREATH`, `DRK_SLEEP_LEN`), реестр `anim_kit.py` → `Animations/Drunk_Fall.blend`,
+`Animations/Drunk_Sleep.blend`; сборка `python3 anim_kit.py build Drunk_Fall Drunk_Sleep
+--no-fbx` (без `--no-fbx` СРАЗУ выгружает FBX). FBX не выгружены.
+- `Drunk_Fall` 264 кадра = 11 с: стоит 1–72, его водит (вбок 7°, вперёд 3°, период 40, голова
+  болтается с запаздыванием ×1,4), сутулится до 8°; колени подламываются — на четвереньки
+  72–132 (`Prone_Up` назад); руки разок подламываются 134–164; заваливается на правый бок
+  калачиком (поза эмбриона из `Poison_Death`) 168–210; глубокий вдох 214–258.
+- `Drunk_Sleep` 120 кадров = 5 с, луп: та же поза, один вдох (грудь 2,2°, поясница 1°) по
+  косинусу — стык без шва.
+- Замеры: локоть ≤ 2,9°/кадр, ≤ 5,2 см/кадр на спуске (как у `Bleed_Death`), кисти на полу
+  не ездят, низ меша на полу. ⚠️ Ладони в позе сна — на животе (поза эмбриона общая с
+  отравлением и кровотечением).
+
 
 ### Парень: хромает (2026-10-03, Илья, пока только Blender)
 

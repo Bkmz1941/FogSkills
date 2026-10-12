@@ -74,7 +74,7 @@
 
 ### Конфиг погоды: `static class Weather`
 
-Единый источник (`Assets/Modules/Grid/Weather.cs`). Поведение — сборка
+Единый источник (`Assets/Modules/Grid/Core/Weather.cs`). Поведение — сборка
 `Cozy.Weather`, `WeatherDirector.Tick(hours, dt)` из `GameClock.Update`.
 
 | Поле | Что | Умолчание |

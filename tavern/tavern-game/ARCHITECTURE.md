@@ -1,4 +1,4 @@
-# Карта кодовой базы (на 2026-08-29, ~50k строк C#)
+# Карта кодовой базы (на 2026-10-11, ~142k строк C#; раздел «Глобальные модули» — главный)
 
 Читать, когда нужно понять **где что лежит** и **какой общий примитив уже
 есть**, чтобы не написать восьмую копию того же самого. Правила домена — в
@@ -8,7 +8,7 @@ BUILD/VIEW/CHARACTER/UI, грабли — в PITFALLS, история — в DES
 
 | Раздел | О чём |
 |---|---|
-| **Сборки и зависимости** | asmdef и направление ссылок |
+| **⭐ Глобальные модули** | четыре слоя, 14 подмодулей Мира, правила направления, очередь выделения |
 | **Где что лежит** | папки и модули |
 | **Общие примитивы** | луч, сетка, габариты, силуэт — брать, не писать заново |
 | **Разложение больших классов** | партиалы GridCursor, InteractiveObject, HudUI |
@@ -22,74 +22,146 @@ BUILD/VIEW/CHARACTER/UI, грабли — в PITFALLS, история — в DES
 | **Сеть целостности контента** | тесты каталога, узлов, ссылок |
 | **Сохранение состояния** | что уже едет в сейв |
 
-## Сборки и направление зависимостей
+## ⭐ ГЛОБАЛЬНЫЕ МОДУЛИ — карта на 11.10 (ilya-63; Илья: «разобраться и написать список глобальных модулей, и рефакторить»)
+
+Снято скриптом по типам (142,5k строк C#, 509 файлов, 14 сборок): для каждого
+файла — какие типы каких сборок он трогает; внутри `Cozy.Grid` — то же по
+подмодулям. Четыре слоя, стрелки только ВНИЗ. Сборку и папку не переименовываем
+(на имена завязаны пробы, `DebugTune`, журналы); честность достигается тем, что
+каждый класс лежит в своём модуле, а не тем, что модуль красиво назван.
+
+### Слой 0 — Основа (видят все, сама не знает никого)
+
+| Модуль | Сборка | Что внутри | Строк |
+|---|---|---|---|
+| Локализация | `Cozy.Loc` | `Loc.T/F`, `LocText`, `en.json` | 0,2k |
+| Вид и реестры | `Cozy.View` | `ViewState` (режим, этаж, комната, единственный писатель `Time.timeScale`), `SceneSingleton`/`SceneFind`, `ScenePostFx`, `PeepLensFx`, `LookFade`; с 11.10 — `DebugActions` (кнопки F1 без обратной ссылки на UI) и `GameEvents` (журнал событий, часы — хуком из `GameClock`) | 0,6k |
+
+### Слой 1 — Мир: `Cozy.Grid`, 72k строк, 249 файлов — ОДИН модуль из 14 подмодулей
+
+Почему один, а не четырнадцать сборок: `GridCursor` (36 партиалов), `InteractiveObject`
+(10) и `LevelIO` сшивают стройку, объекты, постановку и сейв в один узел, а partial
+class по сборкам не делится. Граф 11.10 по подмодулям — ВСЕ четырнадцать в одной
+компоненте сильной связности. Резать на сборки можно только подмодуль целиком, через
+швы-хуки (приём `Cozy.Cooking`: верх знает Grid, Grid верх — нет, навеска через
+`InteractiveObject.FeatureFactories`), с живой пробой до и после. Очередь — ниже.
+Пока же подмодуль = папка внутри `Assets/Modules/Grid` (раскладка 11.10) и раздел
+ответственности в этой таблице.
+
+| Подмодуль (папка) | Ядро | Строк | Кто снаружи Grid его трогает |
+|---|---|---|---|
+| `Core/` — примитивы | `RayPick`, `GridSnap`, `GridManager`, `GridBlock`, `PartMath`, `PlaceMath`, `Ease`, `ShaderLib`, `OwnedAssets`, `PlayerRef`, `UiPointer`, `Targeting`, `Categories`, `DisposeKinds`, `Weather` (конфиг стихий и часы `Weather.Hour/Clock`), `CellWalls`, `FurnitureDims`, `GcProbe` | 1,4k | все |
+| `Build/` — сетка и стройка | `GridCursor` (ядро + стройка: Blocks, Paint*, Dig, Ground, Terrain, Stairs, Roof, WallRuns, DoorsWindows, Plinth, Zones, Markers, Water, GrassBrush, Textures, Snap, Commit), `GridMesh*`, `GridView`, `DoorPiece*`, `DoorKit`, `WindowPiece`, `WindowLook`, `StairPiece`, `RoofPiece`/`RoofMesh`, `PlinthView`/`PlinthPiece`, `PlankRelief`/`PlankSkin`/`PlankStamp`, `TerrainHeights`, `KitMaterials`, `KenneyStyle`, `PaintLibrary`, `GroundTextureLibrary`, `JambPaint`, `WallCorner`, `BevelView`, `CladCuts`, `Overhang`, `AtticHatch`, `ElevatorCab`/`ElevatorView`, `DebugGrid`, `DugRoofView`, `PlacedFloorView`, `FlowerBedView`, `BugBrush`, `EdgeGuard`, `Peephole`, `FurniturePiece`, `SeatFaceView` | 17k | UI (стройка), Character (EdgeGuard, лазание), Monsters (двери, окна) |
+| `Objects/` — объекты мира | `InteractiveObject.*`, `ObjectDef`, `ObjectAttributes`, `ObjectSheet`, `ObjectGroup`, `ObjectFeature` + `Features/*`, `FurnitureCatalog.*`, `ProceduralModels.*`, `FurnitureModel`, `ContainerSlot`, `MountStretch`, `WorldLabel`, `FridgeLight`, `LampDaylight`, `CurtainDrape`, `PlaidCloth`, `WardrobePile` | 19,5k | все |
+| `Place/` — постановка, перенос, наведение | `GridCursor.Objects/ObjectSnap/Support/PlaceQueries/PlaceGhost/ObjectMove/Transfer/Layout/Dish/Liquid/Containers/Seats/Place/Decor/Selection`, `Interactor`, `FallToSupport`, `GhostBox`, `BuildQuery`, `InteractHighlight`, `PartOutlines` | 9,3k | UI, Character, Monsters |
+| `View/` — видимость | `ViewSensor` (+ `WorldTick`, `FarRadius`), `WallCutaway`, `FloorPieceView`, `PieceViewTicker`, `HiddenRooms`, `SeeThroughView`, `XRayView`, `CrownWindow`, `MirrorReflection`, `WallMountedCut`, `LookModeBase`, `CarryWindow`, `OpenSwapView` | 3,2k | Character (камера), Effects, UI |
+| `Save/` — сейв | `LevelIO`, `GridCursor.Levels` | 1,7k | Core (HomeSync), UI, Story, Monsters (`AiRules/AiBrief`) |
+| `Inventory/` | `Items`, `ItemDef`, `GridInventory`, `CraftBook`, `PowerCells`, `ItemEffects` | 1,2k | Character (Equipment), UI, Story |
+| `Liquids/` | `LiquidVolume`/`LiquidState`/`LiquidSurface`, `WaterSource` (+ `Puddle`), `WaterBody`, `DrainVortex`, `BathSurface` | 3k | Cooking, UI |
+| `Fire/` | `FireView` (+ `Burnable`), `FireVolume.*`, `FireArea`, `Ignition`, `CandleFire`, `TorchFire`, `FireplaceFire`, `SparkBurst`, `LanternSway` | 2,9k | Effects (ожог), Monsters (камин) |
+| `Weather/` — стихии | `FogView`/`FogVolume.*`/`FogAnim`/`FogArea`, `WindGusts` (+ `TreeWind`, `ViewCull`)/`WindView`, `RainDrops`, `CellVolumeView`, `ZoneArea` | 3,3k | Core (GameClock), Effects (туман), Cozy.Weather |
+| `Power/` — электросеть | `PowerLines`, `PowerGrid`, `PowerLed`, `PowerTimer`, `LightZones`, `PowerFeature`, `WallSwitchFeature`, `PhoneCharger`, `ElevatorPanelHost`, `AcIndicator` | 2,1k | Effects, Monsters (выключатели) |
+| `Birds/` — живность: тела птиц и бабочки | `CrowFlight.*`, `CrowIdle`, `CrowPerch`, `ButterflyFlight` — полёт, насест, покой, голос; одни классы на ворону, сову и зарянку. ⭐ Илья 11.10: «монстры сейчас это ворона и сектант, сова и зарянка, бабочка — это не монстры»: враждебность вороны живёт в Combat (`CrowAttack`) и Monsters (красные глаза), тело — здесь, как у совы | 3,2k | Combat, Monsters, UI |
+| `Zones/` | `ZonePiece`, `ZoneEvent`, `SpawnPoint`, `MarkerFeature` | 1,3k | Story, Monsters, Combat, UI |
+| `Kitchen/` — физика кухни | `SinkPile`, `CookArrange`, `Sauced`, `Greased`, `Soiling`, `BoilEffect`, `SizzleEffect`, `TemperatureSim`/`TemperatureField`, `ChamberTempLabel` | 2,7k | Cooking |
+
+### Слой 2 — Игровые модули (знают Мир и Основу; Мир про них не знает)
+
+| Модуль | Сборка | Что внутри | Строк | Знает ещё |
+|---|---|---|---|---|
+| Игрок | `Cozy.Character` | `PlayerMovement`, `CameraFollow`/`CameraOrbit`, `CharacterAvatar`/`Stats`/`Profile` (+ `People`), `PlayerEffects`/`PlayerBuffs`/`PlayerTarget`, `VisionArea`/`VisionCircle`, `DarknessVeil`, `FlashlightRig*`/`FlashlightDust`, `AimFocus`, `Equipment`, `WardrobeVisuals`, `PhoneState`, `ColorSplit`, `ScreenLook`, `PhoneState`, `People` (люди уровня — здесь, потому что их читает `PhoneState`) | 8k | — |
+| Существа: тела и чувства | `Cozy.Creatures` | `Creature` (ядро: этаж, тело-манекен), `MonsterNav`, `CreatureSenses` (зрение и слух), `Noise`/`SenseProfile`/`CrowSense`/`SectantSenses` (профили чувств, шум игрока), `NpcDummy`/`Sectant`/`SectantAnimation`/`SectantTwitch` (человек на модели героя), `HeadIcon` (значок над головой: думает / вопрос / тревога). Лежит НИЖЕ Combat (с 11.10; до того всё это жило в `Cozy.Character`, потому что стычки читали чувства). Животные (сова, зарянка, бабочка, тело вороны) — `Grid/Birds/` | 1k | Character |
+| ИИ-жизнь | `Cozy.Life` | `CreaturePlan.*` (мозг: планы, путь, чувства, действия), `LifeRules.*` (правила уровня), `AiConsole` + `PlanStep` (пульт модели), `MonsterManager`, `ShadowMonster`/`ShadowZone` (Тень), `SectantPoint`, `CrowZoneSpawn` (спавн всех существ, имя вороньё — на него завязана `ai_plan_probe`). Лежит НАД Combat. Илья 11.10: «монстры сейчас это ворона и сектант», «ворона животное, а сектант человек» — враждебность свойство существа, не модуль | 4,4k | Creatures, Character, Combat, Effects, Net |
+| Стычки | `Cozy.Combat` | `Encounter.*` (машина сцен, показ, возврат), `EncounterGraph`/`CrowEncounter`, `CrowAttack`, `CrowContactArea`, `SectantEncounter`, `RangedAttack`, `EncounterData` | 3,6k | Character |
+| Статусы игрока | `Cozy.Effects` | `PlayerExposure` (+ `DoseTrack`), `FogTrap`, `StunStars`, `BathEffect`, `VoicesEffect` (с 11.10 только про игрока: `HeadIcon` ушёл к существам) | 2,1k | Character |
+| Готовка | `Cozy.Cooking` | `CookBook`, `CookProgress`, `Nutrition`, `CoffeeBrewer`, `DishRule`/`DishFeature`, `EatFeature`/`EatProductFeature`/`DrinkFeature`, `CookingModule` | 1,4k | Character |
+| Директор погоды | `Cozy.Weather` | `WeatherDirector` — 36 строк: смена ветра по часам; сами стихии — Мир/`Weather/` | 0,04k | — |
+| Сюжет | `Cozy.Story` | `QuestBook`/`QuestRun`/`QuestDirector`, `StoryEvent`/`StoryEventBook`/`StoryEventDirector`, `ZoneEventRunner` | 1,1k | Character, Cooking (факты «съел/выпил») |
+
+### Слой 3 — Приложение
+
+| Модуль | Сборка | Что внутри | Строк | Знает |
+|---|---|---|---|---|
+| Сеть | `Tavern.Net` | `AuthClient`/`AuthSession`, `HomeClient`, `TemplateClient`, `SaveEndpoint`; с 11.10 — `LlmBridge`/`LlmHost` (сервер модели, персонажи по СМС) и `TelegramBridge` | 0,9k | Grid, Character |
+| Директор игры | `Tavern.Core` | `GameClock` (сутки, солнце, луна, гроза, тик погоды), `GameMode`, `HomeSync`, `CutsceneStage`, `FrameRateConfig`, `FullscreenToggle` | 0,5k | всё ниже + Net |
+| UI | `Tavern.UI` | `HudUI` (44 партиала), экраны `*ScreenUI`, F1-дебаг + `DebugTune`, `PhoneUI` (10) + `CameraUI`, `UiFactory`/`UiTheme`/`UiSkin`/Kit, `SpeechBubbles`, `EventLogUI`, `MainMenuUI`; с 11.10 — `DeathScreenUI` | 42k | всё |
+| Тесты | `Tavern.Tests.EditMode` | 28 файлов, ~190 тестов | 4,4k | всё |
+
+Удалено 11.10: `Tavern.Data` — пустая сборка (ни одного .cs), на неё ссылались Core, UI и тесты.
+
+### Правила направления
+
+1. **Основа ← Мир ← Игровые модули ← Приложение.** Игровой модуль НЕ знает `Tavern.Core`
+   и `Tavern.UI`. До 11.10 это нарушал `Cozy.Creatures` (звал `AiConsole`, `GameEvents`,
+   `SpeechBubbles`, `DebugActions`, держал `DeathScreenUI`) — закрыто шагом `monsters-flip`:
+   `AiConsole` переехал в Monsters, `DeathScreenUI` в UI, `GameEvents`/`DebugActions` в View,
+   `LlmBridge`/`TelegramBridge` в Net; UI теперь ссылается на Monsters, а не наоборот.
+2. **Между игровыми модулями** разрешено только: все → Character; Combat → Creatures; Life →
+   Creatures, Combat, Effects; Story → Cooking. Новая стрелка между игровыми модулями — запись в `DESIGN_LOG.md`.
+3. **Связь снизу вверх — только хуком или событием.** Хук = статический делегат в нижнем
+   модуле, присваивание в `[RuntimeInitializeOnLoadMethod]` верхнего (`BeforeSceneLoad`, если
+   нижний может позвать его при загрузке сцены). Образцы: `PickupFeature.GiveToPlayer`,
+   `PlayerEffects.Sources`, `LevelIO.CollectPlayer`, `GameEvents.Clock`, `MonsterManager.Attach`,
+   `CreaturePlan.Bubble`, `LlmBridge.Deliver`.
+4. **Мир не режется по счётчику строк.** Подмодуль выходит в свою сборку целиком, через швы,
+   с живой пробой; очередь по числу швов (файлов снаружи подмодуля, которые его трогают, замер
+   11.10): `Birds/` 9 → НЕ в `Cozy.Creatures` (сова и зарянка не монстры, Илья 11.10), а в свою
+   сборку живности, если вообще выносить (`InteractiveObject.Build` навеска, `LevelIO` насест,
+   `GridCursor.ObjectMove/Objects` перенос, `ViewSensor` тикер, `CrownWindow`, `FurnitureCatalog.Props`,
+   `ZonePiece`); `Kitchen/` 16 → в `Cozy.Cooking`; `Fire/` 19; `Zones/` 19; `Weather/` 20 → в
+   `Cozy.Weather`; `Liquids/` 25; `Inventory/` 26; `Power/` 30. Защита — `COVERAGE.md` по области.
+5. **Папка = подмодуль.** В Grid и UI файл лежит в папке своего подмодуля; новый файл заводится
+   в папке, а не в корне модуля. Партиалы одного класса — в одной папке (поэтому все 37 партиалов
+   `GridCursor` — в `Grid/Cursor/`, а не по подмодулям стройки/постановки/сейва). Папки UI:
+   `Hud/` (HUD и его панели, F1-дебаг — партиалы `HudUI`), `Screens/` (экраны), `Phone/`, `Kit/`
+   (фабрика, тема, скин, мелкие поведения), `System/` (`DebugTune`, `SceneLoader`). Откат
+   переезда 11.10 — `.git/night/grid_moves_undo.sh`, `.git/night/ui_moves_undo.sh`.
+6. **Имена сборок и namespace не трогаем**: на `Cozy.Grid.X`, `Tavern.UI.HudUI` завязаны
+   88 проб, `execute_code` в журналах и ключи `DebugTune` (`HolderKey` = `Type.Name`, поэтому
+   переезд типа в другую сборку ключи не меняет).
+
+### Схема сборок (после 11.10)
 
 ```
-Tavern.Data ── Tavern.Net
-     │            │
-Cozy.View ◄── Cozy.Grid ◄── Cozy.Character ◄── Cozy.Monsters
-                  ▲              ▲                 ▲
-                  ├── Cozy.Cooking                 │
-                  ├── Cozy.Weather                 │
-                  └── Cozy.Effects ◄── (Character) │
-                          Tavern.Core ─────────────┘
-                                 ▲
-                             Tavern.UI
+Cozy.Loc   Cozy.View                                  ← Основа
+    ▲         ▲
+    └────┬────┘
+      Cozy.Grid (Мир: Core/Build/Objects/Place/View/Save/Inventory/Liquids/Fire/Weather/Power/Birds/Zones/Kitchen)
+         ▲
+   ┌─────┼──────────┬──────────┬───────────┬───────────┬──────────┐
+Character  Cooking   Weather    Effects     Combat      Story     ← Игровые модули
+   ▲         ▲                    ▲           ▲           ▲
+   │  Creatures (тела) ◄── Combat ◄── Life (разум) ◄─────┘           │
+            ▲                                             │
+          Tavern.Net ──► Grid, Character                  │
+            ▲                                             │
+          Tavern.Core ──► Grid, Character, View, Weather, Effects, Net
+            ▲                                             │
+          Tavern.UI ──► всё, включая Creatures и Story ◄───┘       ← Приложение
 ```
 
-С 2026-09-09 два новых модуля над Grid (Илья: «отдельный модуль поведения
-погоды», «модуль игровой по контролю эффектов и их связям»):
-- **Cozy.Weather** (`Assets/Modules/Weather`, ссылки Grid/View) —
-  `WeatherDirector`: ПОВЕДЕНИЕ погоды (таймер направления ветра, дальше —
-  расписание дождя, молнии, приказы сценария). Конфиг `static class Weather`
-  остаётся в Grid (`Weather.cs`): его читают дождь, ветер, огонь снизу.
-  Время идёт сверху: `GameClock.Update` → `WeatherDirector.Tick(Hours, dt)`.
-- **Cozy.Effects** (`Assets/Modules/Effects`, ссылки Grid/Character/View/Loc)
-  — `PlayerExposure`: статусы среды на игроке (ожог, мокрый, не видно).
-  Character про Effects не знает: значки идут через хук
-  `PlayerEffects.Sources` (модуль регистрирует поставщика при загрузке), а
-  последствия — через ручки в Character: `VisionArea.Scale`,
-  `BodyTemperature.Chill`, `CharacterStats.Touch`. Тот же приём, что у
-  Cooking (`FeatureFactories`).
-
-С 2026-09-24 **Cozy.Story** (`Assets/Modules/Story`, ссылки Grid/Character/
-View/Loc/Cooking) — задания: `QuestBook` (данные), `QuestRun` (состояние забега),
-`QuestDirector` (тик). `Tavern.UI` ссылается ради HUD-блока и вкладки дебага.
-Ступени и флаги сюжета — сюда же (скил `tavern-story`).
-
-С 2026-09-13 **Cozy.Combat** (`Assets/Modules/Combat`, ссылки Grid/Character/
-View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад дебага),
-`Encounter` (раннер сцен), `CrowEncounter` (граф сцен), `EncounterData`
-(`crowEncounter.json` из Blender). `Tavern.UI` ссылается на него ради кнопок
-дебага и полосы `EncounterBarUI`. Устройство — скил `tavern-combat`.
-
-Стрелка = «ссылается на». Циклов нет и заводить нельзя. Практические следствия:
-- **Cozy.Grid — низ**: сюда кладут примитивы, которые нужны всем (лучи, сетка,
-  габариты). Character/Cooking/UI их видят, обратное — нет.
-- **Cozy.Cooking про Grid знает, Grid про Cooking — НЕТ.** Связь обратно —
-  строками (`InteractiveObject.ProductState/Transferable/DisposeKind`,
-  `ObjectDef.disposes`) и через `InteractiveObject.FeatureFactories`.
-- **UI сверху**: `Tavern.UI` дёргает геймплей напрямую (фасада пока нет —
-  осознанное решение до роста контента).
+Стрелка = «ссылается на». Циклов нет и заводить нельзя; `offline_build.py` падает на цикле
+asmdef. Проверка карты — `depgraph.py asm` (скрипт в журнале 11.10).
 
 ## Где что лежит
 
 | Домен | Папка / ключевые типы |
 |---|---|
-| Сетка, стройка, курсор | `Modules/Grid/GridCursor.*` (17 партиалов), `GridManager`, `GridSnap`, `BuildQuery` |
-| Двери | `Modules/Grid/DoorPiece.cs` 271 (состояние, звук, проходимость), `DoorPiece.Parts.cs` 93 (осмотр, замок, глазок), `DoorPiece.Build.cs` 191 (проём, навеска), `DoorPiece.Leaves.cs` 268 (створки по стилям, ручки) |
-| Объекты мира | `Modules/Grid/InteractiveObject.*` (10 партиалов: ядро 210, Build 254, Model 290, Size 160, Slots 123, Parts 237 «клики и подсветка частей», MovingParts 169 «створки, тряска, нажатия», Switches 178, Puzzle 62, Power 68, Temperature 185), `ObjectDef`, `FurnitureCatalog.*` |
+| Сетка, стройка, курсор | `Modules/Grid/Cursor/GridCursor.*` (37 партиалов — стройка, постановка, перенос, сейв), `Grid/Core/GridManager`, `GridSnap`, `Grid/Place/BuildQuery`; куски стен, дверей, лестниц, крыш, плинтуса, рельефа — `Grid/Build/` |
+| Двери | `Modules/Grid/Build/DoorPiece.cs` 271 (состояние, звук, проходимость), `DoorPiece.Parts.cs` 93 (осмотр, замок, глазок), `DoorPiece.Build.cs` 191 (проём, навеска), `DoorPiece.Leaves.cs` 268 (створки по стилям, ручки) |
+| Объекты мира | `Modules/Grid/Objects/InteractiveObject.*` (10 партиалов: ядро 210, Build 254, Model 290, Size 160, Slots 123, Parts 237 «клики и подсветка частей», MovingParts 169 «створки, тряска, нажатия», Switches 178, Puzzle 62, Power 68, Temperature 185), `ObjectDef`, `FurnitureCatalog.*`, фичи — `Grid/Objects/Features/` |
 | Двери/окна/лестницы | `DoorPiece.*`, `WindowPiece`, `StairPiece` |
-| Видимость | `ViewSensor`, `WallCutaway`, `FloorPieceView`, `Modules/View/ViewState` |
+| Видимость | `Grid/View/ViewSensor`, `WallCutaway`, `FloorPieceView`, `HiddenRooms`, `CrownWindow`; состояние — `Modules/View/ViewState` |
 | Персонаж и камера | `Modules/Character/PlayerMovement`, `CameraFollow`, `AimFocus`, `VisionArea` |
 | Готовка | `Modules/Cooking/CookBook` (данные), `CookProgress`, `CookingModule`; механика и чек-лист расширения — скил tavern-cooking, «МЕХАНИКА ПЕРЕДАЧИ И ГОТОВКИ» |
 | Постановка объекта | `GridCursor.Objects` (пайплайн позы), `GridCursor.ObjectSnap` (магниты и прижимы), `GridCursor.Support` (опора, слоты, пересечения), `GridCursor.PlaceQueries` (лучи к миру), `GridCursor.PlaceGhost` (призрак), `PlaceMath` (чистая арифметика) |
 | Передача продуктов | `GridCursor.Transfer` (TransferOffer: Pour/Serve/Put), `GridCursor.Layout` (раскладки и призраки), `GridCursor.ObjectMove` (перенос в руках), `HudUI.ActionLabel` (подпись) |
-| Вода | `LiquidVolume`, `WaterSource`, `GridCursor.Liquid` |
+| Вода | `Grid/Liquids/LiquidVolume`, `WaterSource`, `GridCursor.Liquid` |
 | Зеркало | `MirrorReflection` (камера-двойник, матрица отражения, косая проекция; двойник включён только пока стекло в кадре главной — `GlassInView`, P573), `MirrorGlass.shader` |
-| Сейв/лоад | `LevelIO`, `GridCursor.Levels` |
-| UI | `Game/UI/HudUI.*` (15 партиалов; интерактив — Interact «поток выбора/ховера», InteractCard «содержимое карточки», InteractBadges «бейджи»), `UiFactory.*`, `UiTheme`, экраны `*ScreenUI` |
-| Тесты | `Assets/Tests/EditMode` (сборка `Tavern.Tests.EditMode`) |
+| Сейв/лоад | `Grid/Save/LevelIO`, `GridCursor.Levels` |
+| UI | с 11.10 пять папок: `Game/UI/Hud/` (`HudUI.*` 44 партиала; интерактив — Interact «поток выбора/ховера», InteractCard «содержимое карточки», InteractBadges «бейджи»; плюс `PlayerStatHud`, `TimeBarHud`, `EncounterBarUI`, `EventLogUI`, `SpeechBubbles`, `QuickChatUI`), `Game/UI/Screens/` (экраны `*ScreenUI`, инвентарь, справочник, меню, слайды, `DeathScreenUI`), `Game/UI/Phone/` (`PhoneUI.*`, `CameraUI`), `Game/UI/Kit/` (`UiFactory.*`, `UiTheme`, `UiSkin`, спрайты, курсоры, мелкие поведения), `Game/UI/System/` (`DebugTune`, `SceneLoader`) |
+| Тесты | `Assets/Tests/EditMode` (сборка `Tavern.Tests.EditMode`); белые списки `SourceRulesTests` — по новым путям |
+| Огонь, стихии, электросеть, птицы, зоны, кухня, инвентарь | `Grid/Fire/`, `Grid/Weather/`, `Grid/Power/`, `Grid/Birds/`, `Grid/Zones/`, `Grid/Kitchen/`, `Grid/Inventory/`; шейдеры — `Grid/Shaders/` |
 
 ### ⚠️ Классы, которые живут не в своём по имени файле
 
@@ -99,15 +171,15 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 
 | Класс | Живёт в | Что это |
 |---|---|---|
-| `Burnable` | `Grid/FireView.cs` | горение объекта: состояние, обугливание, пламя |
-| `TreeWind` | `Grid/WindGusts.cs` | ветер отдельного растения: материалы, глобали, аналитический изгиб ствола |
-| `ViewCull` | `Grid/WindGusts.cs` | «в кадре ли габарит» — фрустум раз в кадр |
-| `WorldTick` | `Grid/ViewSensor.cs` | центральный тикер мира |
-| `FarRadius` | `Grid/ViewSensor.cs` | радиус рендера и сон дальних |
-| `PlayerPosture` | `Grid/Features/PostureFeature.cs` | единое состояние «объект держит игрока» |
-| `SeeThroughWindow` | `Grid/SeeThroughView.cs` | просвет окна в стене |
-| `PlayerXRay` | `Grid/XRayView.cs` | силуэт игрока за преградой |
-| `Puddle` | `Grid/WaterSource.cs` | лужа |
+| `Burnable` | `Grid/Fire/FireView.cs` | горение объекта: состояние, обугливание, пламя |
+| `TreeWind` | `Grid/Weather/WindGusts.cs` | ветер отдельного растения: материалы, глобали, аналитический изгиб ствола |
+| `ViewCull` | `Grid/Weather/WindGusts.cs` | «в кадре ли габарит» — фрустум раз в кадр |
+| `WorldTick` | `Grid/View/ViewSensor.cs` | центральный тикер мира |
+| `FarRadius` | `Grid/View/ViewSensor.cs` | радиус рендера и сон дальних |
+| `PlayerPosture` | `Grid/Objects/Features/PostureFeature.cs` | единое состояние «объект держит игрока» |
+| `SeeThroughWindow` | `Grid/View/SeeThroughView.cs` | просвет окна в стене |
+| `PlayerXRay` | `Grid/View/XRayView.cs` | силуэт игрока за преградой |
+| `Puddle` | `Grid/Liquids/WaterSource.cs` | лужа |
 
 Заводить файл под класс — вопрос к Илье (правило 2 скила: новых файлов без
 просьбы не создаём), поэтому пока это указатель, а не план переноса.
@@ -116,39 +188,39 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 
 | Нужно | Готовое | Где |
 |---|---|---|
-| Ближайшая цель по лучу | `RayPick.Sorted/Down` — хиты от ближнего к дальнему, буфер свой у каждого вызывающего; первый подошедший = ответ | `Grid/RayPick.cs` |
+| Ближайшая цель по лучу | `RayPick.Sorted/Down` — хиты от ближнего к дальнему, буфер свой у каждого вызывающего; первый подошедший = ответ | `Grid/Core/RayPick.cs` |
 | Отсечь игрока/монстра в луче | `RayPick.IsPlayer(collider)` | там же |
-| ⭐ Что это за попадание луча (05.10) | `RayPick.Classify(collider)` → `Player / Hidden / Unpickable / PassThrough / Pickable`: игрок и тела, голый триггер, невидимое (вью-гейт `FloorPieceView` вверх по иерархии, рендерер погашен или `ShadowsOnly`, у блока — видимая отделка), `noPick`, `passThrough`. Политика режима — у вызывающего: стройка берёт `PassThrough`/`Unpickable` запасной целью, игра пропускает всегда. Флаги `Def.noPick`/`Def.passThrough` в обход него не читаем (сторож `SourceRulesTests`) | `Grid/RayPick.cs` |
+| ⭐ Что это за попадание луча (05.10) | `RayPick.Classify(collider)` → `Player / Hidden / Unpickable / PassThrough / Pickable`: игрок и тела, голый триггер, невидимое (вью-гейт `FloorPieceView` вверх по иерархии, рендерер погашен или `ShadowsOnly`, у блока — видимая отделка), `noPick`, `passThrough`. Политика режима — у вызывающего: стройка берёт `PassThrough`/`Unpickable` запасной целью, игра пропускает всегда. Флаги `Def.noPick`/`Def.passThrough` в обход него не читаем (сторож `SourceRulesTests`) | `Grid/Core/RayPick.cs` |
 | Видно ли попадание | `RayPick.Visible(collider)` | там же |
-| ⭐ Этаж точки и «на этом ли этаже» (05.10) | `GridManager.FloorOf(p, cs)` = `LevelY(AboveRelief(p))`, `GridManager.OnFloor(p, floorY, cs)` — полоса `[пол − 0,5; следующий пол)` над рельефом; допуск у пола один — `GridManager.FloorSlack` 0,12. Полосу и сдвиги вручную не пишем (сторож `SourceRulesTests`) | `Grid/GridManager.cs` |
+| ⭐ Этаж точки и «на этом ли этаже» (05.10) | `GridManager.FloorOf(p, cs)` = `LevelY(AboveRelief(p))`, `GridManager.OnFloor(p, floorY, cs)` — полоса `[пол − 0,5; следующий пол)` над рельефом; допуск у пола один — `GridManager.FloorSlack` 0,12. Полосу и сдвиги вручную не пишем (сторож `SourceRulesTests`) | `Grid/Core/GridManager.cs` |
 | Луч камеры сквозь курсор | `GridCursor.CursorRay(cam, mouse)`; методы, которым нужен только луч, принимают ЛУЧ | `GridCursor.cs` |
-| Мир → клетка, привязка к оси/кромке | `GridSnap.Cell/Axis/Edge`; `GridManager.WorldToCell` зовёт их же. ⭐ 05.10: формула одна — `ViewState.CellIndex` (сборка View, ниже Grid: её зовут и `GridSnap`, и `ViewState.CellAt/InMyRoom/InAccessible`, дождь, сетка дебага); на границе клетки — вверх; `Round` от начала сетки не пишем (сторож) | `Grid/GridSnap.cs`, `View/ViewState.cs` |
-| Растение, стоящее дерево, дерево вообще | `FurnitureCatalog.IsVegetation/IsStandingTree/IsTreeLike` — префикс `veg_` вручную не пишем (сторож) | `Grid/FurnitureCatalog.Props.cs` |
+| Мир → клетка, привязка к оси/кромке | `GridSnap.Cell/Axis/Edge`; `GridManager.WorldToCell` зовёт их же. ⭐ 05.10: формула одна — `ViewState.CellIndex` (сборка View, ниже Grid: её зовут и `GridSnap`, и `ViewState.CellAt/InMyRoom/InAccessible`, дождь, сетка дебага); на границе клетки — вверх; `Round` от начала сетки не пишем (сторож) | `Grid/Core/GridSnap.cs`, `View/ViewState.cs` |
+| Растение, стоящее дерево, дерево вообще | `FurnitureCatalog.IsVegetation/IsStandingTree/IsTreeLike` — префикс `veg_` вручную не пишем (сторож) | `Grid/Objects/FurnitureCatalog.Props.cs` |
 | Габариты набора рендереров | `FurnitureModel.Combined` (мир), `InteractiveObject.LocalBoundsIn` (в осях узла) | |
-| Рендереры неподвижного тела (якорь карточки осмотра) | `InteractHighlight.StaticBody(корень, подвижные)` | `Grid/InteractHighlight.cs` |
+| Рендереры неподвижного тела (якорь карточки осмотра) | `InteractHighlight.StaticBody(корень, подвижные)` | `Grid/Place/InteractHighlight.cs` |
 | «Вложенный выигрывает у своего хозяина» | `InteractiveObject.NestedBeatsHost(вложенный, хозяин)` | `InteractiveObject.cs` |
 | Откуда видно содержимое | `Interactor.ThroughOpening`: сквозь деталь хозяина (`IsPart`: крышка, дверца) — нет; мебель со `slotNodes` — через проём с любого ракурса; посуда — только сверху в горловину |
 | То же НА ЛЮБУЮ ГЛУБИНУ (яичница в сковороде на плите) | `InteractiveObject.NestedInside(вложенный, хозяин)` — цепочка `Container`; на нём же стоят разбор луча и «внутри осматриваемого» | `InteractiveObject.cs` |
-| Порог «жидкости меньше капли» | `LiquidVolume.Drop` | `Grid/LiquidVolume.cs` |
-| Стена/стеноподобное под лучом | `BuildQuery.WallLike/WallLikeAt/CubeBlock` | `Grid/BuildQuery.cs` |
-| Ссылка на игрока | `PlayerRef` | `Grid/PlayerRef.cs` |
-| Поза игрока на объекте (спрятаться, сесть, лечь) | `PlayerPosture` — ОДНО состояние «объект держит игрока» (`Busy`, `Clip`, `Frozen`, `Holds`, `ReleaseIfHost`, `LeaveOnMove`); база `PostureFeature` — общий порядок входа и выхода, наследник даёт подписи и `OnEnter`/`OnLeave`. Новая поза не требует правок в старых | `Grid/Features/PostureFeature.cs` |
-| Квантование следа по подсетке, доводка предмета внутрь площадки | `PlaceMath.SubWidth/SubSnap/SlideInside` — чистые функции без сцены, покрыты тестами | `Grid/PlaceMath.cs` |
-| Список всех объектов каталога | `FurnitureCatalog.All()` — рефлексия по фабрикам, кэш | `Grid/FurnitureCatalog.cs` |
+| Порог «жидкости меньше капли» | `LiquidVolume.Drop` | `Grid/Liquids/LiquidVolume.cs` |
+| Стена/стеноподобное под лучом | `BuildQuery.WallLike/WallLikeAt/CubeBlock` | `Grid/Place/BuildQuery.cs` |
+| Ссылка на игрока | `PlayerRef` | `Grid/Core/PlayerRef.cs` |
+| Поза игрока на объекте (спрятаться, сесть, лечь) | `PlayerPosture` — ОДНО состояние «объект держит игрока» (`Busy`, `Clip`, `Frozen`, `Holds`, `ReleaseIfHost`, `LeaveOnMove`); база `PostureFeature` — общий порядок входа и выхода, наследник даёт подписи и `OnEnter`/`OnLeave`. Новая поза не требует правок в старых | `Grid/Objects/Features/PostureFeature.cs` |
+| Квантование следа по подсетке, доводка предмета внутрь площадки | `PlaceMath.SubWidth/SubSnap/SlideInside` — чистые функции без сцены, покрыты тестами | `Grid/Core/PlaceMath.cs` |
+| Список всех объектов каталога | `FurnitureCatalog.All()` — рефлексия по фабрикам, кэш | `Grid/Objects/FurnitureCatalog.cs` |
 | Шейдеры | `ShaderLib.Lit/Unlit/Get` — никогда `Shader.Find` в рантайме | |
-| Центральный тикер | `WorldTick` — один `SceneSingleton`: в `Update` зовёт `InteractiveObject.TickAll()` и `Burnable.TickAll(dt)`, в `LateUpdate` — `TreeWind.TickAll()`; у этих классов нет своих `Update`/`LateUpdate`, есть `Tick()` и статический список `All` (регистрация в `OnEnable`/`OnDisable`, поэтому `enabled = false` = не тикает). Правило: у типа с тысячами экземпляров — тикер, а не Unity-`Update` (10.09: 5550 вызовов стоили 2 мс сами по себе) | `Grid/ViewSensor.cs` |
-| Радиус рендера | `FarRadius` — объекты дальше 28 м от игрока не рисуются (`forceRenderingOff`) и спят (`TreeWind`/`Burnable` выключены, `InteractiveObject.Far`), ближе 24 м живут; ломтик 800 объектов в кадр; `FarRadius.IsHidden(io)`, `FarRadius.Enabled`. VIEW.md §10c | `Grid/ViewSensor.cs` |
-| В кадре ли главной камеры | `ViewCull.InView(Bounds)` — плоскости фрустума `Camera.main` считаются раз в кадр, дальше `TestPlanesAABB`; НЕ `Renderer.isVisible` (тот в редакторе считает видимым всё, что видит Scene View и камера теней). Им гейтятся изгиб травы и деревьев (`TreeWind`), анимация клубов тумана (`FogAnim`) и частей костра (`FireVolume`), 10.09 | `Grid/WindGusts.cs` |
-| Клеточный объём на сетке (туман, огонь) | `CellVolumeView<T>` — реестр клеток, версия для контура, привязка и переезд, снос клетки, заливка зоны; наследник даёт `Rebuild`, `Touch` (кого будить) и `Ready` | `Grid/CellVolumeView.cs` |
-| «Какие стороны клетки закрыты стеной» | `CellWalls` | `Grid/CellWalls.cs` |
-| Дебаг-контур области клеточного объёма | `ZoneArea` (поле расстояний + marching squares), одиночка — `ZoneArea<T>` | `Grid/ZoneArea.cs` |
+| Центральный тикер | `WorldTick` — один `SceneSingleton`: в `Update` зовёт `InteractiveObject.TickAll()` и `Burnable.TickAll(dt)`, в `LateUpdate` — `TreeWind.TickAll()`; у этих классов нет своих `Update`/`LateUpdate`, есть `Tick()` и статический список `All` (регистрация в `OnEnable`/`OnDisable`, поэтому `enabled = false` = не тикает). Правило: у типа с тысячами экземпляров — тикер, а не Unity-`Update` (10.09: 5550 вызовов стоили 2 мс сами по себе) | `Grid/View/ViewSensor.cs` |
+| Радиус рендера | `FarRadius` — объекты дальше 28 м от игрока не рисуются (`forceRenderingOff`) и спят (`TreeWind`/`Burnable` выключены, `InteractiveObject.Far`), ближе 24 м живут; ломтик 800 объектов в кадр; `FarRadius.IsHidden(io)`, `FarRadius.Enabled`. VIEW.md §10c | `Grid/View/ViewSensor.cs` |
+| В кадре ли главной камеры | `ViewCull.InView(Bounds)` — плоскости фрустума `Camera.main` считаются раз в кадр, дальше `TestPlanesAABB`; НЕ `Renderer.isVisible` (тот в редакторе считает видимым всё, что видит Scene View и камера теней). Им гейтятся изгиб травы и деревьев (`TreeWind`), анимация клубов тумана (`FogAnim`) и частей костра (`FireVolume`), 10.09 | `Grid/Weather/WindGusts.cs` |
+| Клеточный объём на сетке (туман, огонь) | `CellVolumeView<T>` — реестр клеток, версия для контура, привязка и переезд, снос клетки, заливка зоны; наследник даёт `Rebuild`, `Touch` (кого будить) и `Ready` | `Grid/Weather/CellVolumeView.cs` |
+| «Какие стороны клетки закрыты стеной» | `CellWalls` | `Grid/Core/CellWalls.cs` |
+| Дебаг-контур области клеточного объёма | `ZoneArea` (поле расстояний + marching squares), одиночка — `ZoneArea<T>` | `Grid/Weather/ZoneArea.cs` |
 | Системный объект, живущий по одному на сцену | `SceneSingleton<T>.SpawnEachScene()` — без аргументов: найти по типу, если нет — создать объект с именем класса. Вариант с лямбдой нужен только тем, кто делает БОЛЬШЕ (помнит экземпляр, будит выключенный) | `View/SceneSingleton.cs` |
-| Узел модели по имени (включая неактивные, корень тоже) | `FurnitureModel.FindNode(root, name)` — буфер, без массива на вызов; `InteractiveObject.FindChild` — ДРУГОЙ ответ (без корня, с запасным поиском по подстроке) | `Grid/FurnitureModel.cs` |
-| Список id через запятую в дефе | `ObjectDef.IdList(ids)` (кэш разбора, части обрезаны) / `ObjectDef.IdListHas(ids, id)` — `Split(',')` в коде не пишем | `Grid/ObjectDef.cs` |
-| Трансформ игрока лениво | `PlayerRef.Transform` — своё поле-кэш поверх него не заводим, одна строка `if (_player == null && (_player = PlayerRef.Transform) == null) return;` | `Grid/PlayerRef.cs` |
-| Плоское (XZ) квадрат расстояния | `PartMath.SqrPlanar(a, p)` | `Grid/PartMath.cs` |
+| Узел модели по имени (включая неактивные, корень тоже) | `FurnitureModel.FindNode(root, name)` — буфер, без массива на вызов; `InteractiveObject.FindChild` — ДРУГОЙ ответ (без корня, с запасным поиском по подстроке) | `Grid/Objects/FurnitureModel.cs` |
+| Список id через запятую в дефе | `ObjectDef.IdList(ids)` (кэш разбора, части обрезаны) / `ObjectDef.IdListHas(ids, id)` — `Split(',')` в коде не пишем | `Grid/Objects/ObjectDef.cs` |
+| Трансформ игрока лениво | `PlayerRef.Transform` — своё поле-кэш поверх него не заводим, одна строка `if (_player == null && (_player = PlayerRef.Transform) == null) return;` | `Grid/Core/PlayerRef.cs` |
+| Плоское (XZ) квадрат расстояния | `PartMath.SqrPlanar(a, p)` | `Grid/Core/PartMath.cs` |
 | Луч на горизонтальную плоскость; уровень пола постановки | `GridCursor.PlaneHit(ray, y, out hit)` (Plane.Raycast сам отвергает enter ≤ 0), `GridCursor.PlaceFloorY()` | `GridCursor.Place.cs`, `GridCursor.Objects.cs` |
-| Прямоугольник UI-элемента в экранных координатах | `ScreenClampUI.WorldRect(rt)` (общий буфер углов) | `Game/UI/ScreenClampUI.cs` |
+| Прямоугольник UI-элемента в экранных координатах | `ScreenClampUI.WorldRect(rt)` (общий буфер углов) | `Game/UI/Kit/ScreenClampUI.cs` |
 | Рект по центру родителя; кнопка с подсветкой и курсором; растянутый sliced-оверлей | `UiFactory.Center(rt)`, `UiFactory.HoverButton(rt, img, colors, onClick)`, `UiFactory.Kit.StretchedSliced` | `Game/UI/UiFactory*.cs` |
 
 ## Разложение больших классов по партиалам
@@ -168,12 +240,12 @@ View/Loc/InputSystem) — стычка: `CrowAttack` (погоня + фасад 
 - **`HudUI`** — ядро-композитор плюс партиалы панелей; вынесенные контроллеры
   (`PlayerStatHud`, `FpsHud`, `TimeBarHud`, `DebugOverlayHud`, `ViewModeHud`)
   живут отдельными файлами.
-- **`AiConsole`** (08.10 вечер, `Assets/Game/UI/AiConsole.cs`, статический класс
+- **`AiConsole`** (08.10 вечер, с 11.10 — `Assets/Modules/Life/AiConsole.cs`, сборка Cozy.Creatures; статический класс
   без UI) — пульт модели для существ: чат, часовой тик, события чувств, разбор
   JSON-ответа, `spawn/remove/plan`, системный промпт и снимок уровня, три ленты
   (`Chat`, `Journal` «Действия монстров», `RulesLog` «Проверка правил»).
   `HudUI.Ai.cs` — только вкладка «ИИ»: виджеты и подписка `AiConsole.Shown`.
-  Направление связи: `Cozy.Monsters` ссылается на `Tavern.UI` (исторически ради
+  Направление связи: `Cozy.Creatures` ссылается на `Tavern.UI` (исторически ради
   `GameEvents`), поэтому `CreaturePlan`/`LifeRules` зовут `AiConsole` напрямую,
   а обратно — хуки `AiConsole.RunPlan/DescribePlan/RulesCheck/RulesRunNow/
   RulesApplied`, выставляемые в `[RuntimeInitializeOnLoadMethod]`. Тип шага

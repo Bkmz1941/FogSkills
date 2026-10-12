@@ -49,6 +49,8 @@
 | 2026-10-09 | ilya-81 | 480 | 136184 | 83 | 8 | GridCursor.FindOffer 173 | 1 | день 09.10 |
 | 2026-10-10 | ilya-58 | 483 | 138092 | 82 | 8 | GridCursor.FindOffer 173 | 1 | база рефакторинга 10.10 вечер |
 | 2026-10-11 | ilya-58 | 483 | 138059 | 72 | 6 | ProceduralModels.ElevatorModern 131 | 1 | после рефакторинга 10→11.10 (ilya-58) |
+| 2026-10-11 | ilya-63 | 482 | 138856 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | модули 11.10: Monsters/UI развёрнуты, Tavern.Data снята, Grid по 15 папкам |
+| 2026-10-11 | ilya-63 | 485 | 139463 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | после ночи 11.10: 9 шагов модулей, Creatures/Life, Grid 15 папок, UI 5 |
 
 ## Кадр в сборке
 

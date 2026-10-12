@@ -28,7 +28,7 @@ description: ИМИТАЦИЯ ЖИЗНИ «Таверны» — с 08.10 (ноч
 
 0. **Поведение — строгими строками, исполняет код** (Илья утром 08.10: «давай
    1»): `[условия…] → [действия…]` в блоке [правила] вкладки «ИИ»
-   (`LevelIO.AiRules`, движок `Cozy.Monsters.LifeRules`); токены — из
+   (`LevelIO.AiRules`, движок `Cozy.Life.LifeRules`); токены — из
    [словаря уровня]; непонятое — красное и игнорируется; модель в рантайме не
    участвует. Пункты 1–5 ниже — про чат и резервный путь через модель.
 1. **Проза — для чата и как резерв** (Илья: «я не кодом пишу, а промптом
@@ -64,15 +64,15 @@ description: ИМИТАЦИЯ ЖИЗНИ «Таверны» — с 08.10 (ноч
 
 | | путь |
 |---|---|
-| строгие правила: разбор, словарь, исполнение | `Assets/Modules/Monsters/LifeRules.cs` (`Rules`, `Check`, `Vocabulary`, `Tick/Hourly/OnEvent/Fire`), текст `LevelIO.AiRules` (`aiRules`), тест `LifeRulesParseTests` |
-| тексты уровня (проза), кусок про существо | `Assets/Modules/Grid/LevelIO.cs` — `AiBrief/AiTriggers/AiEvents/AiMonsters`, `AiMonsterBrief(who)`; в файле `aiBrief/aiTriggers/aiEvents/aiMonsters` |
-| вкладка «ИИ», пульт, тик, события, промпт, снимок | `Assets/Game/UI/HudUI.Ai.cs` — `AiSystemPrompt` (= `AiCommandsText` + блоки + `AiSnapshot`), `AiTick`, `AiEvent`/`AiTrigger`, `AiSend`, `AiParseAll`, `AiSpawn`/`AiRemove`, константы `AiChatTemperature`, `AiChatTokens`/`AiEventTokens`, хуки `AiRunPlan`/`AiDescribePlan` |
-| исполнитель планов, чувства → события | `Assets/Modules/Monsters/CreaturePlan.cs` (шаги, стек, `FindObject`, `Mentioned`, `Think`); чувства `Assets/Modules/Character/CreatureSenses.cs`; «думает каждые» `Sectant.ThinkSeconds` (`NpcDummy.cs`, слайдер Монстры → Сектант) |
+| строгие правила: разбор, словарь, исполнение | `Assets/Modules/Life/LifeRules.cs` (`Rules`, `Check`, `Vocabulary`, `Tick/Hourly/OnEvent/Fire`), текст `LevelIO.AiRules` (`aiRules`), тест `LifeRulesParseTests` |
+| тексты уровня (проза), кусок про существо | `Assets/Modules/Grid/Save/LevelIO.cs` — `AiBrief/AiTriggers/AiEvents/AiMonsters`, `AiMonsterBrief(who)`; в файле `aiBrief/aiTriggers/aiEvents/aiMonsters` |
+| вкладка «ИИ», пульт, тик, события, промпт, снимок | `Assets/Game/UI/Hud/HudUI.Ai.cs` — `AiSystemPrompt` (= `AiCommandsText` + блоки + `AiSnapshot`), `AiTick`, `AiEvent`/`AiTrigger`, `AiSend`, `AiParseAll`, `AiSpawn`/`AiRemove`, константы `AiChatTemperature`, `AiChatTokens`/`AiEventTokens`, хуки `AiRunPlan`/`AiDescribePlan` |
+| исполнитель планов, чувства → события | `Assets/Modules/Life/CreaturePlan.cs` (шаги, стек, `FindObject`, `Mentioned`, `Think`); чувства `Assets/Modules/Creatures/CreatureSenses.cs`; «думает каждые» `Sectant.ThinkSeconds` (`NpcDummy.cs`, слайдер Монстры → Сектант) |
 | появление и удаление тел | `Cozy.Combat.CrowZoneSpawn.Spawn(kind, who, zone, branch, …, markNumber, template, note, out io)`, `Remove(io)`, `LastWaitReason` (`NoPerch/NoGround/NameTaken`), `OriginOf` — `Assets/Modules/Combat/CrowAttack.cs` |
 | маркеры зон | `ZonePiece.Marks/AddMark/MarkCell/MarkList`; постановка — выделить зону → «Маркеры»: клик по стене — стенной (Тень), по полу/земле — напольный (`GridCursor.Zones.UpdateZoneMark`) |
-| сервер модели | `Assets/Game/UI/LlmBridge.cs` (`LlmHost`: `llama-server -c 16384 -np 1`, `Complete`, `ActiveModel`) — скил `tavern-ai-chat` |
+| сервер модели | `Assets/Game/Net/LlmBridge.cs` (`LlmHost`: `llama-server -c 16384 -np 1`, `Complete`, `ActiveModel`) — скил `tavern-ai-chat` |
 | стенд прогонов | scratchpad ilya-f7 `ai_trial.py` (set/marks/hour/tick/event/journal/state/busy/think) + сценарии `s1_crow.json`, `s2_sectant.json`, `s3_empty.json`; описание — `LIFE.md` §0 |
-| перепись | `Assets/Game/UI/HudUI.DebugMonsters.cs` — `CensusTab`, `SectantList`, `OriginLines` |
+| перепись | `Assets/Game/UI/Hud/HudUI.DebugMonsters.cs` — `CensusTab`, `SectantList`, `OriginLines` |
 | тесты | `Assets/Tests/EditMode/ZoneKindCanonTests.cs`, `AiMonsterBriefTests.cs` |
 
 ---
@@ -145,11 +145,11 @@ description: ИМИТАЦИЯ ЖИЗНИ «Таверны» — с 08.10 (ноч
 
 | | путь |
 |---|---|
-| данные: житель, правило, отчёт | `Assets/Modules/Grid/ZoneEvent.cs` — `LifeResident`, `LifeRule`, `LifeStep`, `LifeReport` (хуки для UI); `ZonePiece.residents/rules`, `LevelIO.ZoneData.residents/rules`, восстановление в `GridCursor.Zones.cs` |
-| мозг, тело, часовые события, протокол, логи | `Assets/Modules/Monsters/LifeActor.cs` — `LifeLink` (поверх `LlmBridge`), `LifeProtocol`, `LifeLog`, `LifeDirector` (синхронизация мозгов, `Hourly`/`Scan`, журнал), `LifeBrain` (снимок, запрос, разбор, автопилот), `LifeBody` (появление, ходьба `MonsterNav`, toggle/door/vanish) |
+| данные: житель, правило, отчёт | `Assets/Modules/Grid/Zones/ZoneEvent.cs` — `LifeResident`, `LifeRule`, `LifeStep`, `LifeReport` (хуки для UI); `ZonePiece.residents/rules`, `LevelIO.ZoneData.residents/rules`, восстановление в `GridCursor.Zones.cs` |
+| мозг, тело, часовые события, протокол, логи | `Assets/Modules/Creatures/LifeActor.cs` — `LifeLink` (поверх `LlmBridge`), `LifeProtocol`, `LifeLog`, `LifeDirector` (синхронизация мозгов, `Hourly`/`Scan`, журнал), `LifeBrain` (снимок, запрос, разбор, автопилот), `LifeBody` (появление, ходьба `MonsterNav`, toggle/door/vanish) |
 | скил модели | `Assets/Game/Resources/Life/sectant.txt` (Илья правит как текст); другие виды — `Life/<kind>.txt` |
 | редактор | `Assets/Game/UI/HudUI.Life.cs` — «Жители» (`ZoneResidentsSection`/`ResidentCard`), «Часовые правила» (`ZoneRulesSection`/`RuleCard`), вкладка `ScenarioTab` + `LifeBrainBlock`; вызов из карточки зоны — `HudUI.Zones.cs`; регистрация вкладки — `HudUI.Debug.cs` (`"life"`, раздел «Сюжет») |
 | появление тел | `CrowZoneSpawn.Spawn(kind, who, zone, branch, …)` в `Assets/Modules/Combat/CrowAttack.cs`, `DefOfKind`, `OriginOf` |
-| сервер | `Assets/Game/UI/LlmBridge.cs` (Ollama `/api/chat`, `Online`, `Status`, `Complete`) — скил `tavern-ai-chat` |
-| чувства | `Assets/Modules/Character/CreatureSenses.cs` — конус зрения и слух (`tavern-monsters/MONSTERS.md` §17) |
-| игровые логи | `Assets/Game/UI/EventLogUI.cs` — `Add(text)`; вкладка F1 → Система → «Игровые логи» |
+| сервер | `Assets/Game/Net/LlmBridge.cs` (Ollama `/api/chat`, `Online`, `Status`, `Complete`) — скил `tavern-ai-chat` |
+| чувства | `Assets/Modules/Creatures/CreatureSenses.cs` — конус зрения и слух (`tavern-monsters/MONSTERS.md` §17) |
+| игровые логи | `Assets/Modules/View/GameEvents.cs` (с 11.10; вкладка — `Assets/Game/UI/Hud/EventLogUI.cs`) — `Add(text)`; вкладка F1 → Система → «Игровые логи» |

@@ -50,7 +50,7 @@ _Рефакторинг 2026-07-04._
 видимости (ViewState), один гейт на штучные элементы (FloorPieceView).
 
 Компоненты:
-- `ViewSensor` (`Modules/Grid/ViewSensor.cs`) — единственный писатель ViewState.
+- `ViewSensor` (`Modules/Grid/View/ViewSensor.cs`) — единственный писатель ViewState.
 - `ViewState` (`Cozy.View`, `Modules/View/`) — единственный словарь семантики видимости.
 - `GridCursor.RebuildWallRuns()` — единственный путь формирования wall-run'ов.
 - `WallCutaway` (один на run) — срез стен в стройке/Overview, скрытие от маски.
@@ -432,7 +432,7 @@ _Илья 09.09: «давай с 0 сделаем область просвет�
 листвы либо рисуется как обычно, либо отбрасывается (`clip`). Нечему
 сортироваться, нечему шить.
 
-**Как устроено** (`Assets/Modules/Grid/CrownWindow.cs`, `CrownWindow.hlsl`,
+**Как устроено** (`Assets/Modules/Grid/View/CrownWindow.cs`, `CrownWindow.hlsl`,
 `CrownCut.shader`):
 - `Tavern/CrownCut` — копия URP Lit (та же, что была основой `SeeThroughLit`);
   во `ForwardLit`, `DepthOnly` и `DepthNormals` фрагмент отбрасывается, если
@@ -638,8 +638,8 @@ P261) добыт дорого и понадобится при переделк�
   замер: скачок яркости на шве 5.22 → 1.75). У КОРЫ призрак с альфой 0 —
   сигнал «не рисовать» (P200), ему запись глубины давать НЕЛЬЗЯ: невидимый
   окклюдер выгрызает дырки в листве.
-- Файлы: `Grid/SeeThroughLit.shader`, `Grid/SeeThroughWindow.hlsl`,
-  `Grid/SeeThroughView.cs` (SeeThroughView + SeeThroughWindow).
+- Файлы: `Grid/Shaders/SeeThroughLit.shader`, `Grid/Shaders/SeeThroughWindow.hlsl`,
+  `Grid/View/SeeThroughView.cs` (SeeThroughView + SeeThroughWindow).
 
 ## 10b. Окно обзора вокруг цели переноса
 
@@ -673,7 +673,7 @@ _2026-09-01, ВЫКЛЮЧЕНО с 02.09 (`SeeThroughWindow.HiddenItems = false`
 сохранения ФПС, очень важный механизм». Повод — «forest100»: 5550 объектов на
 102×102 м, кадр 40 мс.
 
-`FarRadius` (`Modules/Grid/ViewSensor.cs`, `SceneSingleton`, ставится сам при
+`FarRadius` (`Modules/Grid/View/ViewSensor.cs`, `SceneSingleton`, ставится сам при
 старте сцены) раз в кадр обходит ломтик `InteractiveObject.All` (800 объектов)
 и по расстоянию до игрока в плоскости XZ:
 

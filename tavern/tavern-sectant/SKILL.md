@@ -85,7 +85,7 @@ description: Сектант (культист) в «Таверне» — вто�
    «Модель персонажа».
 4. Правка одежды сектанта — `tavern-clothes/BLENDER.md` (функции
    `human_skin_cut.py`) и `tavern-clothes/PITFALLS.md`.
-5. Шаг «в игру» — `tavern-monsters/MONSTERS.md` §1–9 (модуль `Cozy.Monsters`,
+5. Шаг «в игру» — `tavern-monsters/MONSTERS.md` §1–9 (модуль `Cozy.Creatures`,
    спавн, менталка, штурм, дебаг) и `tavern-game/ATTRIBUTES.md`.
 
 ## Где что лежит (быстрый ответ)
@@ -100,9 +100,10 @@ description: Сектант (культист) в «Таверне» — вто�
 | клипы героя на копиях | `KI/HumanM@Idle01.fbx`, `Resources/Walk_Calm.fbx`, `Resources/Jog_Calm.fbx` |
 | пересборка | `cd BlenderWork && systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 <blender> -b --factory-startup --python sectant_build.py` (клипы) или `… sectant_robes_build.py` (балахон) |
 | окно для Ильи (с мостом) | `bash BlenderWork/blender_mcp_up.sh Library/sectantRobes.blend` (или `Library/sectant.blend`); погасить — `… stop`; одно окно на порт 9876 |
-| код существ | `Assets/Modules/Monsters/` — `Creature.cs` (ядро), `CreaturePlan*.cs` (мозг), `MonsterNav.cs`, `MonsterManager.cs` |
+| код существ | `Assets/Modules/Creatures/` — `Creature.cs` (ядро), `CreaturePlan*.cs` (мозг), `MonsterNav.cs`, `MonsterManager.cs` |
 | бестиарий всех существ | `tavern-monsters/SKILL.md`, внизу; строка сектанта там — ссылка сюда |
 | значки над головой «думает» / «вопрос» / «!» (галерея, Blender-only) | `BlenderWork/sectant_head_icons.py` → `Animations/Sectant_Head_Icons.blend`; числа в долях головы в капюшоне, формат `stun_stars.py`; окно — `bash BlenderWork/blender_mcp_up.sh Animations/Sectant_Head_Icons.blend` |
 | ⭐ атака, сценарий 1 «Идёт атаковать» (10.10; в игре с 10.10 вечера — `Modules/Combat/SectantEncounter.cs`, экспорт `sectant_attack.py -- export`) | `BlenderWork/sectant_attack.py` → `Animations/Sectant_Attack.blend`: готовая фигура в балахоне из `sectantRobes.blend` (накидка НЕ пересчитывается), клип `Sectant_Attack` 136 кадров, нож `Knife_Attack` из `Library/kitchenKnife.blend`; числа — `P`; окно — `bash BlenderWork/blender_mcp_up.sh Animations/Sectant_Attack.blend`; подробно — `SECTANT.md` §15 |
 | указывает ножом на игрока (10.10, только Blender) | `BlenderWork/sectant_point.py` → `Animations/Sectant_Point.blend`: клипы `Sectant_PointRise` (1.0 с, с перелётом) + луп `Sectant_PointHold` (2.7 с); в игре — шаг правил `[sectant_point_hand 3s]` (`SectantPoint.cs`), рука на уровне плеча почти прямая, нож прямым хватом в лицо героя на 2.5 м; ⚠️ правый рукав выходит сквозь накидку капюшона; подробно — `SECTANT.md` §16 |
+| сцена 6 «Ближняя атака, без оружия» = атака голыми руками (11.10; в игре — `punch`, экспорт `sectant_punch.py -- export`) | `BlenderWork/sectant_punch.py` → `Animations/Sectant_Punch.blend`: герой уходит шагом назад от ножа, шагом вперёд бьёт прямым правой в лицо, сектант отходит и держится левой за лицо; числа — `SWING` / `PUNCH`; подробно — реестр сцен `tavern-combat/SKILL.md` |
 | снимок файла 14.09 (на откат) | скретчпад сессии ilya-aa 07.10, `sectant_backup/sectant_2026-09-14.blend` |

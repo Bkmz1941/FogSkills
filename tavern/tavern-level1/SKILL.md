@@ -175,11 +175,11 @@ Signal 10, Monsters 11, Level 12.
   Истина — файл уровня, а не журнал.
 - `storyEvents` в уровне пусто, всё сюжетное живёт в событиях зон.
 - Код событий:
-  - модель — `Modules/Grid/ZoneEvent.cs`: шаблоны attack, call, sms,
+  - модель — `Modules/Grid/Zones/ZoneEvent.cs`: шаблоны attack, call, sms,
     crow_spawn/despawn, robin_spawn/despawn; условия day, time, item, absent, present;
   - очередь — `Modules/Story/ZoneEventRunner.cs`;
-  - связка с телефоном — `Game/UI/HudUI.Gameplay.cs` `HookStoryEvents`;
-  - редактор — `Game/UI/HudUI.ZoneEvents.cs`, дебаг — F1 → «События».
+  - связка с телефоном — `Game/UI/Hud/HudUI.Gameplay.cs` `HookStoryEvents`;
+  - редактор — `Game/UI/Hud/HudUI.ZoneEvents.cs`, дебаг — F1 → «События».
 
 ## ⭐ История в телефоне: звонки и переписка до поездки
 

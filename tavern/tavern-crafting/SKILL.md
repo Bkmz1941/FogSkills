@@ -31,8 +31,8 @@ KISS, никаких комментариев в коде, «новое рабо
 |---|---|---|
 | Сетка инвентаря | `Modules/Grid/Inventory/GridInventory.cs` | `PlacedItem` = деф + `anchor` + `rotation` + `state` + вложенный `contents` + `charge`; `Fits/TryPlace/TryAdd/Remove/ItemAt`, формы через `Shapes.Rotate`, до 5 колонок |
 | Предмет | `Modules/Grid/Inventory/ItemDef.cs`, реестр `Items.cs` | `id`, `displayName`, `size`/`cells`, `slot`, `icon` + `iconPicture`, `weight`, `category`, `pieces` (спички = 10 штук), `powerCells`, `uiKind` |
-| Перетаскивание | `Game/UI/EquipSlotDragSource.cs`, `ClothesDragSource.cs` | drag предметов в инвентаре уже работает — крафт «предмет на предмет» ложится на готовое |
-| Справочник (клавиша O) | `Game/UI/WikiContent.cs`, `WikiContent.Pages.cs` (437 строк), `WikiScreenUI.cs` | `WikiEntry` (id, category, title, image, summary, effects, body, states, related, aliases); категории ПЛОСКИЕ: `{ Продукты, Рецепты, Посуда }`, рисуются одним `UiFactory.Segmented`. Страницы рецептов кухни уже генерируются кодом (`RecipePages`) — образец для автостраниц крафта |
+| Перетаскивание | `Game/UI/Screens/EquipSlotDragSource.cs`, `ClothesDragSource.cs` | drag предметов в инвентаре уже работает — крафт «предмет на предмет» ложится на готовое |
+| Справочник (клавиша O) | `Game/UI/Screens/WikiContent.cs`, `WikiContent.Pages.cs` (437 строк), `WikiScreenUI.cs` | `WikiEntry` (id, category, title, image, summary, effects, body, states, related, aliases); категории ПЛОСКИЕ: `{ Продукты, Рецепты, Посуда }`, рисуются одним `UiFactory.Segmented`. Страницы рецептов кухни уже генерируются кодом (`RecipePages`) — образец для автостраниц крафта |
 | Реестр рецептов кухни | `Modules/Cooking/CookBook.cs` | `CookProduct` / `CookState` / `HeatStep` — модель «состояние + нагрев», НЕ комбинация; для крафта не годится, но годится как образец реестра |
 | Модуль-домен | `Assets/Modules/Cooking/`, сборка `Cozy.Cooking` | точка расширения `InteractiveObject.FeatureFactories`, регистрация в `CookingModule.Bootstrap` (`RuntimeInitializeOnLoad`); `Cozy.Grid` про домен не знает |
 | Сырьё под первые рецепты | каталог и лес | палки `deco_stick` #1–5 (пока проходимый декор, НЕ подбираются), футболки (предметы мира + на герое), нож в каталоге кухни, спички `pieces: 10`, поджигаются полено/дерево/трава/куст |
@@ -75,7 +75,7 @@ KISS, никаких комментариев в коде, «новое рабо
   кнопкой «Создать»), заведён реестр `Modules/Grid/Inventory/CraftBook.cs` и
   первый рецепт «Лоскутки ткани» (любая футболка → 3 лоскута, 15 с, без
   инструмента), предмет `Items.ClothStrip`. Код вида —
-  `Game/UI/InventoryScreenUI.Craft.cs`. Это ОТМЕНЯЕТ план «перетащить предмет
+  `Game/UI/Screens/InventoryScreenUI.Craft.cs`. Это ОТМЕНЯЕТ план «перетащить предмет
   на предмет + попап» ниже: способ выбран наброском.
 - **2026-09-21 — модели в Blender.** Лоскут (`cloth_strip_scene.py`,
   прямоугольный кусок 34×28 с рваной кромкой, три цвета) и факел

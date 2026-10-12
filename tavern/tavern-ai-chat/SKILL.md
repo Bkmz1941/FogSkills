@@ -103,7 +103,7 @@ description: ИИ-собеседники «Таверны» — живая пе�
 
 ## Код
 
-- **`Assets/Game/UI/LlmBridge.cs`** (сборка Tavern.UI) — по образцу
+- **`Assets/Game/Net/LlmBridge.cs`** (сборка Tavern.Net, с 11.10; до того Tavern.UI) — по образцу
   `TelegramBridge.cs`:
   - `Boot` (`RuntimeInitializeOnLoadMethod`) — объект `LlmBridge`, DontDestroyOnLoad.
   - Подписан на `PhoneUI.Sent(who, text)`; `Find(who)` ищет персонажа по имени,
@@ -180,7 +180,7 @@ description: ИИ-собеседники «Таверны» — живая пе�
 резкое падение рассудка; плюс «в F1 генерировать коммент по ситуации: где
 игрок, что видит, что вокруг, что с состоянием» и «дебаг-настройки».
 
-- Код — класс `HeroRemarks` в `Game/UI/SpeechBubbles.cs` (рядом с плашками,
+- Код — класс `HeroRemarks` в `Game/UI/Hud/SpeechBubbles.cs` (рядом с плашками,
   новых файлов не заводили), вешается в `SpeechBubbles.Ensure`. Показ —
   `SpeechBubbles.Show(герой, фраза)`.
 - **Лестницы** (`Ladders`): голод/жажда/усталость — ступени значка нужды

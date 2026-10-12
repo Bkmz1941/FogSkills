@@ -72,8 +72,8 @@ description: Руки в «Таверне»: что герой держит (ф�
 | точка прицела и флаг фокуса (ПКМ) | `Assets/Modules/Character/AimFocus.cs` |
 | разворот корпуса на прицел, стрейф | `Assets/Modules/Character/PlayerMovement.cs` (`FaceTarget`) |
 | камера в фокусе (`_preFocusDist`, `MinDistance`) | `Assets/Modules/Character/CameraFollow.cs` |
-| активация с хотбара, `SetLit` | `Assets/Game/UI/HudUI.Quickbar.cs` (`SetActiveQuick`) |
-| компоненты гарантируются на игроке | `Assets/Game/UI/HudUI.cs` (~171–181) |
+| активация с хотбара, `SetLit` | `Assets/Game/UI/Hud/HudUI.Quickbar.cs` (`SetActiveQuick`) |
+| компоненты гарантируются на игроке | `Assets/Game/UI/Hud/HudUI.cs` (~171–181) |
 | предмет «Фонарь» | `Assets/Modules/Grid/Inventory/Items.cs` (`Items.Flashlight`, `IsFlashlight`) |
-| мир-двойник фонаря (объект на полу) | `Assets/Modules/Grid/FurnitureCatalog.Props.cs` (`TorchLight`, модель `torchLight`) — домен BUILD/BLENDER |
-| общие сглаживания | `Assets/Modules/Grid/Ease.cs` (`Damp`, `TurnTowards`, `TurnSpeed 12`) |
+| мир-двойник фонаря (объект на полу) | `Assets/Modules/Grid/Objects/FurnitureCatalog.Props.cs` (`TorchLight`, модель `torchLight`) — домен BUILD/BLENDER |
+| общие сглаживания | `Assets/Modules/Grid/Core/Ease.cs` (`Damp`, `TurnTowards`, `TurnSpeed 12`) |

@@ -42,28 +42,55 @@
 Правило ночи: имена `CrowEncounter.*`, ключи `DebugTune`, формат
 `crowEncounter.json` и имена сцен не трогать.
 
-## T-ARCH — границы модулей (решать с Ильёй, днём)
+## T-ARCH — границы модулей (карта — `tavern-game/ARCHITECTURE.md`, «Глобальные модули», 11.10)
 
-Замер зависимостей 16.09. Ни одно не взято ночью: переезд между сборками трогает
-сейв, постановку и тикеры, а защита на открытом уровне неполная.
+Закрыто 11.10 (ilya-63, шаги 1–4 + два переезда папок, журнал в `refactor-log.md`): Monsters → UI/Core
+развёрнуто, Tavern.Data снята, хуки AiConsole схлопнуты, CrowZoneSpawn в Monsters, Grid по 15 папкам,
+UI по 5. Открытое — только то, что требует живых проб или слова Ильи:
 
-- **Птицы живут в `Cozy.Grid`**, хотя существа — модуль `Cozy.Monsters`.
-  `CrowFlight`/`CrowIdle`/`CrowPerch` знают: `LevelIO` и `GridCursor.Levels` (сейв и
-  загрузка), `GridCursor.ObjectMove/Objects` (перенос птицы и ветки),
-  `InteractiveObject.Build` (навеска по дефу), `ViewSensor` (общий тикер),
-  `FurnitureCatalog.Props`, `ObjectAttributes`; снаружи — UI дебага и `Cozy.Combat`.
-  Путь, если решим: тот же приём, что у `Cozy.Cooking` — навеска через
-  `InteractiveObject.FeatureFactories`, сейв через общие поля объекта, тикер —
-  регистрацией. Защита есть: `bird_flight_probe.py`, `crow_pick_probe.cs`,
-  `encounter_probe.py`, круг сейва `level_roundtrip.py`.
-- **`Cozy.Monsters` ссылается на `Tavern.UI`** (геймплей на UI): `CreaturePlan` зовёт
-  `SpeechBubbles.Show`/`GameEvents`/`AiConsole`, а экран смерти
-  `DeathScreenUI` лежит в `Modules/Monsters`. Направление «UI сверху» нарушено в одном
-  месте — лечится событием в `Tavern.Core` или переносом экрана в `Tavern.UI`.
-- **`CrowAttack.Side`** (`Launch(Side want)`, ожидание стороны): после 16.09 атака по
-  интервалу одна на обе стороны и зовёт только `Side.Any` — ветки `Front/Back`
-  у «хочу» мёртвые. Оставлено: Илья вечером того же дня разводил интервалы по
-  сторонам, может вернуть.
+- **`Grid/Birds/` → своя сборка живности, НЕ `Cozy.Creatures`** (Илья 11.10: «монстры сейчас это ворона
+  и сектант, сова и зарянка, бабочка — это не монстры»; тела птиц общие на ворону и сову, враждебность
+  вороны уже в Combat/Monsters). Выносить ли вообще — решает Илья; если да, 9 швов: `InteractiveObject.Build` (навеска CrowPerch/CrowIdle/
+  CrowFlight/ButterflyFlight по дефу → `FeatureFactories`-хук), `LevelIO` (поля насеста perchOn/perchH/…
+  → `CollectPlayer`-подобный хук), `GridCursor.ObjectMove`/`Objects` (перенос птицы и ветки),
+  `ViewSensor` (`CrowPerch.TickAll`/`CrowFlight.TickAll` в `WorldTick` → регистрация), `CrownWindow`,
+  `FurnitureCatalog.Props`, `ZonePiece`. Namespace `Cozy.Grid` у птиц оставить (пробы `bird_flight`,
+  `crow_pick` ×35 ссылок) или переименовать вместе с пробами. Защита: `bird_flight_probe.py`,
+  `crow_pick_probe.cs`, `encounter_probe.py`, `level_roundtrip.py` — ДО и ПОСЛЕ, на уровне с птицами.
+  ⚠ порядок тиков в `WorldTick.LateUpdate` при регистрации вместо прямых вызовов сохранить явно.
+- **Дальше по числу швов** (замер 11.10, файлов снаружи подмодуля): `Kitchen/` 16 (в `Cozy.Cooking`;
+  но `TemperatureSim`/`TemperatureField` — физика мира, их оставить), `Fire/` 19, `Zones/` 19,
+  `Weather/` 20 (в `Cozy.Weather`), `Liquids/` 25, `Inventory/` 26, `Power/` 30. Каждый — отдельный
+  вечер с пробами области; очередь не трогать ночью без моста.
+- ~~`CreatureSenses`/`Sectant`/`CrowSense` в `Cozy.Character`~~ — закрыто 11.10: сборка `Cozy.Creatures` (тела и чувства) ниже Combat, `Cozy.Life` (разум) выше.
+- **`Cozy.Weather` — 36 строк директора** при 3,3k стихий в `Grid/Weather/`; имеет смысл только
+  вместе с выносом стихий (см. выше).
+- **`CrowAttack.Side`** (`Launch(Side want)`): после 16.09 атака по интервалу зовёт только
+  `Side.Any` — ветки `Front/Back` мёртвые. Оставлено: Илья разводил интервалы по сторонам, может
+  вернуть.
+
+## T-CLOCK — один источник часов для нижних слоёв (найдено 11.10, ilya-63; только с мостом)
+
+`GameClock` (Tavern.Core) раздаёт время вниз девятью отдельными хуками: `FoodSpoil.CurrentDay`,
+`LiquidState.CurrentDay`, `StoryChecks.Today/Hour`, `PlayerEffects.Today`, `StoryEventBook.Today`,
+`PlayerExposure.Hour`, `CrowZoneSpawn.Clock`, `LlmBridge.HasClock/Day/Hours`, `GameEvents.Clock`, плюс
+записи `Weather.Hour/Daylight` в `GameClock.Update`. Одна точка правды внизу (`Cozy.Grid.Weather`:
+день + час, пишет только GameClock) сняла бы все хуки, но читатели увидят значение кадром позже,
+чем через `GameClock.I` напрямую (порядок Update) — у «раз в день» событий это граница суток.
+Брать с пробами событий и сейва, не ночью без моста.
+
+## T-NET-PERSONAS — персонажи СМС внутри HTTP-клиента (найдено 11.10)
+
+`LlmBridge.Police` (правила и два агента-смены, ~60 строк промптов) — контент уровня 1 внутри
+сетевого клиента `Tavern.Net`. Класс `LlmBridge.Character` смешивает данные (имя, телефон, правила,
+агенты) и состояние разговора (история, `Waiting`, `Patrol`). Разделить на данные (в `Cozy.Story`
+или `Cozy.Character.People`) и клиент; защиты у СМС-чата нет — сначала проба с заглушкой сервера.
+
+## T-LIFE-EFFECTS — `Cozy.Life` → `Cozy.Effects` держится только `using` (11.10)
+
+После переезда `HeadIcon` в `Cozy.Creatures` сборке `Cozy.Life` ссылка на `Cozy.Effects` не нужна,
+но `CreaturePlan.cs` держит `using Cozy.Effects;` и в тот вечер был у ilya-f6 (кэш `Senses`).
+Когда файл свободен: снять `using` и ссылку в `Cozy.Life.asmdef`, офлайн-сборка.
 
 ## T-FPS — кадр
 

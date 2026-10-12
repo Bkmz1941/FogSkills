@@ -7,7 +7,7 @@ python3 gc_probe.py profile [кадров] профайлер редактора
 python3 gc_probe.py check           СТОРОЖ РЕГРЕССИИ: замер против записанного порога уровня, код 1 при превышении
 Потолка кадров в игре с 10.09 нет (FrameRateConfig: targetFrameRate = -1, Илья: «давай снимем»),
 замер это подтверждает явно: при потолке «Main Thread» мерил бы ожидание, а не работу.
-Пробник живёт в игре: Assets/Modules/Grid/GcProbe.cs (Begin/Result/ListTicking/SetEnabled).
+Пробник живёт в игре: Assets/Modules/Grid/Core/GcProbe.cs (Begin/Result/ListTicking/SetEnabled).
 Между выключением и замером ждётся окно кадров; каждый тип включается обратно в finally.
 """
 import json, subprocess, sys, time, pathlib

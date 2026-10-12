@@ -40,7 +40,7 @@
 
 ## 1. Модуль и ядро
 
-- Модуль — **`Cozy.Monsters`**: `MonsterManager` (рассудок от ворон, налёт вороны по
+- Модуль — **`Cozy.Creatures`**: `MonsterManager` (рассудок от ворон, налёт вороны по
   радиусу, реген рассудка, кнопки Тени и «Показать респавны»), `CreaturePlan` (мозг
   сектанта и вороны), `LifeRules`, `ShadowMonster`/`ShadowZone`, `SectantPoint`,
   `DeathScreenUI`.
@@ -48,7 +48,7 @@
   CellSize` (этаж = округление Y к клетке), тело-манекен — `Dummy` + `Animate` (Тень).
   Новое существо берёт этаж и тело отсюда. Гейт «по игроку не бьют» для любой атаки —
   `PlayerTarget.OffLimits` (= мёртв или «Атака на игрока» выключена).
-- ⚠️ Направление ссылок: `Cozy.Monsters` САМ ссылается на `Tavern.UI` — прямая ссылка
+- ⚠️ Направление ссылок: `Cozy.Creatures` САМ ссылается на `Tavern.UI` — прямая ссылка
   UI→монстры невозможна. Дебаг-кнопки — через реестр **`Tavern.Core.DebugActions`**
   (модуль регистрирует `(key, labelFunc, action)`, HudUI строит кнопки по списку,
   событие `Changed`; регистрация идемпотентна по ключу).
@@ -105,7 +105,7 @@
 и `owl_pupil`. Как устроено — ниже, «Красные глаза: подмена слота».
 
 ⭐ **Блок «Сектант»** (Илья 07.10) — под «Сова»: заготовка ползунков поведения,
-атаки и рассудка (`Cozy.Character.Sectant`, `DebugTune`); поведение их ещё не
+атаки и рассудка (`Cozy.Creatures.Sectant`, `DebugTune`); поведение их ещё не
 читает — `tavern-sectant/SECTANT.md` §9.
 
 ⭐ **Каждое уханье пишется в лог** (Илья 2026-09-12: «когда Сова угукает выводи
@@ -1035,8 +1035,8 @@ FBX), P325 (погашенный кодом узел всё равно разд�
 ползунки и настройки», «и вкл выкл чтобы видеть», «2 фича — зона слышимости —
 тут уже радиус», «это общее глобальное должно стать — не только к сектантам».
 
-- **Код** — `Modules/Character/CreatureSenses.cs` (сборка `Cozy.Character`:
-  её видят и `Cozy.Monsters`, и дебаг `Tavern.UI`; в `Cozy.Monsters` класть
+- **Код** — `Modules/Creatures/CreatureSenses.cs` (сборка `Cozy.Character`:
+  её видят и `Cozy.Creatures`, и дебаг `Tavern.UI`; в `Cozy.Creatures` класть
   нельзя — UI на неё не ссылается). Компонент на корне существа: у сектанта
   цепляется сам по событию `Sectant.Built` (как `SectantWalker`), у вороны — по
   `CrowIdle.CrowBuilt` (профиль `CrowSenses`).
@@ -1154,11 +1154,11 @@ FBX), P325 (погашенный кодом узел всё равно разд�
 Концепт и слова Ильи — бестиарий в `SKILL.md` («Тень — силуэт на стене») и
 `tavern-game/BLENDER.md` («Тень `shadow`»). Здесь — как это устроено в коде.
 
-**Файлы.** `Assets/Modules/Monsters/ShadowMonster.cs` (компонент, спавн,
+**Файлы.** `Assets/Modules/Life/ShadowMonster.cs` (компонент, спавн,
 поиск стены, появление/исчезновение, кнопки), `ShadowSilhouette.shader`
 (`Tavern/ShadowSilhouette`, URP HLSL, один пасс `UniversalForward`; в
 `ProjectSettings/GraphicsSettings.asset` → Always Included Shaders).
-Тело-манекен Тени собирает ядро `Creature` (`Modules/Monsters/Creature.cs`, 11.10): `Dummy` (префаб, `Visual`, рост по клетке) и `Animate` (контроллер, без root motion, режим отсечения).
+Тело-манекен Тени собирает ядро `Creature` (`Modules/Creatures/Creature.cs`, 11.10): `Dummy` (префаб, `Visual`, рост по клетке) и `Animate` (контроллер, без root motion, режим отсечения).
 
 **Сборка фигуры.** `ShadowMonster.Appear(wallPoint, outward, wallRenderer)`:
 пустой корень `Shadow` в точке на лице стены, `LookRotation(outward)`; внутри
@@ -1195,7 +1195,7 @@ Comp NotEqual Pass Replace }` — первый фрагмент пикселя �
 `SmoothStep`; при цели 0 и `_reveal` 0 — `Destroy`. `HoldSeconds` > 0 — уходит
 сам через столько секунд после полного появления (по умолчанию 0 = стоит).
 Темпы перебираются кнопкой: `Tempos` (3,2/2,2 → 1,6/1,1 → 6,4/4,4), в
-`DebugTune` не пишутся (тип в `Cozy.Monsters`, UI на него не ссылается).
+`DebugTune` не пишутся (тип в `Cozy.Creatures`, UI на него не ссылается).
 ⭐ Дыхание из Blender перенесено (Илья 07.10: «перенеси в игру»):
 `BlenderWork/shadow_idle_export.py` открывает `Library/sectantRobes.blend`
 ТОЛЬКО чтением, берёт `Sectant_V1` + `Sectant_Mesh_V1`, строит на арматуре
