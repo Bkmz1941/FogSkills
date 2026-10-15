@@ -171,6 +171,10 @@ def main():
         probe_cs('stairwell_view_probe.cs')
         probe_cs('crow_glow_probe.cs')
         probe_cs('box_place_probe.cs')
+        probe_cs('wall_hang_probe.cs')
+        probe_cs('rug_top_probe.cs')
+        probe_cs('dirt_probe.cs')
+        probe_cs('roof_snap_pick_probe.cs')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')

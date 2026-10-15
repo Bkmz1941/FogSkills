@@ -1,4 +1,4 @@
-// Wallet account rules and the bonus wallet, on a regress stand: node wallet-rules-regress.mjs dev|prod|local.
+// Wallet account rules, on a regress stand: node wallet-rules-regress.mjs dev|prod|local.
 // Reads ~/.config/lucky-regress/<env>.env; accounts come from the project admin API, no database access.
 // Moves only the regress player's money: a manual top-up, bets and wins through the regress provider.
 import { createHmac, randomUUID } from "node:crypto";
@@ -26,7 +26,7 @@ const provider = (route, body) => {
   return call("POST", path, { body, headers: { "x-api-key": cfg.PROVIDER_PUBLIC_KEY, "x-sign": sign } });
 };
 
-console.log(`== ${envName}: wallet account rules and the bonus wallet`);
+console.log(`== ${envName}: wallet account rules`);
 const player = (await call("POST", "/v1/auth/login", { publicKey: cfg.PUBLIC_KEY, body: { email: cfg.PLAYER_EMAIL, password: cfg.PLAYER_PASSWORD, locale: "en" } })).body?.access_token;
 const admin = (await call("POST", "/v1/project/auth/login", { body: { email: cfg.ADMIN_EMAIL, password: cfg.ADMIN_PASSWORD } })).body?.access_token;
 check("player and project admin login", Boolean(player && admin));
@@ -34,7 +34,7 @@ const accounts = async () => {
   const r = await call("GET", `/v1/project/balances/users/${cfg.PLAYER_ID}`, { token: admin });
   const out = {};
   for (const balance of r.body?.balances ?? []) {
-    if (balance.currency !== "USD" || !["cash", "cash_bonus"].includes(balance.balance_code)) continue;
+    if (balance.currency !== "USD" || balance.balance_code !== "cash") continue;
     for (const account of balance.accounts ?? []) out[`${balance.balance_code}.${account.type}`] = Number(account.amount);
   }
   return out;
@@ -47,7 +47,7 @@ const stamp = Date.now();
 
 await select("cash");
 let before = await accounts();
-check("the regress player has a cash_bonus wallet with accounts", "cash_bonus.pending" in before && "cash_bonus.available" in before, Object.keys(before).join(","));
+check("the regress player has a cash wallet with accounts", "cash.pending" in before && "cash.available" in before, Object.keys(before).join(","));
 let r = await credit("cash", "20.00");
 let d = delta(before, await accounts());
 check("manual credit 20 lands in cash pending", r.status === 201 && d["cash.pending"] === 20 && Object.keys(d).length === 1, `${r.status} ${JSON.stringify(d)}`);
@@ -76,30 +76,8 @@ await provider("win", { ...cancelled, txId: randomUUID(), amount: "1000", cancel
 d = delta(before, await accounts());
 check("bet and its cancel leave every account as it was", Object.keys(d).length === 0, JSON.stringify(d));
 
-before = await accounts();
-r = await credit("cash_bonus", "30.00");
-d = delta(before, await accounts());
-check("manual credit 30 to the bonus wallet lands in its pending", r.status === 201 && d["cash_bonus.pending"] === 30 && Object.keys(d).length === 1, `${r.status} ${JSON.stringify(d)}`);
-r = await select("cash_bonus");
-check("the bonus wallet can be made active", r.body?.active_balance_code === "cash_bonus", String(r.body?.active_balance_code));
-r = await call("POST", "/v1/core/balances/deposit", { token: player, publicKey: cfg.PUBLIC_KEY, body: { amount: "10.00" } });
-check("a deposit to the bonus wallet is refused", r.status === 400 || r.status === 503, `${r.status} ${r.body?.error?.message ?? ""}`);
-s = await session();
-before = await accounts();
-const bonusBet = { session: s, betId: `rules-bonus-${stamp}`, roundId: `round-${stamp}`, betNumber: "1" };
-await provider("bet", { ...bonusBet, txId: randomUUID(), amount: "1000" });
-d = delta(before, await accounts());
-check("a bet on the bonus wallet is taken from it", d["cash_bonus.pending"] === -10 && Object.keys(d).length === 1, JSON.stringify(d));
-before = await accounts();
-const bonusWin = randomUUID();
-await provider("win", { ...bonusBet, txId: bonusWin, amount: "2500" });
-d = delta(before, await accounts());
-check("win 25 on a bonus bet goes whole to cash available", d["cash.available"] === 25 && Object.keys(d).length === 1, JSON.stringify(d));
-before = await accounts();
-r = await provider("rollback", { session: s, txId: bonusWin });
-d = delta(before, await accounts());
-check("rolling that win back takes it from cash available", r.status === 201 && d["cash.available"] === -25 && Object.keys(d).length === 1, `${r.status} ${JSON.stringify(d)}`);
-
+r = await call("GET", `/v1/project/balances/users/${cfg.PLAYER_ID}`, { token: admin });
+check("no retired cash_bonus or freebet wallet is listed", !(r.body?.balances ?? []).some((balance) => /_bonus$|freebet/.test(balance.balance_code)), (r.body?.balances ?? []).map((balance) => balance.balance_code).join(","));
 r = await select("cash");
 check("back on the cash wallet", r.body?.active_balance_code === "cash", String(r.body?.active_balance_code));
 console.log(`== ${envName}: ${passed}/${passed + failed} passed`);

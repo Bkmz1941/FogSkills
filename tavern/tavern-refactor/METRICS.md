@@ -51,6 +51,7 @@
 | 2026-10-11 | ilya-58 | 483 | 138059 | 72 | 6 | ProceduralModels.ElevatorModern 131 | 1 | после рефакторинга 10→11.10 (ilya-58) |
 | 2026-10-11 | ilya-63 | 482 | 138856 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | модули 11.10: Monsters/UI развёрнуты, Tavern.Data снята, Grid по 15 папкам |
 | 2026-10-11 | ilya-63 | 485 | 139463 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | после ночи 11.10: 9 шагов модулей, Creatures/Life, Grid 15 папок, UI 5 |
+| 2026-10-12 | ilya-63 | 486 | 141975 | 72 | 5 | ProceduralModels.ElevatorModern 131 | 2 | после ночи 12→13.10 (ilya-63) |
 
 ## Кадр в сборке
 

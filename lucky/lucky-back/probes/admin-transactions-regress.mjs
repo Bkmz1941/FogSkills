@@ -93,24 +93,7 @@ await step("bet 10 on cash, to be cancelled", { type: "bet", wallet: "cash", amo
 await step("cancel returns 10 to cash", { type: "cancel", wallet: "cash", amount: 10 }, () => provider("win", { ...cancelled, txId: randomUUID(), amount: "1000", cancel: true }));
 await step("manual debit 5 from cash", { type: "manual_debit", wallet: "cash", amount: 5 }, () => manual("debit", "cash", "5.00"));
 
-await step("manual credit 30 to the bonus wallet", { type: "manual_credit", wallet: "cash_bonus", amount: 30 }, () => manual("credit", "cash_bonus", "30.00"));
-let r = await select("cash_bonus");
-check("bonus wallet selected", r.body?.active_balance_code === "cash_bonus", String(r.body?.active_balance_code));
-s = await session();
-const bonusBet = { session: s, betId: `adm-bonus-${stamp}`, roundId: `round-${stamp}`, betNumber: "1" };
-await step("bet 10 on the bonus wallet", { type: "bet", wallet: "cash_bonus", amount: 10 }, () => provider("bet", { ...bonusBet, txId: randomUUID(), amount: "1000" }));
-const bonusWinTx = randomUUID();
-const bonusWin = await step("win 25 on a bonus bet goes whole to cash", { type: "win", wallet: "cash", amount: 25 }, () => provider("win", { ...bonusBet, txId: bonusWinTx, amount: "2500" }));
-check("bonus win leaves the bonus wallet as it was", bonusWin.before.cash_bonus === bonusWin.after.cash_bonus, `${bonusWin.before.cash_bonus} -> ${bonusWin.after.cash_bonus}`);
-await step("rollback of that win takes 25 back from cash", { type: "rollback", wallet: "cash", amount: 25 }, () => provider("rollback", { session: s, txId: bonusWinTx }));
-const bonusLost = { session: s, betId: `adm-bonus-lost-${stamp}`, roundId: `round-${stamp}`, betNumber: "1" };
-await step("bet 5 on the bonus wallet, then lost", { type: "bet", wallet: "cash_bonus", amount: 5 }, () => provider("bet", { ...bonusLost, txId: randomUUID(), amount: "500" }));
-await step("zero win on a bonus bet stays on the bonus wallet", { type: "win", wallet: "cash_bonus", amount: 0 }, () => provider("win", { ...bonusLost, txId: randomUUID(), amount: "0" }));
-const bonusCancel = { session: s, betId: `adm-bonus-cancel-${stamp}`, roundId: `round-${stamp}`, betNumber: "1" };
-await step("bet 5 on the bonus wallet, to be cancelled", { type: "bet", wallet: "cash_bonus", amount: 5 }, () => provider("bet", { ...bonusCancel, txId: randomUUID(), amount: "500" }));
-await step("cancel returns 5 to the bonus wallet", { type: "cancel", wallet: "cash_bonus", amount: 5 }, () => provider("win", { ...bonusCancel, txId: randomUUID(), amount: "500", cancel: true }));
-
-r = await select("cash");
+let r = await select("cash");
 check("back on the cash wallet", r.body?.active_balance_code === "cash", String(r.body?.active_balance_code));
 const page = await rows(40);
 const chains = {};
@@ -123,7 +106,7 @@ for (const row of runRows) {
   chains[row.balance_code] = money(row.balance_after);
 }
 check("each wallet's rows chain: before = the previous row's after on the same wallet", broken === 0, `${broken} breaks over ${runRows.length} rows of this run`);
-const history = await call("GET", "/v1/core/balances/transactions?limit=50&balance_code=cash_bonus", { token: player, publicKey: cfg.PUBLIC_KEY });
-check("player history of the bonus wallet holds only bonus rows", history.status === 200 && (history.body?.transactions ?? []).every((t) => t.balance_code === "cash_bonus"), `${history.status} ${(history.body?.transactions ?? []).length} rows`);
+const history = await call("GET", "/v1/core/balances/transactions?limit=50&balance_code=cash", { token: player, publicKey: cfg.PUBLIC_KEY });
+check("player history of the cash wallet holds only cash rows", history.status === 200 && (history.body?.transactions ?? []).every((t) => t.balance_code === "cash"), `${history.status} ${(history.body?.transactions ?? []).length} rows`);
 console.log(`== ${envName}: ${passed}/${passed + failed} passed`);
 process.exitCode = failed ? 1 : 0;

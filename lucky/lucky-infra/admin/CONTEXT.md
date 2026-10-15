@@ -92,3 +92,36 @@ user-юнит `lucky-admin` (:3000, за nginx `admin.luckyserver.pro`), Node 24
   `fSpwZz7mZf4gtbptAtfHjrlYugmXpef9` (дев; Илья разрешил хранить здесь —
   заходить с ним). Аккаунты живут в БД бэка (`root_users`) — создание новых
   описано в `backend/CONTEXT.md`.
+
+## Локализация контента (en/ru) — 15.10.2026, не закоммичено
+
+- Локали проекта (General в проекте и у рута, New project): только `en`/`ru`
+  (`contentLocales` из контракта); API режет остальное `@IsIn`.
+- `PageProjectContent` оборачивает контент в `ContentLocalesProvider`
+  (`supported_locales` + `default_locale` проекта). Каждая форма с текстом
+  (`MenuFields`, `SocialFields`, `SitemapFields`, `BannerFields`, `SectionFields`,
+  `TextBlockFields`, `PageLayoutFields`, `DisclaimerFields`,
+  `FooterSectionSettingsDialog`) вызывает `useLocaleSwitch()` и рендерит
+  `<LocaleSwitcher>` (выпадашка «Localization», на всю ширину строки, скрыта при
+  одной локали) и `<LocaleFields>` — по инпуту на локаль, видна только выбранная,
+  остальные `hidden`, но смонтированы и уходят в FormData. Имена полей:
+  основная локаль — обычное имя (`title`), прочие — `translations[ru][title]`
+  (`translationFieldName`). `RichTextEditor` принимает `htmlName`/`textName`.
+- Действия (`projectContentActions.ts`) читают локали из скрытых полей
+  `content_locales`/`content_default_locale`, `localizedText(form, fields)`
+  проверяет правило API (обязательные поля везде, необязательные — везде, если
+  хоть где-то заполнено) и кидает `ContentLocaleError`; `act()` превращает его и
+  400 `CONTENT_LOCALE_MISSING` от API в `{ error, missingLocales }`.
+  `ContentEditorDialog` отдаёт `missingLocales` через `ContentDialogStateContext`:
+  триггер `aria-invalid` (красная обводка), текущая локаль красным, в списке
+  «Russian — fill in» красным с обводкой, форма сама переключается на первую
+  недостающую. Скрытый заголовок секции (`show_title` выкл) переводов не требует.
+- Футер: переводы дисклеймера и заголовков секций живут в
+  `footer_settings.translations[locale]`, API сливает их по полю, не по локали.
+- Контракт `src/shared/index.ts`: перенесены только типы локализации; дрейф по
+  ставкам/коэффициентам (`coefficient` удалён в API, админка ещё читает) остался —
+  полная копия сломала бы typecheck админки.
+- Проверка 15.10 локально (проект Debug project #1 с включённым `ru`): Save без
+  русского → ошибка и подсветка, с русским → сохранилось, витрина на ru показала
+  перевод.
+

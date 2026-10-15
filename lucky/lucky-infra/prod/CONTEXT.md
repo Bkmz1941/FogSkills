@@ -158,6 +158,26 @@ GitLab и добавили личный ключ руками.
 
 ## Журнал
 
+- 2026-10-15 — **SSH на 178.105.17.213 лежал с 06:07 до 12:49 UTC**, сайт/API работали. Снаружи: TCP на :22
+  принимается и тут же закрывается без баннера (`kex_exchange_identification: read: Connection reset by peer`,
+  Termius «closed with error: end of file»), с любого адреса, `ss`/`nc` видят порт открытым. Причина по журналу:
+  `apt-daily-upgrade` → `unattended-upgrade` поставил openssh-server 1:9.6p1-3ubuntu13.19→13.20; postinst сделал
+  `Stopping ssh.service`, но при `KillMode=process` процесс sshd 1999370 «remains running after unit stopped» и
+  продолжил держать 0.0.0.0:22; затем postinst попытался поднять `ssh.socket` — «Failed to create listening socket
+  (0.0.0.0:22): Address already in use» → dpkg error code 1, ssh.service так и не стартовал. С остановкой юнита systemd
+  снёс `RuntimeDirectory` `/run/sshd`, и каждый форк осиротевшего sshd падал: `fatal: Missing privilege separation
+  directory: /run/sshd` (в журнале по строке на каждое соединение). Лечение — `systemctl start ssh` (сделано 12:49:35
+  UTC через консоль Hetzner; `RuntimeDirectory=sshd` пересоздал каталог). Хостер этой машины — **Hetzner Cloud FSN1**
+  (`static.213.17.105.178.clients.your-server.de`), консоль console.hetzner.cloud; Kalada — только 144.31.40.52.
+  Проверить после инцидента: `dpkg -l openssh-server` (статус `iF` = half-configured → `dpkg --configure -a` из
+  консоли, не по SSH: postinst снова перезапускает ssh), `systemctl is-failed ssh.socket`. Диагностика снаружи,
+  когда SSH молчит: `curl https://api.luckyserver.pro/v1/health` (хост жив?), проба с 144.31.40.52 (бан ли нашего
+  IP?), дальше только консоль хостера. Статику лендинга lucky-lab.com в тот же день выложили после восстановления.
+- 2026-10-14 — **лендинг lucky-lab.com переехал сюда** (DNS `www` → 178.105.17.213, apex ещё догоняет): статика
+  `/var/www/lucky-lab/index.html`, вхост `sites-available/lucky-lab` (:80, certbot --nginx добавляет 443), скрипт
+  и детали — скил `lucky-landing`, раздел «Хостинг». Грабля хоста: какой-то вхост слушает `127.0.0.1:80` явно, поэтому
+  `curl -H Host:… http://127.0.0.1/` попадает в него (404 от API), а не в новый `listen 80` блок — локальные проверки
+  вхостов делать по внешнему IP 178.105.17.213.
 - 2026-10-06 — **GeoIP в nginx API (дев 178.104.243.232 и прод 178.105.17.213).** Поставлен
   `libnginx-mod-http-geoip2`, база DB-IP Country Lite `/var/lib/GeoIP/dbip-country-lite.mmdb` (каталог должен быть
   `0755`: umask хоста делает `0750`, и воркеры не перечитают файл), обновление `/usr/local/sbin/geoip-country-update`

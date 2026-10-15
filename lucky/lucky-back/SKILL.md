@@ -21,7 +21,7 @@ AdminCN), `lucky-storefront` (витрина, Vite), `brobrocasino` (прежн�
 - **Никаких тестовых операций на живых проектах прода без отдельной команды Ильи**: не регистрировать игроков,
   не сеять балансы, не крутить колбэки провайдера, не заводить аккаунты SQL-ом. **Регресс — всегда на
   регресс-стендах** (проект `regress` + провайдер `regress-provider` на деве и проде, решение 24.09): ключи в
-  `~/.config/lucky-regress/<env>.env`, прогон `node probes/regress-run.mjs dev|prod`, подробно — `REGRESS.md`,
+  `~/.config/lucky-regress/<env>.env`, прогон по группам `node probes/regress.mjs dev|prod [stand|wallets|bets|bonuses|launches]`, подробно — `REGRESS.md`,
   раздел 0.
 - **Данные прода не менять руками**: никаких UPDATE/DELETE/INSERT в прод-базе, никаких «поправлю и откачу».
   Читать можно (SELECT), и только по делу.
@@ -71,6 +71,11 @@ AdminCN), `lucky-storefront` (витрина, Vite), `brobrocasino` (прежн�
 - чекауты — `~/Documents/Work/Lucky/*` (см. выше);
 - локальный `.env` API — `API_PORT=18080` (с 2026-09-09; до этого 8080),
   health: `http://localhost:18080/v1/health`;
+  `PUBLIC_ASSET_BASE_URL` там же должен быть `http://localhost:18080` —
+  до 15.10 оставался `:8080`, и плейсхолдеры картинок (`/v1/assets/
+  default-placeholder.webp`) уходили в закрытый порт (ERR_CONNECTION_REFUSED
+  в консоли витрины); `.env.local` API (не используется при `npm run dev`)
+  по-прежнему со старым портом;
 - админка: `../lucky-admin/.env.local` → `APP_API_BASE_URL=http://127.0.0.1:18080`,
   сама на vite `:3000` (или `npm run dev -- --port 13001`); витрина — vite
   `:3001` по прошлым сессиям, порт 13101 только если передать явно.
@@ -111,6 +116,41 @@ npm run root-admin:create | root-admin:reset-local   # рут-админ лок�
 пересоздать базу: `docker compose down -v` → `up -d postgres` → build →
 `migration:run`; сиды нальют валюты и рут-админа. В `.env` обязателен
 `AUTH_JWT_SECRET` (≥32 символов), иначе API не стартует.
+
+## Локализация контента (en/ru) — 15.10.2026, не закоммичено
+
+- Миграция `1721700156000-content-translations`: колонка `translations` jsonb
+  (`'{}'`) в `content_menu`, `content_sections`, `content_banners`,
+  `content_pages`; переводы футера — в `settings.storefront.content.footer.translations`.
+  Текстовые колонки = основная локаль проекта (`projects.default_locale`),
+  `translations[locale][field]` — остальные включённые (`settings.supported_locales`).
+  Хелперы `src/modules/projects/project-locales.ts` (`projectLocales`,
+  `resolveProjectLocale`, `projectDefaultLocale`) и
+  `src/modules/content/content-localization.ts` (`readTranslations`,
+  `mergeTranslations` — локаль из запроса заменяет сохранённую целиком,
+  `missingTranslations`/`assertTranslationsComplete`, `localizeText`, `copyFor` —
+  ru-варианты встроенных фраз Log in/Sign up/All Games/Featured offer/Banners/
+  заголовков футера).
+- DTO принимают `translations` (`IsContentTranslations`, у футера
+  `IsFooterTranslations`). Проверка на create/update, когда в запросе есть текст
+  или переводы: обязательные поля (заголовки меню/футера/страниц, секций с
+  показанным заголовком) должны быть во всех включённых локалях, необязательные
+  — во всех, если хоть одна заполнена; иначе 400
+  `{ code: "CONTENT_LOCALE_MISSING", message: "Fill in the content in Russian.",
+  missing_locales, missing: [{ locale, fields }] }` (`BadRequestException` с
+  объектом — тело без `statusCode`). Баннер type2 и скрытая кнопка переводов не
+  хранят; скрытый заголовок секции не проверяется.
+- Публикации несут `translations`; пустой `translations: {}` при сравнении
+  черновика с публикацией игнорируется (`canonical`), старые публикации не
+  светятся как изменённые. `publicSideMenu/publicFooter/publicMainPage/
+  publicPage/publicSuperSlugSection` принимают `locale` и отдают уже выбранный
+  текст без `translations`. `/v1/cms/*` с неподдерживаемой локалью отдаёт
+  основную (раньше 400 «not enabled»); `language_selector.items` — с именами
+  языков. Локали проекта в DTO (`create-project`, `update-project`,
+  `update-project-settings`) — только `en`/`ru` (`contentLocales` из контракта).
+- Бэкап проекта копирует `translations` (списки колонок в `project-backup.service.ts`).
+- Грабля Fastify при ручных вызовах: `POST …/publish` без тела и с
+  `content-type: application/json` → 400 «Body cannot be empty» — слать без заголовка.
 
 ## Карта модулей (`src/modules`)
 

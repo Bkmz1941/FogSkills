@@ -58,10 +58,10 @@ ALIASES = {
 def norm_areas(text):
     return [ALIASES.get(a.strip(), a.strip()) for a in text.split(',')]
 REQUIRED = ('Симптом', 'Причина', 'Правило')
-HEAD = re.compile(r'^## (P\d{3}) · ([^·]+?) · (.+)$')
+HEAD = re.compile(r'^## (P\d{3,4}) · ([^·]+?) · (.+)$')
 PENDING = re.compile(r'⏳|не проверен[оа] в игре|живьём не проверен', re.IGNORECASE)
 FIELD = re.compile(r'^- \*\*(Симптом|Причина|Решение|Правило|Защита)[^*]*\*\*\s*(.*)$')
-PREF = re.compile(r'P\d{3}')
+PREF = re.compile(r'P\d{3,4}')
 PROBE_FILE = re.compile(r'`(?:[A-Za-z_0-9./-]*/)?([a-z_0-9]+\.(?:py|cs))`')
 PROBE_PATH = re.compile(r'`([A-Za-z_0-9./-]+\.(?:py|cs))`')
 CELL = re.compile(r'(?<!\\)\|')

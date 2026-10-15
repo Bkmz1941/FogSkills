@@ -1367,3 +1367,24 @@ Lucky считает комиссию провайдера с проигрыша
   `https://api.crash-heroes.com/storage/games/covers/crash-hockey-site.png`. Своей обложки у авторов игры нет —
   если пришлют, просто заменить файл.
 - Полную игру с реальными деньгами на проде ещё никто не проходил.
+
+## 2026-10-14 — вторая игра на движке: «Chick Shot» (дев и прод)
+
+Команда Ильи: «так же, как Хоккей, создать на этом движке игру Chickens»; механика та же (другой скин), фронта пока нет,
+название в крашах и Lucky — **Chick Shot**.
+
+- **Один процесс движка = одна игра** (`GAME_UUID`), поэтому Chick Shot — **второй контейнер того же образа**:
+  `~/crashgames/chick-shot-engine/` (compose = копия `crash-engine-rng/docker-compose.yml` с
+  `container_name: chick-shot-engine-1` и `PORT: 3101`; `.env` = копия `.env` движка Хоккея, chmod 600, другой
+  `GAME_UUID`). Образ — `ENGINE_VERSION` из своего `.env` (сейчас **0.1.14**, как у Хоккея) — **обновлять обе папки**.
+- Игра в базах крашей (tinker, `forceFill` — `uuid`/`type_id`/`engine_url` не в `$fillable`): **id 21**, uuid
+  **`9bf75694-da55-4eae-9bf1-b8312d91fcb8`** (одинаковый на деве и проде), `chick_shot`, «Chick Shot», тип 3, `settings []`;
+  `link` `https://dev.games.crash-heroes.com/chickshot` / `https://games.crash-heroes.com/chickshot` (фронта ещё нет);
+  `engine_url` dev `https://dev.server.crash-heroes.com/<uuid>` (как у Хоккея на деве), прод `http://127.0.0.1:3101`.
+- nginx: `location /<uuid>` → `127.0.0.1:3101` перед блоком Хоккея в `dev.server.crashgames.app.conf` / `server.crash-heroes.com.conf`;
+  бэкапы `~/deploy-backups/*.20261014-*-chickshot`.
+- Проверено на обоих: контейнер `healthy`, `Dice Stream connected`, `/<uuid>/health` снаружи 200, WS чужой сессией →
+  `Session not found` + 4401, `RngEngineHealthService` alive; Хоккей не задет.
+- Lucky: игра у провайдера Crash Games (дев «Crash-Games» `78fefcdd-…`, прод «Crash Games» `8fb0c5fd-…`), external_id `21`,
+  slug `crash-games-chick-shot`, category crash, approved + active. **В проекты не добавлена** (решение Ильи «просто пока в
+  провайдера»). Скрипт — scratchpad сессии `lucky-add-chick-shot.sh dev|prod` (рут-токен внутри контейнера API).

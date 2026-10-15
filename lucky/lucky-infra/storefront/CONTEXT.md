@@ -2,6 +2,18 @@
 
 ## Новый фронт: lucky-storefront (с 2026-08-19)
 
+**Сетка десктопа (с 15.10, решение Константина в чате с Ильёй):** контейнер
+`lg:max-w-[1448px]` с полями `p-6`/`sm:px-6` (24 px) → внутри 1400 = боковое
+меню 180 (`SIDEBAR_WIDTH` в `src/components/ui/sidebar.tsx`) + зазор 20
+(`gap-5`) + контент 1200. До этого было 1526 = 164 + 24 + 1290. Три места с
+одним контейнером, менять синхронно: `layout/LayoutStorefront.tsx`,
+`layout/StorefrontHeader.tsx`, `shared/storefront/StorefrontSkeletons.tsx`.
+Ниже `lg` контейнер 1240 не трогали. Проверка: `npx vite dev --mode dev --host
+127.0.0.1 --port 13101` (обычный `vite dev` без `--mode` не видит `.env.dev`,
+переменные с префиксом `APP_`, и витрина пишет «Unable to reach the server»),
+в DevTools при ширине окна ≥1448 мерить `div.container.flex-1`,
+`[data-slot=sidebar-gap]` и `[data-slot=sidebar-inset]`.
+
 Новый фронт витрины — репозиторий `lucky/lucky-storefront` на gitlab.agg.one,
 локально `~/Documents/Work/Lucky/lucky-storefront`. Ветки: `main` (initial
 commit), рабочая — `dev`, feature-ветки вида `mcdx/lsr-…`. Vite SPA
@@ -225,3 +237,95 @@ env-файлы). Docker/ansible из репо удалены.
    env.tpl/group_vars — иначе деплой затирал).
 7. Тесты API-клиента: 8 штук в `src/api/storefrontApi.test.ts` (node --test,
    мок fetch по pathname, JWT-семантика).
+
+### Ручная выкладка на дев и прод (без CI) — 15.10.2026
+
+По команде Ильи («обнови сайт дев прод и краши») сборки `build:dev`/`build:prod` из чистого worktree выложены
+`rsync --delete` туда же, куда кладёт CI: `lucky-dev:/home/admin/lucky-storefront-dev/dist/` и
+`lucky-prod:/home/admin/brobro-casino/dist/`; перед этим бэкап `tar czf ~/deploy-backups/<site>-dist-<stamp>.tgz`.
+Так как код не закоммичен, **следующий пуш в `dev`/`main` перезапишет эти правки** — коммит сетки 1400 и
+`scrollbar-gutter` нужен до следующего CI-деплоя.
+
+⚠ Грабля: у `admin` на дев/прод-серверах umask ограничительный (в ssh-сессии `0007`), и `rsync -rltz --chmod=D755,F644`
+**без `-p`** положил новые файлы как `640` → nginx (www-data) получил `open() … Permission denied`, сайты ~5 минут
+отдавали 403 на `/assets/*.js|css` (index.html при этом 200 — файл старый). Лечение: `find dist -type f -exec chmod 644`,
+`-type d … 755`. Правильно: `rsync -a --chmod=D755,F644 …` (`-a` включает `-p`, без него `--chmod` игнорируется) и
+сразу после выкладки проверять не только index.html, а `curl -o /dev/null -w '%{http_code}' …/assets/index-*.css`.
+На крашах umask `0002` и та же команда дала 644 — не показатель.
+
+### Витрина Crash Heroes — games.crash-heroes.com (сервер крашей 78.141.216.99)
+
+- Тот же lucky-storefront, проект прод-Lucky **«Crash Heroes Catalogue»**. CI нет — выкладка руками.
+- nginx `/etc/nginx/conf.d/games.crash-heroes.com.conf`: `/`, `/assets/`, `pwa-*`, `wheel-fortune-tent.png` и SPA-фолбэк
+  — из `/home/admin/crashgames/storefront/current` (симлинк на `releases/<sha>-<дата>`); папки игр (`/fatguy/`…) — из
+  `/home/admin/crashgames/games`.
+- Сборка: worktree `origin/main` + `.env.prod`, но `APP_PUBLIC_KEY` = ключ проекта Crash Heroes (взять из текущего
+  бандла `current/assets/index-*.js`), `APP_DEFAULT_TIME_ZONE=UTC`, `APP_PWA_ENABLED=false`, `APP_PWA_NAME`/`SHORT_NAME`
+  `Crash Heroes`. В `index.html` руками: `<title>Crash Heroes</title>`, description `Crash Heroes casino.`, убрать
+  `manifest` и `registerSW.js`; `sw.js`, `workbox-*`, `registerSW.js`, `manifest.webmanifest` не выкладывать.
+- Выкладка: rsync в `releases/<sha>-<дата>/`, `ln -sfn … current.new && mv -T current.new current`. Откат — симлинк
+  на прошлый релиз. Проверка: `/`, бандл, SPA-маршрут, `/fatguy/`, `/crashhockey/` = 200.
+- Журнал: 15.10 `8503c9f-grid-20261015` — `origin/main` (= dev = main, `8503c9f`) + сетка 1400 (меню 180 / зазор 20 /
+  контент 1200, контейнер 1448) + тот же незакоммиченный `scrollbar-gutter: stable`; собрано из чистого worktree в
+  scratchpad (`git worktree add --detach`, `node_modules` симлинком, правки наложены точечно `sed`-ом, НЕ `git diff`
+  рабочего дерева — в нём 38 чужих незакоммиченных файлов локализации с импортом `@/lib/i18n`, которого в `main` нет,
+  сборка падает). В тот же день та же сборка руками выложена на дев и прод (см. «Ручная выкладка» ниже).
+  22.09 `e512044` (первый); 14.10 `3bda9c9`, затем `a754055`, `f4ce5b2`, `5ccd9ad` (= main/dev, по команде
+  Ильи); 14.10 вечер `5ccd9ad-scrollbar-20261014` — `origin/main` + незакоммиченный фикс `scrollbar-gutter: stable` на
+  `html` в `src/styles/styles.css` (лого в шапке прыгало между `/balance` и `/settings`: скроллбар появлялся и
+  контейнер `mx-auto` перецентрировался). Сборка: worktree + `.env.prod.local` (`APP_PUBLIC_KEY` из живого бандла,
+  `APP_DEFAULT_TIME_ZONE=UTC`, `APP_PWA_NAME`/`SHORT_NAME`), `node_modules` симлинком из основного чекаута при
+  одинаковом package-lock; `index.html` правится после сборки (title/description, убрать manifest и registerSW).
+  Переменной `APP_PWA_ENABLED` в vite.config нет — PWA-файлы просто не выкладываются.
+
+## Локализация витрины (en/ru) — состояние на 15.10.2026
+
+Сделано 14.10 (сессия + 4 сабагента), доведено и проверено 15.10; **в git не
+закоммичено**, лежит в рабочем дереве `feat/new-payment-provider` вместе с
+сеткой 1400 (см. выше). Коммитить по команде Ильи, отдельно от сетки.
+
+- Модуль `src/lib/i18n/i18n.tsx`: `I18nProvider` (обёрнут в `Main.tsx` поверх
+  QueryClientProvider), хук `useTranslate()` → `{ t, language, setLanguage }`
+  для компонентов, функция `translate(key, params)` для не-React кода (ky-клиент,
+  мапперы, хелперы — вызывать в момент рендера/запроса, не на уровне модуля).
+  Языки `en`/`ru`, дефолт `en`, выбор: localStorage `storefront-language` →
+  `navigator.language` → `en`. Подстановка `{name}`. Словари грузятся
+  `import.meta.glob("/src/locales/*/*.json", eager)`, ключи плоские
+  `домен.раздел.ключ`, файл = домен: `auth, balance, common, content, games,
+  layout, payments, settings` (по 8 файлов в `src/locales/en` и `ru`,
+  388 ключей, наборы ключей идентичны, параметры совпадают).
+- Переведено 42 файла (все `src/pages`, layout, shared-компоненты, `ui/sidebar`
+  и `ui/carousel` (sr-only), kyClient, cmsMappers — **только fallback-тексты**,
+  CMS-контент не трогается). Переключатель языка: **внизу левого меню**
+  (Select с флагом, `SidebarLanguageSwitcher` в `StorefrontSidebar.tsx`, виден
+  и гостю; Илья 15.10: «слева снизу — выбор языка») и Settings → Preferences
+  (сегмент English/Русский). Кнопка-флаг в футере страницы, которую сделала
+  сессия 14.10, убрана 15.10 по этой же правке.
+- ⚠ **Главная для гостя после переключения на ru выглядит английской — это
+  ожидаемо**, Илья 15.10 принял это за «локализация не работает»: всё видимое
+  там (меню слева, баннеры, текстовые блоки, Log in/Sign up) — CMS-контент.
+  Русский виден в окне входа, настройках, балансе, пополнении, нижней навигации.
+- **С 15.10 (вечер) CMS-контент идёт за языком интерфейса**: `browserContext()`
+  шлёт `locale = currentUiLanguage()` (из `src/lib/i18n/language.ts`, без
+  Vite-кода, чтобы node-тесты импортировали хелперы), `I18nProvider` получает
+  `onLanguageChange` → `queryClient.invalidateQueries()` (Main.tsx), и меню,
+  страницы, футер перезапрашиваются. API отдаёт перевод, если локаль включена
+  в проекте, иначе основную локаль (400 больше нет). `APP_LOCALE` на запросы не
+  влияет. Контент-модель с переводами — `lucky-back/SKILL.md`, раздел
+  «Локализация контента», админка — `admin/CONTEXT.md`.
+- Было до 15.10: **CMS-контент (меню, баннеры, текстовые блоки, подписи кнопок Log in/Sign up
+  из bootstrap) приходил с API на своём locale** (`browserContext()`:
+  `APP_LOCALE` → `navigator.language`) и от переключателя не зависит. Слать
+  язык интерфейса как `locale` в API нельзя вслепую: `front-storefront.service`
+  отдаёт 400 «The requested locale is not enabled for this project», если
+  локали нет в `supported_locales` проекта. Связка «язык UI → locale CMS» —
+  открытый вопрос, решения Ильи нет.
+- Проверка: `node <scratchpad>/i18n-check.mjs <repo>` (ключи словаря vs строки
+  в коде, en vs ru), `npm run typecheck`, `npx eslint src`,
+  `npx vite build --mode dev --outDir <tmp>`; в браузере
+  `localStorage.setItem('storefront-language','ru')` + reload. 15.10 локально
+  (API 18080, витрина 13101) проверены: главная, модалка авторизации
+  (регистрация с своим паролем), настройки (все три раздела, переключение
+  языка на лету в обе стороны), баланс, модалка пополнения — всё по-русски,
+  ошибок в консоли нет. В локальной БД остался тестовый игрок
+  `i18n-check@example.com` (Debug project #1).

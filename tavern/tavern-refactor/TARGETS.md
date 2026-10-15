@@ -86,11 +86,7 @@ UI по 5. Открытое — только то, что требует жив�
 агенты) и состояние разговора (история, `Waiting`, `Patrol`). Разделить на данные (в `Cozy.Story`
 или `Cozy.Character.People`) и клиент; защиты у СМС-чата нет — сначала проба с заглушкой сервера.
 
-## T-LIFE-EFFECTS — `Cozy.Life` → `Cozy.Effects` держится только `using` (11.10)
-
-После переезда `HeadIcon` в `Cozy.Creatures` сборке `Cozy.Life` ссылка на `Cozy.Effects` не нужна,
-но `CreaturePlan.cs` держит `using Cozy.Effects;` и в тот вечер был у ilya-f6 (кэш `Senses`).
-Когда файл свободен: снять `using` и ссылку в `Cozy.Life.asmdef`, офлайн-сборка.
+## ~~T-LIFE-EFFECTS~~ — закрыто ночью 12→13.10 (ilya-63, шаг 3): `using Cozy.Effects` и ссылка в `Cozy.Life.asmdef` сняты, офлайн-сборка чистая; журнал в `refactor-log.md`.
 
 ## T-FPS — кадр
 
@@ -139,16 +135,13 @@ UI по 5. Открытое — только то, что требует жив�
   закрыто; правильное ли оно, когда объектов восемь тысяч, — нет.
 - **Стычка**: `encounter_probe.py rules/track` детерминированы, `scenes` — только
   цепочка, жизнь и оглушение; сдвиг игрока плавает (ворона заходит откуда была).
-- **Мёртвые публичные члены** (скан 16.09 по файлам недели): 31 кандидат —
-  фабрики каталога (живы через рефлексию `FurnitureCatalog.All`), константы
-  значков `UiIcons.Heart/Zap/Brain`, `HudUI.CursorChipOn`, `Igniting`,
-  `BodyTemperature.Comfortable`, `CharacterStats.ChangeRest`,
-  `DarknessVeil.BaseHeight/BaseScreen`, `Nutrition.ThirstRoomL`,
-  `GridCursor.SetTerrainTool`, `Interactor.HoverHit`, `ItemEffects.Warn`,
-  `Items.KeyRed/KeyYellow`, `LiquidVolume.KindHasTaste/SetHeat`,
-  `ObjectSheet.KindsOf`, `SeeThroughView.DetachMarked`, `TerrainHeights.Raw`,
-  `Weather.Blowing`, `WindGusts.FlutterShare`. Ждут владельцев доменов: публичный
-  член без потребителя в коде может звать редактор, сейв или соседняя сессия.
+- **Мёртвые публичные члены** (скан 12.10 ночью по ВСЕЙ базе: код, YAML сцен/аниматоров, json, пробы, скилы,
+  `DebugTune.json`; скрипт — scratchpad ilya-63 `dead_public.py`): 39 кандидатов, из них 23 — фабрики каталога (живы
+  через рефлексию `FurnitureCatalog.All`) и `BuildScript.BuildLinux64` (точка входа редактора). Остальные 15:
+  `CrowAttack.DropReady`, `CreatureSenses.CountSeeing/CountHearing`, `MonsterNav.EdgeCells`, `AtticHatch.FullyClosed/CeilingY`,
+  `PlinthView.Baseboard`, `Items.Medicines`, `InteractiveObject.PatternCount`, `ViewSensor.DeepBeyond`, `ZonePiece.HasEvents`.
+  Прежний список 16.09 (31 кандидат) этим сканом не подтверждается — те члены с тех пор либо получили потребителя,
+  либо удалены. Удалять — только по слову Ильи («Не берём» ниже).
 - **Классы не в своём файле** (`ARCHITECTURE.md`) и разнос партиалов: ночью 16.09
   заведено 10 файлов (панель дебага, `DebugTune`, `CrowFlight`) — вопрос Илье в
   `OPEN.md`, продолжать ли так.
@@ -468,3 +461,27 @@ id объекта, второй `MarkScene`, стрипинг шейдеров (
 - **`CrowZoneSpawn`** (Combat) — на деле спавн ВСЕХ существ (сектант, ворона, сова, зарянка), имя и модуль вороньи; на имя ссылается `ai_plan_probe.py`. Переименование — с пробой.
 - **`MonsterManager.OnDisable`** снимает 4 кнопки дебага, а «Тень: появиться/исчезнуть» и `shadow-tempo` — нет (вызовы статические, вреда нет; асимметрия).
 - **Тест на `CreaturePlan.ReadLook`** (P1014) — EditMode, когда Илья разрешит правку тестов.
+
+## T-FOUND-1210 — найдено ночью 12→13.10 (ilya-63), не взято
+
+- **Три клик-режима HUD с одним прологом** — `HudUI.BubbleBath`, `HudUI.Charge`, `HudUI.Ignite`: `if (!mouse.leftButton.wasPressedThisFrame || PointerOverPanel()) return;`,
+  `Interactor.SuppressClicks()`, снятие выделения, луч в объект. Правило трёх выполнено; вынос «режим клика по цели»
+  (начать / кадр / отменить) — днём, с живой проверкой каждого режима (пена, зарядка, поджиг), проб нет.
+- **`ViewSensor._coord` ленивится тремя копиями** (`if (_coord == null) _coord = GridManager.GroundOrFloor();` ×3 в одном
+  файле) → свойство `Coord`. Горячий путь — с `invariants_play` до/после.
+- **`Offscreen.Kinds`/`ParseWho`** — второй словарь видов существ рядом с `LifeRules.Kinds`/`KindOf`, намеренно без
+  русских синонимов (Илья 08.10: «шаблоны только на англ языке»); сводить к одному `KindOf` — это добавить русские
+  синонимы «за кадром», то есть поведение: решает Илья. `LifeRules.KindsText()` — литерал «crow, owl, robin, sectant»
+  при таблице `Kinds` того же порядка; вывести из таблицы — одна строка.
+- **Доза яда ×4** (`if (dose > 0) PlayerEffects.Poison?.Invoke(dose)` в Dish/Drink/Eat/EatProduct) и **список фич ×4**
+  (`_features` + `Features` + `CollectBadges` у DoorPiece/WindowPiece/InteractiveObject/ElevatorPanelHost) — по
+  одной-трём строкам на копию, выносить нечего; записано, чтобы не искать заново.
+- **Клон-детектор** (блоки по 5 строк в ≥3 файлах) по всей базе находит ОДНУ группу — каркас дебаг-окон ×3
+  (T-FOUND-0110 №8). Межфайловых клонов крупнее в коде больше нет.
+- **Офлайн-рамка:** из 27 классов EditMode офлайн (`offline_tests.py`) живут 17 (109 тестов): LifeRulesParse,
+  AiMonsterBrief, CookArrange, CookBook, Dish, ExamineFraming, GridSnap, HostMath, HourWindow (2 из 3), ItemTags,
+  ObjectAttributes (3), PartMath, PlaceMath, QuestRun, SourceRules (1), Targeting (1), ZoneKindCanon. Остальные —
+  `ECall`/`Application.dataPath`. Это и есть граница того, что можно рефакторить ночью без play.
+- Чужой красный: `CookArrangeTests.Порог_бревна_строгий` («длина ровно в 1.6 ширины — ещё не бревно», ожидалось
+  False, получено True) — красен и на базе ночи, кулинарию ночью не трогали; владельцу `CookArrange`.
+
