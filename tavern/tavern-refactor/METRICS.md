@@ -52,6 +52,8 @@
 | 2026-10-11 | ilya-63 | 482 | 138856 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | модули 11.10: Monsters/UI развёрнуты, Tavern.Data снята, Grid по 15 папкам |
 | 2026-10-11 | ilya-63 | 485 | 139463 | 71 | 5 | ProceduralModels.ElevatorModern 131 | 1 | после ночи 11.10: 9 шагов модулей, Creatures/Life, Grid 15 папок, UI 5 |
 | 2026-10-12 | ilya-63 | 486 | 141975 | 72 | 5 | ProceduralModels.ElevatorModern 131 | 2 | после ночи 12→13.10 (ilya-63) |
+| 2026-10-15 | ilya-22 | 494 | 149722 | 79 | 6 | HudUI.PaletteVillage 133 | 6 | база 15.10 вечер (ilya-22) |
+| 2026-10-15 | ilya-22 | 494 | 150107 | 80 | 6 | HudUI.PaletteVillage 133 | 6 | после ночи 15→16.10 (ilya-22), шаги 1–18 |
 
 ## Кадр в сборке
 
