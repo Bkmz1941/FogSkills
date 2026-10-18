@@ -10,7 +10,7 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
     if (io == null || !io.name.StartsWith("DoorProbe_")) continue;
     foreach (var t in io.GetComponentsInChildren<Transform>(true))
     {
-        if (!t.name.StartsWith("Door")) continue;
+        if (t == io.transform || !t.name.StartsWith("Door")) continue;
         Vector3 b0; before.TryGetValue(io.name + "|" + t.name, out b0);
         float ang = Quaternion.Angle(Quaternion.Euler(b0), t.localRotation);
         sb.Append(io.Def.id + " " + t.name + ": открыта на " + ang.ToString("0") + "°" + (ang < 90f ? "  <-- НЕ ДО КОНЦА" : "") + "\n");

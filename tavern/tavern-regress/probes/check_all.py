@@ -175,6 +175,20 @@ def main():
         probe_cs('rug_top_probe.cs')
         probe_cs('dirt_probe.cs')
         probe_cs('roof_snap_pick_probe.cs')
+        probe_cs('product_card_probe.cs')
+        # ⭐ 18.10 продукты и кухня (PRODUCTS.md, KITCHEN.md): Илья «крит важно, чтобы не ломалось»
+        probe_cs('products_probe.cs')
+        probe('products_probe.py')  # внутри и parts_motion_probe.cs (ящики, дверцы)
+        probe_cs('product_look_probe.cs')
+        probe_cs('product_collide_probe.cs')
+        probe_cs('product_save_probe.cs')
+        probe_cs('product_actions_probe.cs')
+        probe_cs('product_wave2_probe.cs')
+        # кухня (KITCHEN.md): части, питание и свет, постановка у стены (SKIP без дома), живая гора посуды
+        probe_cs('kitchen_parts_probe.cs')
+        probe_cs('kitchen_power_probe.cs')
+        probe_cs('kitchen_place_probe.cs')
+        probe_cs('kitchen_pile_probe.cs')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')
