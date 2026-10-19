@@ -319,10 +319,13 @@ try
         float half = (wallThinX ? ws.x : ws.z) * 0.5f;
         var target = new UnityEngine.Vector3(wp.x, floorY + 1.5f, wp.z) - back * (half + 0.02f);
         var worldDir = (back + UnityEngine.Vector3.down * 0.5f).normalized;
-        cam.transform.SetPositionAndRotation(target - worldDir * 4f, UnityEngine.Quaternion.identity);
+        // Камера под потолком своего этажа (19.10, «Свет (тест)»): в 4 м от стены она поднималась на 1,8 м над
+        // точкой мазка — выше плиты перекрытия, и луч кисти бил в плиту, а не в стену («кисть не видит стену»).
+        float camDist = UnityEngine.Mathf.Min(4f, (floorY + 2.75f - target.y) / -worldDir.y);
+        cam.transform.SetPositionAndRotation(target - worldDir * camDist, UnityEngine.Quaternion.identity);
         var localDir = cam.ScreenPointToRay(new UnityEngine.Vector3(cursor.x, cursor.y, 0f)).direction;
         cam.transform.rotation = UnityEngine.Quaternion.FromToRotation(localDir, worldDir);
-        cam.transform.position = target - cam.ScreenPointToRay(new UnityEngine.Vector3(cursor.x, cursor.y, 0f)).direction * 4f;
+        cam.transform.position = target - cam.ScreenPointToRay(new UnityEngine.Vector3(cursor.x, cursor.y, 0f)).direction * camDist;
         var args = new object[] { cam, mouse, null, null };
         bool found = (bool)mFace.Invoke(gc, args);
         if (!found) bad.Add("кисть не видит свободную стену " + wp.ToString("0.0") + " (режим стены)");

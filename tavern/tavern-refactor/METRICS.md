@@ -54,6 +54,14 @@
 | 2026-10-12 | ilya-63 | 486 | 141975 | 72 | 5 | ProceduralModels.ElevatorModern 131 | 2 | после ночи 12→13.10 (ilya-63) |
 | 2026-10-15 | ilya-22 | 494 | 149722 | 79 | 6 | HudUI.PaletteVillage 133 | 6 | база 15.10 вечер (ilya-22) |
 | 2026-10-15 | ilya-22 | 494 | 150107 | 80 | 6 | HudUI.PaletteVillage 133 | 6 | после ночи 15→16.10 (ilya-22), шаги 1–18 |
+| 2026-10-16 | ilya-0f | 494 | 150895 | 81 | 6 | HudUI.PaletteVillage 143 | 5 | база ночи 16.10 |
+| 2026-10-16 | ilya-ed | 494 | 151685 | 82 | 6 | HudUI.PaletteVillage 165 | 2 | после захода ilya-ed 16.10 |
+| 2026-10-17 | ilya-ed | 494 | 151697 | 82 | 6 | HudUI.PaletteVillage 165 | 2 | база ночи 17.10 (ilya-ed) |
+| 2026-10-17 | ilya-ed | 494 | 151701 | 82 | 6 | HudUI.PaletteVillage 165 | 2 | после ночи 17.10 (ilya-ed) |
+| 2026-10-18 | ilya-e3 | 500 | 155832 | 87 | 7 | HudUI.PaletteVillage 166 | 2 | база ночи |
+| 2026-10-18 | ilya-e3 | 500 | 155881 | 87 | 8 | HudUI.PaletteVillage 166 | 2 | после ночи |
+| 2026-10-19 | ilya-57 | 501 | 157637 | 88 | 8 | HudUI.PaletteVillage 168 | 2 | база ночи 19.10 (ilya-57) |
+| 2026-10-19 | ilya-57 | 501 | 157641 | 88 | 7 | HudUI.PaletteVillage 168 | 2 | после ночи 19.10 (ilya-57) |
 
 ## Кадр в сборке
 

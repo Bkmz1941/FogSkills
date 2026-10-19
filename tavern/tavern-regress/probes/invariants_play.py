@@ -152,7 +152,7 @@ if (mountTaken != null)
                 var lb = lamp.WorldBounds; lb.Expand(0.2f);
                 if (lb.Contains(node.position) || (lamp.transform.position - node.position).sqrMagnitude < 0.04f) { lampThere = true; break; }
             }
-            bool taken = (bool)mountTaken.Invoke(gc, new object[] { node.position, "Mount_Light", null });
+            bool taken = (bool)mountTaken.Invoke(gc, new object[] { node.position, "Mount_Light", null, gc.GetType().GetField("MountBusy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null) });
             if (taken != lampThere) bad.Append("подвес " + node.name + " у " + host.Def.id + ": занят=" + taken + ", лампа=" + lampThere + "; ");
         }
     }
@@ -1248,7 +1248,8 @@ foreach (var pio in UnityEngine.Object.FindObjectsByType<Cozy.Grid.InteractiveOb
 // 36. СВЕТ СВЕТИТ В ТУ ЗОНУ, ГДЕ СТОИТ (P340): у каждого источника, кроме направленного,
 // маска слоёв света обязана пересекаться с маской его места — костёр под небом с Outdoor,
 // лампа в комнате с Indoor. Разошлись — источник горит, а вокруг темно, и в инспекторе
-// это не видно. Маска Light и маска URP-данных источника обязаны совпадать: URP берёт вторую.
+// это не видно. Свет URP берёт из renderingLayers URP-данных, а тени режет по базовой маске
+// Light, которую сам же равняет на shadowRenderingLayers (P1110): базовая обязана быть маской теней.
 int zoneLights = 0;
 foreach (var zl in UnityEngine.Object.FindObjectsByType<UnityEngine.Light>(UnityEngine.FindObjectsSortMode.None))
 {
@@ -1257,13 +1258,14 @@ foreach (var zl in UnityEngine.Object.FindObjectsByType<UnityEngine.Light>(Unity
     if (zio == null || zio.Def == null) continue;
     zoneLights++;
     uint zwant = zio.Def.outdoorOnly ? Cozy.Grid.LightZones.Outdoor : Cozy.Grid.LightZones.ZoneAt(zio.transform.position);
-    uint zhas = unchecked((uint)zl.renderingLayerMask);
+    var zdata = zl.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
+    uint zhas = zdata != null ? zdata.renderingLayers.value : unchecked((uint)zl.renderingLayerMask);
     if ((zhas & zwant) == 0) bad.Append("источник не светит в своё место: " + zio.Def.id + " маска " + zhas + " место " + zwant + "; ");
     // P928: комнатный свет — по этажам; лампа несёт бит СВОЕГО этажа и не несёт соседних.
     if (zwant == Cozy.Grid.LightZones.Indoor && (zhas & Cozy.Grid.LightZones.Storeys) != Cozy.Grid.LightZones.StoreyOf(zl.transform.position.y))
         bad.Append("лампа светит не своему этажу: " + zio.Def.id + " маска " + zhas + "; ");
-    var zdata = zl.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
-    if (zdata != null && zdata.renderingLayers != zhas) bad.Append("у источника разошлись маски Light и URP: " + zio.Def.id + "; ");
+    uint zshadow = zdata == null ? zhas : (zdata.customShadowLayers ? zdata.shadowRenderingLayers.value : zdata.renderingLayers.value);
+    if (unchecked((uint)zl.renderingLayerMask) != zshadow) bad.Append("базовая маска Light не равна маске теней (герой под лампой даст тень во всю стену, P1110): " + zio.Def.id + " Light " + unchecked((uint)zl.renderingLayerMask) + " тени " + zshadow + "; ");
 }
 
 // 37. ПРИЦЕЛ ФОНАРЯ ПОДНИМАЕТСЯ ТОЛЬКО ВВЕРХ (tavern-hands, 12.09): точка AimFocus под

@@ -57,7 +57,7 @@ const named = (d, code) => Object.fromEntries(Object.entries(d).map(([key, value
 const select = (code) => call("POST", "/v1/core/balances/select", { token: player, publicKey: cfg.PUBLIC_KEY, body: { balance_code: code } });
 const sessionOn = () => call("POST", `/v1/core/providers/${cfg.PROVIDER_PID}/games/${cfg.GAME_PID}/sessions`, { token: player, publicKey: cfg.PUBLIC_KEY });
 const manual = (direction, code, amount) => call("POST", `/v1/project/finance/users/${cfg.PLAYER_ID}/transactions`, { token: admin, body: { direction, amount, currency: "USD", balance_code: code, comment: "bonus regress" } });
-const createBonus = (input) => call("POST", "/v1/project/bonuses", { token: admin, body: { name: `Regress bonus ${stamp}`, display_name: "Regress bonus", currency_codes: ["USD"], coefficient: "2", starts_at: null, expires_at: null, provider_ids: [], game_ids: [], ...input } });
+const createBonus = (input) => call("POST", "/v1/project/bonuses", { token: admin, body: { name: `Regress bonus ${stamp}`, display_name: "Regress bonus", currency_codes: ["USD"], wagering_type: "win_coefficient", coefficient: "2", starts_at: null, expires_at: null, provider_ids: [], game_ids: [], ...input } });
 const patchBonus = (id, input) => call("PATCH", `/v1/project/bonuses/${id}`, { token: admin, body: input });
 let round = 0;
 async function play(sessionToken, stake, win, extra = {}) {
@@ -196,8 +196,6 @@ const rest = Number(before[`${code}.pending`] ?? 0) + Number(before[`${code}.ava
 if (rest > 0) await manual("debit", code, rest.toFixed(2));
 d = named(delta(before, await accounts()), code);
 check("the rest of the bonus is debited back to zero", rest === 0 || d["bonus.pending"] === -rest, `${rest} ${JSON.stringify(d)}`);
-r = await call("DELETE", `/v1/project/bonuses/${bonus.id}`, { token: admin });
-check("a bonus players hold cannot be deleted", r.status === 409, String(r.status));
 r = await call("GET", "/v1/project/bonuses", { token: admin });
 const listedBonus = (r.body?.data ?? []).find((item) => item.id === bonus.id);
 check("the bonus list counts the player", listedBonus?.players === 1, String(listedBonus?.players));
@@ -205,22 +203,28 @@ check("the bonus list counts the player", listedBonus?.players === 1, String(lis
 r = await call("GET", "/v1/project/bonus-triggers", { token: admin });
 if (r.status === 200) {
   check("the trigger list has Registration", (r.body?.data ?? []).some((item) => item.code === "registration"), (r.body?.data ?? []).map((item) => item.code).join(","));
-  r = await createBonus({ code: `regress_signup_${stamp}`, trigger_code: "registration" });
+  r = await createBonus({ code: `regress_signup_${stamp}` });
   const signup = r.body;
   if (signup?.id) created.push(signup.id);
-  check("a bonus takes the Registration trigger", r.status === 201 && signup?.trigger_code === "registration", `${r.status} ${signup?.trigger_code}`);
-  r = await createBonus({ code: `regress_badtrigger_${stamp}`, trigger_code: "no_such_trigger" });
+  r = await call("POST", `/v1/project/bonuses/${signup?.id}/conditions`, { token: admin, body: { name: "Signup", checks: [], reward_type: "fixed", reward_amounts: { USD: "5.00" } } });
+  const signupCondition = r.body;
+  r = await call("PATCH", `/v1/project/bonuses/${signup?.id}`, { token: admin, body: { trigger_code: "registration" } });
+  check("a bonus takes a Registration trigger (since 19.10 a trigger gives one of the bonus conditions)", r.status === 200 && r.body?.trigger_code === "registration", `${r.status} ${r.body?.trigger_code}`);
+  r = await call("PATCH", `/v1/project/bonuses/${signup?.id}`, { token: admin, body: { trigger_code: "no_such_trigger" } });
   check("an unknown trigger is refused", r.status === 400, String(r.status));
   const email = `regress-signup-${envName}-${stamp}@agg.one`;
   r = await call("POST", "/v1/auth/register", { publicKey: cfg.PUBLIC_KEY, body: { email, password: `Pw-${stamp}-regress`, password_confirmation: `Pw-${stamp}-regress`, locale: "en", currency: "USD" } });
   const freshId = r.body?.client?.id;
   const detail = freshId ? await call("GET", `/v1/project/users/${freshId}`, { token: admin }) : null;
   const attached = (detail?.body?.balances ?? []).find((balance) => signup?.id && balance.balance_code === codeOf(signup));
-  check("registration attaches the Registration bonus to the new player, empty", attached?.kind === "bonus" && Number(attached?.available_amount) === 0, `${r.status} ${detail?.status} ${attached ? attached.available_amount : "no bonus wallet"}`);
+  check("registration of a player nobody gave the bonus pays nothing (since 19.10 bonuses go only to players given them in Users)", !attached || Number(attached?.available_amount) === 0, `${r.status} ${detail?.status} ${attached ? attached.available_amount : "no bonus wallet"}`);
 } else console.log(`SKIP registration trigger  // GET /v1/project/bonus-triggers ${r.status}`);
 
-for (const id of created) await patchBonus(id, { is_active: false });
+r = await call("DELETE", `/v1/project/bonuses/${bonus.id}`, { token: admin });
+const left = (await call("GET", `/v1/project/balances/users/${cfg.PLAYER_ID}`, { token: admin })).body?.balances ?? [];
+check("a bonus players hold is deleted together with their bonus wallets (since 19.10)", r.status === 204 && !left.some((balance) => balance.balance_code === codeOf(bonus)), String(r.status));
+for (const id of created.filter((item) => item !== bonus.id)) await call("DELETE", `/v1/project/bonuses/${id}`, { token: admin });
 r = await select("cash");
-check("back on the cash wallet, regress bonuses switched off", r.body?.active_balance_code === "cash", String(r.body?.active_balance_code));
+check("back on the cash wallet, regress bonuses deleted", r.body?.active_balance_code === "cash", String(r.body?.active_balance_code));
 console.log(`== ${envName}: ${passed}/${passed + failed} passed`);
 process.exitCode = failed ? 1 : 0;

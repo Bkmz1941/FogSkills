@@ -15,7 +15,7 @@ def scene_meshes(key):
     from pipeline import OBJECTS, load_params, run_scene
     spec = OBJECTS[key]
     run_scene(spec, load_params(spec, hide=True))
-    roots = spec['roots'] if not callable(spec['roots']) else spec['roots']()
+    roots = spec['roots'] if not callable(spec['roots']) else spec['roots'](load_params(spec))
     out = []
     for name in roots:
         rt = bpy.data.objects.get(name)

@@ -2,7 +2,7 @@
 
 Запуск: python3 ~/.claude/skills/tavern-regress/probes/check_all.py
 """
-import json, pathlib, subprocess, sys, time
+import json, re, pathlib, subprocess, sys, time
 
 GAME = '/home/ilya/.claude/skills/tavern-game'
 REG = '/home/ilya/.claude/skills/tavern-regress'
@@ -143,6 +143,36 @@ def probe_cs(name, again=False):
     print(name + ':', res[:1400])
 
 
+def probe_cs_parts(name, parts=4):
+    # ⭐ 19.10: проба по ВСЕМ предметам (inspect_window_probe.cs, 305 предметов) не укладывается в 120 с ответа
+    # моста — «нет ответа», а редактор ещё минуты занят ею, и следующая проба тоже без ответа. Гоняем частями:
+    # каждый K-й предмет после фильтра pickupItemId, части сводим в одну строку.
+    code = open(REG + '/probes/' + name).read()
+    key = 'if (def == null || string.IsNullOrEmpty(def.pickupItemId)) continue;'
+    if key not in code or '\ntry\n' not in code:
+        return probe_cs(name)
+    total = 0
+    fails = []
+    for k in range(parts):
+        part = code.replace(key, key + ' if ((_k++ %% %d) != %d) continue;' % (parts, k)).replace('\ntry\n', '\nint _k = 0;\ntry\n', 1)
+        out = subprocess.run(['python3', str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py'), 'execute_code',
+                              json.dumps({'action': 'execute', 'code': part})], capture_output=True, text=True, timeout=300, cwd=PROJECT)
+        lines = out.stdout.strip().splitlines()
+        try:
+            d = json.loads(lines[-1]) if lines else {}
+        except Exception:
+            d = {}
+        res = str((d.get('data') or {}).get('result') or d.get('message') or 'нет ответа')
+        m = re.search(r'из (\d+)', res)
+        total += int(m.group(1)) if m else 0
+        if not res.startswith('ЗЕЛЁНОЕ'):
+            fails.append('часть %d/%d: %s' % (k + 1, parts, res[:600]))
+    if fails:
+        print(name + ': КРАСНОЕ (частями по %d) — ' % parts + ' || '.join(fails)[:1400])
+    else:
+        print(name + ': ЗЕЛЁНОЕ из %d (частями по %d)' % (total, parts))
+
+
 def main():
     print('=== проверка «всё, что работало, работает» ===')
     ok_lint = lint()
@@ -187,8 +217,23 @@ def main():
         # кухня (KITCHEN.md): части, питание и свет, постановка у стены (SKIP без дома), живая гора посуды
         probe_cs('kitchen_parts_probe.cs')
         probe_cs('kitchen_power_probe.cs')
+        # свет (LIGHT.md): маски зон, «всегда горит», уличный, щиток, свечи и факелы, слой ламп уровня
+        probe_cs('light_probe.cs')
+        probe('candle_probe.py')  # свечи и спички (LIGHT.md §8, LI-CA…)
+        probe_cs('candle_inside_probe.cs')  # свечи в тумбах и шкафах, подсвечники не внутрь (LI-CI…)
         probe_cs('kitchen_place_probe.cs')
         probe_cs('kitchen_pile_probe.cs')
+        # одежда (CLOTHING.md): постановка на пол/стол/кровати/в шкафы/стопкой, надеть-снять-карманы-сейв
+        probe_cs('clothes_place_probe.cs')
+        probe_cs('clothes_wear_probe.cs')
+        # окно «Предмет» (INSPECT.md): кадр, ближняя плоскость, сетка не двигается и не касается, поворот-подставка, вид по умолчанию, галки — по всем предметам
+        probe_cs_parts('inspect_window_probe.cs')
+        probe_cs('inventory_doll_probe.cs')  # фигура игрока и попап «Предмет»: камера и сетка стоят, своя текстура сетки (INV-D…)
+        probe_cs('kitchen_pile_pick_probe.cs')  # взять из горы посуды на голой мойке и на тумбах (P1142)
+        probe_cs('place_false_red_probe.cs')  # ложное красное при перемещении на столешницах кухни (P1146)
+        # двери, замки, ключи (DOORS.md): эталон замков 18.10 и логика ключей/дверей/дверец
+        probe_cs('padlock_hang_probe.cs')
+        probe_cs('doors_probe.cs')
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')

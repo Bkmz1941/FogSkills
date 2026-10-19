@@ -243,8 +243,8 @@ env-файлы). Docker/ansible из репо удалены.
 По команде Ильи («обнови сайт дев прод и краши») сборки `build:dev`/`build:prod` из чистого worktree выложены
 `rsync --delete` туда же, куда кладёт CI: `lucky-dev:/home/admin/lucky-storefront-dev/dist/` и
 `lucky-prod:/home/admin/brobro-casino/dist/`; перед этим бэкап `tar czf ~/deploy-backups/<site>-dist-<stamp>.tgz`.
-Так как код не закоммичен, **следующий пуш в `dev`/`main` перезапишет эти правки** — коммит сетки 1400 и
-`scrollbar-gutter` нужен до следующего CI-деплоя.
+16.10 сетка 1400 и `scrollbar-gutter` закоммичены в `dev` (`75afe90`, `ff9586c`) и смержены в `main` (`de274a2`)
+вместе с локализацией — с этого момента CI снова источник правды для дева и прода.
 
 ⚠ Грабля: у `admin` на дев/прод-серверах umask ограничительный (в ssh-сессии `0007`), и `rsync -rltz --chmod=D755,F644`
 **без `-p`** положил новые файлы как `640` → nginx (www-data) получил `open() … Permission denied`, сайты ~5 минут
@@ -278,11 +278,24 @@ env-файлы). Docker/ansible из репо удалены.
   одинаковом package-lock; `index.html` правится после сборки (title/description, убрать manifest и registerSW).
   Переменной `APP_PWA_ENABLED` в vite.config нет — PWA-файлы просто не выкладываются.
 
-## Локализация витрины (en/ru) — состояние на 15.10.2026
+## Заголовки в светлой теме — 16.10.2026 (`5c44898` dev / merge `a294198` main)
 
-Сделано 14.10 (сессия + 4 сабагента), доведено и проверено 15.10; **в git не
-закоммичено**, лежит в рабочем дереве `feat/new-payment-provider` вместе с
-сеткой 1400 (см. выше). Коммитить по команде Ильи, отдельно от сетки.
+Илья включил светлую тему на brobro.casino: заголовки секций, текстового блока и футера пропали (белые на белом).
+Причина — правило `.storefront-frame :where(h1…h6) { color: #ffffff }` в `src/styles/styles.css` (`0b3b6a3`, 24.08):
+**не в слое**, поэтому било и Tailwind-утилиты (`text-white` на баннерах оно же и перекрывало), и тему. Теперь оно
+в `@layer base` с `var(--foreground)`: утилиты снова сильнее, в тёмной теме визуально ничего не изменилось. Подпись
+вторичного баннера (`SecondaryPromoBanner`) переведена с `text-background` на `text-white` — там всегда тёмный
+градиент, а `text-background` в тёмной теме дал бы чёрный текст, как только правило перестало его перекрывать.
+Проверка на живом сайте без сборки: в DevTools удалить правило из styleSheets и добавить `<style>@layer base{…}</style>`.
+Напоминание: в `styles.css` после `@import 'tailwindcss'` любые свои правила вне `@layer` перекрывают утилиты.
+
+## Локализация витрины (en/ru) — на деве и проде с 16.10.2026
+
+Сделано 14.10 (сессия + 4 сабагента), доведено и проверено 15.10; 16.10 по команде
+Ильи закоммичено в `dev` коммитом `a3a7dab` (отдельно от сетки `75afe90` и
+scrollbar `ff9586c`), merge `de274a2` в `main`, выкачено CI на оба сервера.
+Рабочее дерево `feat/new-payment-provider` всё ещё держит те же правки
+незакоммиченными — коммиты делались из worktree в scratchpad.
 
 - Модуль `src/lib/i18n/i18n.tsx`: `I18nProvider` (обёрнут в `Main.tsx` поверх
   QueryClientProvider), хук `useTranslate()` → `{ t, language, setLanguage }`

@@ -3,6 +3,7 @@
 python3 gc_probe.py                 базовый замер: мусор (среднее, пик) и кадр (мс среднее, p95, пик) за 120 кадров
 python3 gc_probe.py scan [кадров]   выключать типы с Update/LateUpdate/FixedUpdate по одному и мерить дельту мусора и мс
 python3 gc_probe.py profile [кадров] профайлер редактора: self-мс и мусор ПО МАРКЕРАМ (методам) за N кадров — точнее скана,
+                                    на уровне > 20 тыс. объектов больше 150 кадров — только с --force (P1111: ронял редактор),
                                      у того дельты тонут в шуме ±2 мс; печатает 40 самых дорогих маркеров и все с мусором
 python3 gc_probe.py check           СТОРОЖ РЕГРЕССИИ: замер против записанного порога уровня, код 1 при превышении
 Потолка кадров в игре с 10.09 нет (FrameRateConfig: targetFrameRate = -1, Илья: «давай снимем»),
@@ -162,6 +163,13 @@ return sb.ToString();
 
 
 def profile(frames):
+    objects = run('return Cozy.Grid.InteractiveObject.All.Count.ToString();')
+    try:
+        objects = int(str(objects).strip())
+    except ValueError:
+        objects = 0
+    if objects > 20000 and frames > 150 and '--force' not in sys.argv:
+        raise SystemExit('profile: отказ — объектов %d (> 20 000): профайлер редактора на таком уровне ронял редактор (P1111); не больше 150 кадров или --force' % objects)
     run('UnityEditorInternal.ProfilerDriver.profileEditor = false; UnityEditorInternal.ProfilerDriver.deepProfiling = false; UnityEditorInternal.ProfilerDriver.enabled = true; return "on";')
     time.sleep(frames / 60.0 + 1.5)
     try:

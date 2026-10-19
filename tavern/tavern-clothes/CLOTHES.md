@@ -19,8 +19,8 @@
 
 ## ⭐ Каталог вещей (проверено по коду и ассетам 2026-09-07)
 
-Десять вещей в `Items.Clothing`, девять из них — полный комплект
-(модель на герое + объект мира + иконка-картинка); неполная одна — водолазка.
+Все вещи `Items.Clothing` — полный комплект (модель на герое + объект мира +
+иконка-картинка); последней 18.10 доделана водолазка.
 
 | предмет (`Items`) | id | слот | размер | модель на герое | объект мира (деф) | иконка | вес |
 |---|---|---|---|---|---|---|---|
@@ -34,13 +34,8 @@
 | Тапочки | `slippers` | Обувь | 2×2 | `Clothes/SlippersM` | `slippers_pair` → `slippersPair` | `slippers.png` | 0.4 |
 | **Куртка** | `jacket` | Тело (второе), `Outer` | 2×2 | `Clothes/JacketM` | `jacket_folded` → `jacketFolded` | `jacket.png` | 1.2 |
 | **Балахон** (07.10) | `robe` | Тело (первое) + ЗАКРЫВАЕТ Голову, Тело (второе), Ноги, Обувь (`covers`) | 2×2 | `Clothes/RobeM` — из `sectantRobes.blend` через `sectant_robe_export.py` (скил `tavern-sectant`), 11 684 тр. | `robe_folded` → `robeFolded` | `robe.png` — cel-рендер надетого балахона с контуром (`sectant_robe_icon.py`, исходник `Fog/Clothes/robe/robe_1.png`) | 1.6 |
-| **Водолазка** | `turtleneck` | Тело | 1×2 | `Clothes/TurtleneckM` (июль, старый пайплайн) | **нет** | глиф `shirt` | 0 |
-
-⚠️ **Водолазка — легаси.** Единственная вещь от старого пайплайна
-(`build_garments.py`, 22.07: раздувка фейсов тела по весам костей), FBX 2.5 МБ
-против ~0.7 МБ у новых, `-materials.json` нет — красится одним цветом
-`ItemDef.color`. Мирового двойника нет, поэтому у неё серые «Положить» и
-«Выбросить» (P206). Либо переделать по нынешнему принципу, либо снести.
+| **Полицейская форма** (17.10, М и Ж отдельными предметами) | `police_shirt(_f)` рубашка с галстуком — Тело, карманы 2×1; `police_trousers(_f)` брюки со стрелками и ремнём — Ноги, 4×1; `police_jacket(_f)` куртка нараспашку — Тело (второе), `Outer`, 4×2; `police_shoes(_f)` ботинки — Обувь, `soleLift` 0.025 / 0.021 | 2×2 | `Clothes/Police{Shirt,Trousers,Jacket,Shoes}{M,F}` — из `police_build.py -- export` (тела игровые, вещи полями из тела; рубашка 12 тыс. тр., куртка 13,4, брюки 7,2, ботинки 4,7) | `police_{shirt,trousers,jacket}(_f)_folded` → `policeShirtFolded` / `policeTrousersFolded` / `policeJacketFolded` (одна модель на оба пола; `build_kit.py -- police_*_folded`: рубашка и куртка на `flannel_folded_scene.py` с параметрами `tie`/`pockets`/`badge`/`sleeves`, брюки на `jeans_folded_scene.py`); `police_shoes_pair(_f)` → `policeShoesPair{M,F}` | `police_shirt/trousers/jacket/shoes.png` — cel-рендер надетой вещи с контуром (`police_build.py -- icons <папка>`, как у балахона; `ig` 17.10 упал по видеопамяти), исходники `Fog/Clothes/police_*/` | 0.35/0.6/1.1/1.0 (жен. легче) |
+| **Водолазка** (переделана 18.10) | `turtleneck` | Тело | 2×2 | `Clothes/TurtleneckM` — из `humanClothes.blend` (`show_turtleneck`, блок `turtleneck` в params), 15 750 тр.: ткань 12 000, ворот-стойка 512, отворот 1 440, манжеты 900, резинка подола 900 | `turtleneck_folded` → `turtleneckFolded` (сцена `longsleeve_folded_scene.py` с ключом `roll`, 7 804 тр.) | `turtleneck.png` (картинка 05.10, `Fog/Clothes/turtleneck/`) | 0.45 |
 
 Подъём фигуры на подошве (`ItemDef.soleLift`): кроссовки 0.025, тапочки 0.015,
 у остального 0.
@@ -54,6 +49,7 @@
 | `TShirtM` | cotton `0.936/0.936/0.926`, rib_cotton `0.896/0.896/0.886` |
 | `TShirtBeigeM` | cotton_beige `0.875/0.810/0.709`, rib_cotton_beige `0.810/0.748/0.654`, button_beige `0.733/0.677/0.591` |
 | `TShirtRedM` | cotton_red `0.545/0.164/0.164`, rib_cotton_red `0.435/0.126/0.126` |
+| `TurtleneckM` | turtleneck_knit `0.420/0.208/0.251` (6B3540), turtleneck_rib `0.361/0.173/0.212` (5C2C36) |
 | `SneakersM` | shoe_white `0.964/0.964/0.955`, shoe_sole `0.906/0.906/0.896`, lace_line `0.190×3` |
 | `SneakersGreyM` | shoe_grey `0.680/0.680/0.687`, shoe_sole_white `0.964…`, lace_line_white `0.964…` |
 | `SlippersM` | slipper_black `0.272/0.272/0.293`, slipper_rim `0.349/0.349/0.366`, slipper_sole `0.410/0.410/0.424`, slipper_insole `0.634/0.650/0.680` |
@@ -143,8 +139,8 @@
 - `GarmentResource(item)` — switch id → путь `Clothes/*`. **Новая вещь = новый
   `case` здесь**, иначе она надевается, но не видна.
 - Материал: сначала `KitMaterials.Apply(inst, resource + "-materials")`; нет
-  json — весь меш красится одним цветом `ItemDef.color` (старый путь для
-  водолазки и белья). Без этого ремень и пряжка становились синими, как деним.
+  json — весь меш красится одним цветом `ItemDef.color` (старый путь, теперь
+  только у белья без json). Без этого ремень и пряжка становились синими, как деним.
 - Синхронизация: событие `Equipment.Changed` (мгновенно) + поллинг раз в 0.5 с
   (страхует пересборку `Visual` при смене модели в админке).
 - **Отцепляем СРАЗУ**: `existing.SetParent(null, false)` ДО `Destroy`, потому
@@ -248,7 +244,8 @@
 Сменился герой (`PlayerModelCatalog.Apply`) — `Equipment.DropMisfits` кидает
 вещи чужого пола к ногам вместе с карманами (мост `Equipment.DropForPlayer` ←
 `InventoryScreenUI.DropAtFeet`, тот же путь, что «Выбросить»). Вещь без
-мирового двойника (водолазка) остаётся в слоте.
+мирового двойника остаётся в слоте (с 18.10 таких нет: водолазка получила
+`turtleneck_folded`).
 
 ⭐ **Первые женские вещи (2026-09-28, Илья: «переноси в игру», выбор —
 отдельные предметы).** `Items.JeansF` (`jeans_f`, «Джинсы (жен.)», слот Legs,
@@ -390,6 +387,11 @@ HideUnderwearUnderClothes` — часть `SportTop*` прячется под в
 | `tavern-regress/probes/jacket_seam_probe.py` | куртка: воротник не выходит сквозь капюшон, капюшон — замкнутая оболочка, стойка+капюшон ≤ бюджета экспорта; Т-поза и 10 кадров стойки/ходьбы | 139 (P343) |
 | `tavern-regress/probes/worn_jeans_probe.cs` (в play) | части `Wear_Legs`, гашение белья, цвета = json | 54, 55 (P202, P203) |
 
+| `tavern-regress/probes/clothes_place_probe.cs` (в play) | ⭐ 18.10: каждая вещь мира на пол, стол, каждую кровать, каждую доску каждого шкафа, стопкой и рядом — настоящим `ComputeObjectPose` | P1135–P1137 |
+| `tavern-regress/probes/clothes_wear_probe.cs` (в play) | ⭐ 18.10: каждый носимый предмет — надеть, видно на модели, снять, чужой пол, закрывающие (балахон), подошва, карманы, сейв, иконка, двойник, вес | P1138, P1139 |
+
+Регресс домена целиком (группы, коды CL-…, долг проб, стенд «Одежда (тест)») — `tavern-regress/CLOTHING.md`.
+
 ⚠️ **Численные метрики «кожа снаружи» в позах НЕ использовать** — врут в
 сгибах (P205, P208). Судим рендером с красной кожей.
 
@@ -422,7 +424,6 @@ HideUnderwearUnderClothes` — часть `SportTop*` прячется под в
   Иконка Ильи `lightweight gray jacket.png` → `Icons/jacket.png` поставлена
   09.09 тем же вечером. Висящий вариант — `jacket_hanging` в каталоге с
   10.09, вешается на крючок вешалки (раздел «Куртка на крючке»).
-- **Водолазка** — легаси старого пайплайна, без объекта мира и json цветов.
 - **Женская модель** — одежда сшита по мужскому телу; у `dummy_f` своих вещей
   нет.
 - **Слоты Голова / Руки / Пояс** — вещей нет, строки «Руки» и «Пояс» с экрана

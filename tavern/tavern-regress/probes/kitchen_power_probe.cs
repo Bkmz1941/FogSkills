@@ -1,4 +1,5 @@
 // ПИТАНИЕ, НАГРЕВ, ХОЛОД И СВЕТ КУХНИ (KITCHEN.md: KT-ST02–05, FR02, FR04, LT05, LT06, LT08, LT09, AP07; 18.10).
+// FR04 с 18.10: холод снят пока (TemperatureSim.ColdOn = false) — ждём, что камера НЕ холодит.
 // Для execute_code в play, на ЛЮБОМ уровне. Перебор по признакам дефа, не по списку:
 //   tempSources со switchNode — плита; tempSources без тумблера с needsPower — холодильник;
 //   FridgeLight в модели — свет камеры; lightRange > 0 — лампы; switches с led — индикаторы.
@@ -102,6 +103,9 @@ try {
         // ── холодильник: камера холодит только при питании (FR04)
         var chambers = new System.Collections.Generic.List<object>();
         foreach (var src in srcs) { var sd = F(src, "def"); if (F(src, "sw") == null && !(bool)F(sd, "byFire") && (bool)F(sd, "needsPower") && (float)F(sd, "target") < amb - 5f) chambers.Add(src); }
+        bool defCold = false; foreach (var ts in def.tempSources) if (ts.target < amb - 5f) defCold = true;
+        { var coldField = typeof(Cozy.Grid.TemperatureSim).GetField("ColdOn"); bool coldOn = coldField == null || (bool)coldField.GetValue(null);
+          if (defCold && !coldOn) { fridges++; Check(chambers.Count == 0, "FR04 " + def.id + ": холод снят пока (Илья 18.10), а камера холодит"); } }
         if (chambers.Count > 0) {
             fridges++;
             int steps = 0; foreach (var src in chambers) steps = UnityEngine.Mathf.Max(steps, StepsFor((float)F(F(src, "def"), "rate")));

@@ -14,7 +14,16 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
     if (io.TakesPadlock && io.PadlockPoint != null && host == null) host = io;
     if (io.Def.id == "office_desk" && table == null) table = io;
 }
-if (host == null || table == null) return "НЕЧЕГО ПРОВЕРЯТЬ: нужны точка подвеса (счётчик) и стол";
+var stand = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>();
+System.Func<string, UnityEngine.Vector3, Cozy.Grid.InteractiveObject> Stand = (id, at) =>
+{
+    var o = (Cozy.Grid.InteractiveObject)spawn.Invoke(Cozy.Grid.GridCursor.I, new object[] { Cozy.Grid.FurnitureCatalog.ById(id), at, 0f });
+    stand.Add(o);
+    return o;
+};
+if (host == null) { host = Stand("meter_outdoor", new UnityEngine.Vector3(520f, 0f, 500f)); sb.Append("стенд: свой meter_outdoor\n"); }
+if (table == null) { table = Stand("office_desk", new UnityEngine.Vector3(530f, 0f, 500f)); sb.Append("стенд: свой office_desk\n"); }
+if (host == null || host.PadlockPoint == null || table == null) { foreach (var o in stand) if (o != null) UnityEngine.Object.DestroyImmediate(o.gameObject); return "НЕЧЕГО ПРОВЕРЯТЬ: не собрать стенд"; }
 var def = Cozy.Grid.FurnitureCatalog.ById("padlock_4");
 float top = float.MinValue;
 foreach (var c in table.GetComponentsInChildren<UnityEngine.Collider>()) top = UnityEngine.Mathf.Max(top, c.bounds.max.y);
@@ -43,6 +52,25 @@ System.Func<Cozy.Grid.InteractiveObject, UnityEngine.Bounds[]> Parts = o =>
         else { if (fb) { body = r.bounds; fb = false; } else body.Encapsulate(r.bounds); }
     }
     return new[] { body, shk };
+};
+System.Func<Cozy.Grid.InteractiveObject, float> LegDepth = o =>
+{
+    UnityEngine.Transform sh = null;
+    foreach (var t in o.GetComponentsInChildren<UnityEngine.Transform>(true)) if (t.name == "Shackle") sh = t;
+    float bodyTop = float.MinValue, legLow = float.MaxValue;
+    foreach (var mf in o.GetComponentsInChildren<UnityEngine.MeshFilter>())
+    {
+        if (mf.sharedMesh == null || Cozy.Grid.InteractHighlight.IsCopy(mf.GetComponent<UnityEngine.Renderer>())) continue;
+        var mb = mf.sharedMesh.bounds;
+        bool onShackle = sh != null && mf.transform.IsChildOf(sh);
+        for (int i = 0; i < 8; i++)
+        {
+            var c = mb.center + UnityEngine.Vector3.Scale(mb.extents, new UnityEngine.Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+            float y = o.transform.InverseTransformPoint(mf.transform.TransformPoint(c)).y;
+            if (onShackle) legLow = UnityEngine.Mathf.Min(legLow, y); else bodyTop = UnityEngine.Mathf.Max(bodyTop, y);
+        }
+    }
+    return bodyTop - legLow;
 };
 int fails = 0;
 foreach (var io in Cozy.Grid.InteractiveObject.All)
@@ -115,6 +143,14 @@ try
         bool plumb = UnityEngine.Mathf.Abs(lean) < 0.01f;
         if (!plumb) fails++;
         sb.Append((plumb ? "OK " : "FAIL ") + "корпус под точкой подвеса (" + (shut ? "закрытый" : "открытый") + "): вбок " + (lean * 100f).ToString("0.0") + " см\n");
+        float depth = LegDepth(lk);
+        float refDepth = shut ? 0.036f : 0.014f, refWall = shut ? 0.016f : 0.044f;
+        bool asRef = UnityEngine.Mathf.Abs(depth - refDepth) < 0.003f && UnityEngine.Mathf.Abs(bodyOut - refWall) < 0.005f;
+        if (!asRef) fails++;
+        sb.Append((asRef ? "OK " : "FAIL ") + "ЭТАЛОН 18.10 (" + (shut ? "закрытый" : "открытый") + "): ножка " + (depth * 100f).ToString("0.0") + " см (эталон " + (refDepth * 100f).ToString("0.0") + " ±0,3), от стены " + (bodyOut * 100f).ToString("0.0") + " см (эталон " + (refWall * 100f).ToString("0.0") + " ±0,5)\n");
+        bool legIn = depth > 0.003f;
+        if (!legIn) fails++;
+        sb.Append((legIn ? "OK " : "FAIL ") + "длинная ножка в корпусе (" + (shut ? "закрытый" : "открытый") + "): заходит на " + (depth * 100f).ToString("0.0") + " см\n");
         bool hok = off < 0.02f && through && below && bodyOut < (shut ? 0.06f : 0.12f) && shkOut < (shut ? 0.06f : 0.12f);
         if (!hok) fails++;
         sb.Append((hok ? "OK " : "FAIL ") + "висит " + (shut ? "закрытый" : "открытый") + (load ? " (загрузка уровня)" : " (постановка рукой)") + " на " + host.Def.id + ": дужка от точки " + (off * 100f).ToString("0.0") + " см, дужка через пробой=" + through + ", корпус ниже=" + below + ", от стены корпус " + (bodyOut * 100f).ToString("0.0") + " см, дужка " + (shkOut * 100f).ToString("0.0") + " см\n");
@@ -124,5 +160,8 @@ try
 finally
 {
     foreach (var o in made) if (o != null) UnityEngine.Object.DestroyImmediate(o.gameObject);
+    foreach (var o in stand) if (o != null) UnityEngine.Object.DestroyImmediate(o.gameObject);
 }
-return (fails == 0 ? "ЗЕЛЁНОЕ" : "КРАСНОЕ: " + fails) + " (свои замки, созданы и удалены)\n" + sb;
+int total = 0;
+foreach (var l in sb.ToString().Split('\n')) if (l.StartsWith("OK ") || l.StartsWith("FAIL ")) total++;
+return (fails == 0 ? "ЗЕЛЁНОЕ из " + total : "КРАСНОЕ: " + fails + " из " + total) + " (свои замки, созданы и удалены)\n" + sb;

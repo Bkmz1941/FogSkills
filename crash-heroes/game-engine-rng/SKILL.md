@@ -1368,6 +1368,96 @@ Lucky считает комиссию провайдера с проигрыша
   если пришлют, просто заменить файл.
 - Полную игру с реальными деньгами на проде ещё никто не проходил.
 
+## 2026-10-19 — режим `shared`: общий раунд на всех (под Chick Shot, но без имён игры)
+
+Решение Ильи: не отдельный движок, а режим того же образа; **в коде никаких кур, фермеров и цветов** — только
+раунды, кости, грани и правило выигрыша («вдруг потом другое что-то будет»). ТЗ и макет — `DESIGN-CHICKENS.md`.
+
+- **`GAME_MODE=solo|shared`** (по умолчанию `solo` = Хоккеист). `shared`: `GAME_RULE` (`miss`), `GAME_RTP` (95),
+  `BETTING_SECONDS` (10), `ROLL_DELAY_SECONDS` (6 — пауза под анимацию до запроса броска), `RESULT_SECONDS` (5).
+- **Правило** — `domain/rules.ts`: `miss` = выигрыш, если ни одна выбранная грань не выпала. Коэффициент **не
+  таблицей**, а перебором 36 исходов: `round(RTP × 36 / выигрышных) / 100`; тест сверяет с таблицей макета все 35
+  строк (совпало). Новое правило = ещё одна функция в `RULES`.
+- **Цикл** — `services/shared-game.service.ts`: игра `betting` (рассылка `game` всем, `closes_at`) → `rolling`
+  (ждёт ставки в полёте, пауза, бросок `game_rng_rounds` с `requested_at` = момент запроса, первый бросок потока
+  после него) → расчёт всех `accepted` ставок пачками по 10 (`win` каждой, в т.ч. 0) → `finished` → пауза → новая.
+  Поток лёг → все ставки `refunded` (`win` на сумму ставки — правила «коэффициент 1.00»), игра `canceled`.
+  Рестарт посреди раунда → на старте `recover()` возвращает ставки так же. На остановке раунд бросается (не доигрывается).
+- **Протокол `shared`:** `state` → текущая игра + `bet` (моя ставка или null); `odds {selection}` → `{odds}`;
+  `bet {amount, selection}` → ставка (одна на сессию за раунд, `Bet already placed`); `cancel {bet_id}` до конца
+  приёма → `rollback` оператору (`WalletService.cancel`, в демо — возврат на кошелёк); `games {limit}` — лента
+  сыгранных раундов всем; `game {game_id}` — раунд + событие dicestream целиком + моя ставка; `history {limit}` — мои
+  ставки с костями. Пуши без `id`: `game` (смена фазы, всем), `bet` (итог моей ставки). `selection = {dice_1: [..],
+  dice_2: [..]}`; ошибки `Betting closed`, `Invalid selection`, `Bet not found`, `Bet cannot be canceled`,
+  `Cancel declined`, `Bet is busy`. Оператору: `betId` = uuid ставки, `roundId` = uuid общей игры.
+- **Таблицы — модель 28.09** (миграция api-core `2026_09_28_100001_create_game_rng_bets_and_add_state_to_rng_games`,
+  делалась под Donkey Rush): общая игра = строка `game_rng_games` **без** `game_session_id`/игрока, `state`
+  `{rule, rtp, closes_at}`, статусы `betting/rolling/finished/canceled`; бросок — `game_rng_rounds` round 1;
+  ставки — `game_rng_bets` (`selection`, `odds`, статусы `pending/accepted/declined/not_confirmed/canceled/won/lost/refunded`).
+  Хоккеист в `game_rng_bets` пока **не пишет** (бэкфилл миграции скопирует старые партии один раз).
+- **api-core:** статусы общих игр, `GameRngGame::isShared()`, `RngBetResource`, в ресурсе игры `mode`, `bets_count`,
+  `bets`, `state` (у общей `amount/win/profit = null`); список ищет общие раунды по ставкам (игрок, валюта, поиск),
+  сводка = партии solo + ставки shared (union), фильтр **`hasBets`** — пустые общие раунды (их ~4 000 в сутки) скрыты.
+- **Админка:** статусы «Бросок / Сыгран / Отменён», колонка «Ставок», «Общий раунд» вместо игрока, в карточке
+  таблица «Ставки» (выбор «Кость 1: … · Кость 2: …»), переключатель «Пустые раунды» (по умолчанию выкл).
+- Проверено локально: тесты 50/50, живая проба по сокету (3 игрока, ставки, отмена, выигрыш 300 × 1.14 = 342,
+  журнал bet+win / bet+rollback, лента, карточка, история), рестарт и лёгший поток → возврат; регресс Хоккеиста 30/30.
+  `fake-operator` научен разным игрокам: launch-токен `player-N-…` → `op-player-N`.
+- Коммиты 19.10 (по команде Ильи, запушены): движок `1be0b95` (`dev`), api-core `87d6ecc` (`develop`, CI прогнал
+  миграцию 28.09 на деве ~12:06 UTC), админка `20e9945` (`dev`).
+- **Дев 19.10:** Хоккей — 0.1.16 `solo`; **Chick Shot — 0.1.16 `GAME_MODE=shared`** (`~/crashgames/chick-shot-engine/.env`,
+  бэкап `~/deploy-backups/chick-shot-engine.env.*`). Проверено: `healthy`, раунды идут (бросок с `requested_at` и
+  `roll_id`), `/health` снаружи, `RngEngineHealthService` alive, WS чужой сессией → 4401. Ставками на деве не играли —
+  нужна настоящая сессия (запуск из Lucky dev). Прод не трогали (там оба на 0.1.15 `solo`? — сверить перед выкатом).
+- Не сделано: лимиты (ставка 50…100 000, выигрыш до 7 000 000) не проверяются; спека «Game socket v1» в Apidog
+  под `shared` не заведена; фронта нет.
+
+## 2026-10-19 (вечер) — `shared` по жёсткому расписанию, тики как в крашах (0.1.17)
+
+- Илья: «надо чтобы мы явно задавали тайминги», «сами будем считать обратный отсчёт каждую секунду», «как в крашах,
+  step». Раньше фаза броска ждала поток (бросок раз в 1 с) и раунд гулял 21–23 с.
+- Расписание от старта раунда: `closes_at` = старт + `BETTING_SECONDS` (10), `result_at` = + `ROLLING_SECONDS` (7,
+  мин. 3; **`ROLL_DELAY_SECONDS` убран**), `next_at` = + `RESULT_SECONDS` (5) → раунд ровно 22 с. Старт следующего =
+  `next_at` предыдущего (без дрейфа). Бросок запрашивается за 2 с до `result_at` (`ROLL_LEAD_MS`), держится до
+  `result_at`; не пришёл к `result_at` → `canceled` + возврат. Расчёт у оператора — после показа, на расписание не влияет.
+- В виде раунда `closes_at`, `result_at`, `next_at` есть всегда (не обнуляются), `server_time` → **`current_time`**.
+- **`tick`** всем раз в секунду: `{game_id, status, countdown}` (в 0.1.17 был ещё `step` 0…21 сквозной, как
+  `step` в крашах, но там тик 50 мс), `countdown` — секунд до конца текущей фазы (в крашах `countdown` только на ставках,
+  иначе −1). Расписание тиков привязано к концу фазы, не уплывает.
+- **Дев: Chick Shot `ROLLING_SECONDS=5`** (Илья 19.10 «бросок 5 секунд», раунд 20 с). **Дев 19.10 ~13:20 UTC: оба контейнера 0.1.19** (из выдачи фронту убраны `rule`, `closes_at`, `result_at`, `next_at`, `current_time` — остались в `state` раунда в БД; время фазы фронт берёт из `tick.countdown`). До этого 0.1.18 (`step` из `tick` убран по просьбе Ильи: фазу даёт `status`). До этого 0.1.17 (Хоккей `solo`, Chick Shot `shared`). Проверено снаружи демо-сессией:
+  тики 0…21, ставка `accepted` → `lost`, фазы ровно по `closes_at`/`result_at`. **Не закоммичено** (команды не было),
+  Apidog-блок `shared` ещё со старыми полями (`server_time`, без `result_at`/`next_at`/`tick`); вики — актуальна.
+- Демо-сессия на деве для Постмана/Apidog: `GameLaunchService::launchDemo($project, ["game_id" => "<uuid>"])` в tinker
+  api-core (`~/crashgames/minigames-admin-back`), живёт 25 мин; баланс 100000 USD локальный.
+
+## 2026-10-19 (ночь) — Chick Shot на проде, Lucky dev и prod
+
+Команда Ильи: «коммить все и обнови дев и прод, создай везде игры на крашах и на лаки».
+- Коммиты: движок `9ae85fd` (`dev`); api-core `e646014` «Merge develop into main» (CI → прод, миграция 28.09 — batch 11,
+  ~15:32 UTC); админка `1010176` «Merge dev into main» (CI → прод ~15:34). Мержи — через worktree в scratchpad.
+- **Прод крашей:** образ 0.1.19 перенесён `docker save | gzip | ssh prod 'gunzip | docker load'` (логина в Docker Hub нет),
+  на проде `docker-compose` (через дефис). Хоккей `crash-engine-rng-1` — 0.1.19 `solo`; **Chick Shot `chick-shot-engine-1`
+  — 0.1.19 `GAME_MODE=shared`, `ROLLING_SECONDS=5`**. Проверено снаружи демо-сессией: ставка → `lost`, тики, `alive`.
+- **Lucky:** Chick Shot добавлена в **BroBro Casino** на обеих средах и **скрыта** (`project_games.is_active = false` —
+  нет на витрине, запуск по прямой ссылке работает): дев `/games/1/15`, прод `brobro.casino/games/1/20`. Скрипт —
+  `lucky-chick-shot.mjs` (scratchpad 19.10): рут-токен в контейнере API (`luckyserver-dev-api-1` / `luckyserver-api-1`),
+  «Sign in as» админа проекта, `POST /v1/project/games`, `PATCH … {is_active:false}`. На проде классификатор пропустил.
+- **Фронта игры нет**: `games.link` → `…/chickshot` пустой, запуск из Lucky откроет 404 — показывать на витрине после сборки фронта.
+
+## Вики команды (Outline, wiki.agg.one)
+
+- **Токен API** — в `~/.config/outline/token` (chmod 600, владелец Илья Titov; дал 19.10 «запиши в скил»). В скил,
+  чат и вывод значение не печатать; читать `T=$(cat ~/.config/outline/token)`.
+- API: `POST https://wiki.agg.one/api/<метод>` с `Authorization: Bearer $T`, тело JSON. `documents.info {id}` (id —
+  uuid или хвост ссылки `engine-rng-shared-av2LLCmPGw`), `documents.update {id, text, publish: true}` — **text
+  заменяется целиком**, `documents.list {parentDocumentId}`. После записи — перечитать: Outline нормализует Markdown
+  (`-` → `*` в списках, `~` → `\~`, выравнивает таблицы), сравнивать по смыслу, не байт в байт.
+- Страницы: **«Engine RNG (shared)»** `6adc055b-2f76-4170-8101-0a69ff3d231f`
+  (https://wiki.agg.one/doc/engine-rng-shared-av2LLCmPGw) — описание режима `shared` для команды (19.10, на русском);
+  «Crash-RNG» `d7de90ec-57f6-473c-9a77-9a415ad68da4` (запуск игр, 28.09), коллекция Projects, родитель «Crash Heroes»
+  `77b08e54-4c84-47da-986b-7cf0fdb100ae`.
+- Меняется протокол или поведение `shared` → обновить и эту страницу, и описание «Game socket v1» в Apidog.
+
 ## 2026-10-14 — вторая игра на движке: «Chick Shot» (дев и прод)
 
 Команда Ильи: «так же, как Хоккей, создать на этом движке игру Chickens»; механика та же (другой скин), фронта пока нет,

@@ -7,7 +7,9 @@
 //  PT-B03  испорченный: EatDoses > 0 (травит), свежий: только врождённый poisonDose;
 //  PT-ACT01 «Порезать/Отрезать» предлагается только ножу: у каждого такого layout productId = kitchen_knife;
 //  PT-C02  батон, испорченный и со сроком: «Порезать» → ровно две половины, порча и срок унаследованы;
-//  PT-C04  старый хлеб: «Отрезать» ×6 → 6 ломтиков, у хлеба 0 (уходит), порча унаследована.
+//  PT-C04  старый хлеб: «Отрезать» ×6 → 6 ломтиков, у хлеба 0 (уходит), порча унаследована;
+//  PT-C06t батон на своём столе (yaw 285): один, с соседом сбоку, зажатый соседями — резка до конца: нет двух кусков
+//          в одной точке, коллайдеры не входят друг в друга (>3 мм), все на столешнице; где места нет — резка не проходит.
 // Первая строка — вердикт «ЗЕЛЁНОЕ из N» / «КРАСНОЕ: k из N», дальше FAIL с кодом кейса.
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var gc = Cozy.Grid.GridCursor.I;
@@ -164,6 +166,81 @@ try
         Check(cuts == 6 && slices == 6, "PT-C04 резов " + cuts + ", ломтиков " + slices + ", ждали 6 и 6");
         Check(bread.Count == 0, "PT-C04 после 6 ломтиков у хлеба осталось " + bread.Count + " (должен уйти)");
         Check(inherited == slices, "PT-C04 порчу унаследовали " + inherited + " из " + slices + " ломтиков");
+    }
+    var cutIds = new System.Collections.Generic.Dictionary<string, int> { { "bread_loaf", 8 }, { "bread_part_4", 4 }, { "bread_part_2", 2 }, { "bread_part_1", 1 } };
+    for (int sc = 0; sc < 3; sc++)
+    {
+        var deskAt = origin + new UnityEngine.Vector3(30f + sc * 6f, 0f, 0f);
+        var deskObj = (Cozy.Grid.InteractiveObject)spawn.Invoke(gc, new object[] { Cozy.Grid.FurnitureCatalog.ById("office_desk"), deskAt, 0f });
+        UnityEngine.Physics.SyncTransforms();
+        if (deskObj == null || !UnityEngine.Physics.Raycast(deskAt + UnityEngine.Vector3.up * 3f, UnityEngine.Vector3.down, out var deskRay, 5f)) { sb.Append("SKIP PT-C06t: нет стола\n"); skips++; break; }
+        float deskTop = deskRay.point.y;
+        var onDesk = new UnityEngine.Vector3(deskAt.x, deskTop, deskAt.z);
+        var turn = UnityEngine.Quaternion.Euler(0f, 285f, 0f);
+        var whole = Cozy.Grid.FurnitureCatalog.ById("bread_loaf");
+        var first = (Cozy.Grid.InteractiveObject)spawn.Invoke(gc, new object[] { whole, onDesk, 285f });
+        var side = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>();
+        if (sc >= 1) side.Add((Cozy.Grid.InteractiveObject)spawn.Invoke(gc, new object[] { whole, onDesk + turn * new UnityEngine.Vector3(0f, 0f, 0.26f), 285f }));
+        if (sc >= 2) side.Add((Cozy.Grid.InteractiveObject)spawn.Invoke(gc, new object[] { whole, onDesk + turn * new UnityEngine.Vector3(0f, 0f, -0.26f), 285f }));
+        var blade = (Cozy.Grid.InteractiveObject)spawn.Invoke(gc, new object[] { Cozy.Grid.FurnitureCatalog.ById("kitchen_knife"), deskAt + new UnityEngine.Vector3(3f, -5f, 0f), 0f });
+        UnityEngine.Physics.SyncTransforms();
+        var standing = new System.Collections.Generic.HashSet<Cozy.Grid.InteractiveObject>(Cozy.Grid.InteractiveObject.All);
+        standing.Remove(first);
+        int done = 0, refused = 0;
+        var todo = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject> { first };
+        for (int g = 0; g < 30 && todo.Count > 0; g++)
+        {
+            var piece = todo[0]; todo.RemoveAt(0);
+            if (piece == null || piece.Def.id == "bread_part_1") continue;
+            Cozy.Grid.CookLayout knifeLay = null;
+            foreach (var l in piece.Def.cookLayouts) if (l.productId == "kitchen_knife") knifeLay = l;
+            var prior = new System.Collections.Generic.HashSet<Cozy.Grid.InteractiveObject>(Cozy.Grid.InteractiveObject.All);
+            if ((int)freeSlot.Invoke(null, new object[] { knifeLay, piece, blade }) < 0)
+            {
+                refused++;
+                putOne.Invoke(gc, new object[] { knifeLay, piece, 0, blade });
+                UnityEngine.Physics.SyncTransforms();
+                int sneaked = 0;
+                foreach (var o in Cozy.Grid.InteractiveObject.All) if (o != null && !prior.Contains(o)) sneaked++;
+                Check(sneaked == 0, "PT-C06t резка без места всё равно прошла: новых кусков " + sneaked + " (сценарий " + sc + ")");
+                continue;
+            }
+            putOne.Invoke(gc, new object[] { knifeLay, piece, 0, blade });
+            if (piece != null) UnityEngine.Object.DestroyImmediate(piece.gameObject);
+            UnityEngine.Physics.SyncTransforms();
+            done++;
+            foreach (var o in Cozy.Grid.InteractiveObject.All) if (o != null && !prior.Contains(o) && cutIds.ContainsKey(o.Def.id)) todo.Add(o);
+        }
+        var parts = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>();
+        int partSum = 0;
+        foreach (var o in Cozy.Grid.InteractiveObject.All)
+            if (o != null && !standing.Contains(o) && cutIds.ContainsKey(o.Def.id)) { parts.Add(o); partSum += cutIds[o.Def.id]; }
+        var pool = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>(parts);
+        pool.AddRange(side);
+        int twins = 0, overlaps = 0, offTop = 0; float deepest = 0f;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            if (i < parts.Count && UnityEngine.Mathf.Abs(parts[i].transform.position.y - deskTop) > 0.005f) offTop++;
+            for (int j = i + 1; j < pool.Count; j++)
+            {
+                if ((pool[i].transform.position - pool[j].transform.position).sqrMagnitude < 1e-6f) twins++;
+                foreach (var a in pool[i].GetComponentsInChildren<UnityEngine.Collider>())
+                {
+                    if (a.isTrigger) continue;
+                    foreach (var c in pool[j].GetComponentsInChildren<UnityEngine.Collider>())
+                    {
+                        if (c.isTrigger) continue;
+                        if (UnityEngine.Physics.ComputePenetration(a, a.transform.position, a.transform.rotation, c, c.transform.position, c.transform.rotation, out _, out float depth) && depth > 0.003f) { overlaps++; deepest = UnityEngine.Mathf.Max(deepest, depth); }
+                    }
+                }
+            }
+        }
+        Check(sc == 2 || partSum == 8, "PT-C06t сценарий " + sc + " (соседей " + side.Count + "): кусков " + partSum + ", ждали 8 (резов " + done + ", отказов " + refused + ")");
+        Check(twins == 0, "PT-C06t сценарий " + sc + ": два куска в одной точке, пар " + twins);
+        Check(overlaps == 0, "PT-C06t сценарий " + sc + ": куски входят друг в друга или в соседей, пар " + overlaps + ", худшее " + (deepest * 1000f).ToString("0") + " мм");
+        Check(offTop == 0, "PT-C06t сценарий " + sc + ": не на столешнице " + offTop);
+        if (sc == 2) Check(refused > 0 && partSum == 8 && parts.Count == 1, "PT-C06t сценарий 2: батон зажат соседями с обеих сторон — ждали отказ и целый батон, а резов " + done + ", отказов " + refused + ", объектов " + parts.Count);
+        sb.Append("PT-C06t сценарий " + sc + ": резов " + done + ", отказов " + refused + ", кусков " + partSum + "\n");
     }
 }
 finally

@@ -60,6 +60,8 @@ Unity, но ловит и `BlenderWork/Library/`. Истории нет, отк�
 | 26.4 | `SH3` | «тапочки чёрные» | 8 мешей (Slipper/Rim/Sole/Insole ×L,R), 16 992 тр., УЖЕ в масштабе предмета ×1.2 |
 | 28.2 | `Armature_Red_Cut` | «тёмно-красная футболка» | фигура-копия, 18 мешей, 334 156 тр. |
 | 30.0 | `JT3` | «тёмно-красная футболка: объект» | 2 меша, 5 364 тр. |
+| 51.6 | `Armature_Turtleneck_Cut` | «водолазка» | стойка (18.10): тело, джинсы с ремнём, белые кроссовки, водолазка; футболки нет |
+| 54.0 | `Armature_TurtleneckWalk_Cut` | «водолазка: ходьба» | то же в ходьбе. Части Т-позы `Turtleneck*_Cut` СКРЫТЫ — источник экспорта |
 | — | (куртка) | — | фигуры куртки (стойка, ходьба) и её объекты живут в ОТДЕЛЬНОМ `humanJacket.blend` (08.09); здесь остаются только скрытые части `Jacket*_V1_Cut` на Т-позе — источник формы |
 
 **Что на основных трёх фигурах** (суффиксы `_Cut` / `_Idle_Cut` / `_Walk_Cut`,
@@ -146,6 +148,7 @@ blender -b --python human_skin_garment_export.py -- sneakersPair # предме�
 | `TShirtM` | `Armature_Cut` | Shirt, ShirtCollar | 14000 / 1200 | `ease 0` (толщина уже в геометрии), `keep_weights` — СВОИ веса |
 | `TShirtBeigeM` | `Armature_Beige_Cut` | + ShirtStripe, ShirtButtons | 14000 / 1200 | `keep_weights` |
 | `TShirtRedM` | `Armature_Red_Cut` | Shirt, ShirtCollar | 14000 / 1200 | `keep_weights` |
+| `TurtleneckM` | `Armature_Cut` | Turtleneck, TurtleneckCollar, TurtleneckRoll, TurtleneckCuffs, TurtleneckHem | 12000 / — / — / 900 / 900 | `keep_weights`, `back_band='turtleneck'` (P682) |
 | `SneakersM` | `Armature_Cut` | Shoes, Sole, Lace, Laces, ShoeCollar | 2200 / 700 | `ease 0.1` (1 мм), шнурки не пересаживаются |
 | `SneakersGreyM` | `Armature_Cut` | те же с суффиксом Grey + LogoGrey | 2200 / 700 | части в файле скрыты |
 | `SlippersM` | `Armature_Cut` | Slipper, SlipperRim, SlipperSole, SlipperInsole | 1800 / 600 | `ease 0.1` |
@@ -411,7 +414,7 @@ linear → sRGB (P202); сложенные джинсы красятся тем�
 Цвета частей: `KitMaterials.Apply` теперь красит любые `Renderer`, включая
 `SkinnedMeshRenderer`, и возвращает `bool`; `AttachSkinnedGarment` сначала
 пробует `-materials.json` рядом с вещью и только без него красит всё одним
-цветом из `ItemDef.color` (старый путь для водолазки и белья). Иначе ремень и
+цветом из `ItemDef.color` (старый путь, с 18.10 только у белья без json). Иначе ремень и
 пряжка становились синими, как деним.
 
 Оговорка: штаны сшиты по ужатому телу (бёдра −7 %), а игровой персонаж не
@@ -1085,3 +1088,33 @@ Library/humanClothes.blend --python human_man_night.py -- <Имя>`; файл о
 Т-поза x 0 (части `<Имя>*_Cut` — источник экспорта), стойка x 2,4, ходьба x 4,8, подписи. Проверки агента: EEVEE
 «look»-кадры + красная проба (кожа красная под вещью, порог 40 px как у `worn_jeans_pose_probe`). Подробности, числа и
 сомнения по каждой вещи — `DESIGN_LOG.md` здесь, 2026-10-01. Переносить — по чек-листу `CLOTHES.md` после слова Ильи.
+
+## Водолазка мужская (2026-10-18, в игре — переделка легаси)
+
+Илья 18.10: «водолазка — переделать». Старая `TurtleneckM` (июль,
+`build_garments.py`, раздувка фейсов, без json цветов и без объекта мира)
+заменена вещью по нынешнему принципу.
+
+- Форма — `human_skin_cut.show_turtleneck()` на живом `humanClothes.blend`
+  (точечный вызов, `run()` не трогать): `make_turtleneck` = `make_shirt`
+  (вариант `Turtleneck`, зоны torso/arms/hands/legs/head, рукав до 0,64,
+  вырез под шею по трём точкам `shirt_neck_*` и ворот-СТОЙКА
+  `shirt_collar_stand` 0,06 сзади, спереди 0,5 высоты — подбородок манекена
+  висит уже с z 1,58, шеи почти нет) + манжеты и резинка подола
+  `cloth_piece` + ОТВОРОТ `turtleneck_roll`: замкнутый профиль, протянутый по
+  кругу стойки (48 секторов): слой снаружи стойки на `fold` 0,55 её высоты +
+  полукруглая губа поверх верхней кромки, веса — с 6 ближайших вершин стойки.
+  Числа — блок `turtleneck` в `human_skin_params.json` (`cut` поверх общих
+  `shirt_*`, `roll`, `back_band`). Цвет 6B3540, резинки 5C2C36 (по картинке
+  иконки Ильи).
+- Фигуры: стойка x 51,6 и ходьба x 54,0 (`build_dressed`). ⚠️ В Blender 5
+  копии клипа не назначался слот действия — фигура стояла в Т-позе (P1149,
+  починено в `build_dressed`).
+- Экспорт `human_skin_garment_export.py -- TurtleneckM`, проба
+  `worn_jeans_pose_probe.py TurtleneckM` (зона: торс 0,97–1,47 и руки до
+  манжеты |x| 0,21–0,58, z 1,30–1,52) — 0 красных на всех 21 кадре.
+- Сложенная: `build_kit.py -- turtleneck_folded` (сцена лонгслива
+  `longsleeve_folded_scene.py`, ключ `roll` в params → `hood_roll` вместо
+  `collar_arc`; `turtleneck_folded_params.json`: слой 0,02, рукава 0,05 / 0,014,
+  отворот r 1,6→1,2 см) → `Furniture/turtleneckFolded.fbx` 7 804 тр.,
+  0,51 × 0,51 × 0,12 до `FoldedScale`, `Library/turtleneckFolded.blend`.

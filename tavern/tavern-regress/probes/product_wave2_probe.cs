@@ -6,7 +6,7 @@
 //  PT-DRP01 выложили «в воздух» над полом и над столом — FallToSupport кладёт низ на опору ±5 мм;
 //  PT-INV04 «Подобрать» при полном инвентаре — продукт остаётся в мире на месте, панель «Инвентарь полон» снята;
 //  PT-DUP01 «Подобрать» при свободном — в сетке ровно один предмет, в мире продукт уходит (уничтожается);
-//  PT-INV05 иконка: пропорции картинки как у клеток предмета (±35 %);
+//  PT-INV05 иконка: пропорции картинки как у клеток предмета (±35 %), проверка — Илья 18.10 «широкие иконки нужны»;
 //  PT-C05  куски батона: «подобрать → выложить» — размер 1×1, габарит модели тот же ±2 %;
 //  PT-INV06 вес пачки со счётчиком в мире = вес её предмета в инвентаре (Carry.KgOf) при 3 оставшихся;
 //  PT-CNT01 положили продукт в контейнер (миска, тарелка, сковорода, кофемашина) — сдвинули контейнер — продукт едет с ним;
@@ -15,9 +15,9 @@
 //  PT-SPL02 испорченное за полный порог таблицы — ровно max(1, poisonDose) доз, не больше (P764);
 //  PT-SPL03 у КАЖДОГО продукта с ножевой резкой части наследуют порчу и срок;
 //  PT-LIQ01 вылили всё — вес (Carry.KgOf) падает ровно на массу жидкости; в инвентаре вес как в мире;
-//  PT-TXT01 описание: ровно 2 предложения, без точки в конце, без длинного тире, есть перевод в en;
+//  PT-TXT01 описаний у продуктов НЕТ (Илья 18.10: «описания все убираем», BUILD.md 10.09);
 //  PT-SAVE04 продукт в контейнере: снимок → загрузка — снова в том же контейнере, не задвоился;
-//  PT-B01/B02 продукт на полке каждого холодильника при питании: поле температуры у продукта тянет к холоду камеры.
+//  PT-B01/B02 продукт на полке каждого холодильника при питании: с 18.10 холод снят пока (TemperatureSim.ColdOn = false) — поле у продукта НЕ холодное; при ColdOn — тянет к холоду камеры.
 // Первая строка — вердикт «ЗЕЛЁНОЕ из N» / «КРАСНОЕ: k из N», дальше FAIL/SKIP/INFO с кодом кейса.
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var gc = Cozy.Grid.GridCursor.I;
@@ -124,13 +124,8 @@ try
         if (io.Liquid != null) Check(io.Liquid.Litres <= def.capacityL + 0.001f, "PT-SPN01 " + def.id + ": жидкости " + io.Liquid.Litres.ToString("0.00") + " л при ёмкости " + def.capacityL.ToString("0.00"));
 
         string desc = (def.description ?? "").Trim();
-        if (desc.Length > 0)
-        {
-            withDesc.Add(def.id);
-            if (enAsset != null) Check(en.ContainsKey(desc) && en[desc].Length > 0, "PT-TXT01 " + def.id + ": описание есть, а перевода в en нет — в английской игре будет русский текст");
-            int dots = 0; for (int i = 0; i + 1 < desc.Length; i++) if ((desc[i] == '.' || desc[i] == '!' || desc[i] == '?') && desc[i + 1] == ' ') dots++;
-            if (dots != 1 || desc.EndsWith(".") || desc.IndexOf('—') >= 0) notes.Append("INFO PT-TXT01 " + def.id + ": формат описания (2 предложения, без точки в конце, без «—») не соблюдён — «" + desc + "»\n");
-        }
+        if (desc.Length > 0) withDesc.Add(def.id);
+        Check(desc.Length == 0, "PT-TXT01 " + def.id + ": у продукта описание «" + desc + "», а описаний быть не должно (Илья 18.10: «описания все убираем»)");
 
         var item = Cozy.Grid.Items.ById(!string.IsNullOrEmpty(def.pickupItemId) ? def.pickupItemId : def.id);
         if (item != null && !string.IsNullOrEmpty(item.icon))
@@ -141,12 +136,11 @@ try
                 var r = spr.textureRect;
                 float pic = r.width / UnityEngine.Mathf.Max(1f, r.height), cells = (float)item.size.x / UnityEngine.Mathf.Max(1, item.size.y);
                 float k = pic / cells;
-                if (!(k > 0.65f && k < 1.54f)) notes.Append("INFO PT-INV05 " + def.id + ": картинка " + r.width.ToString("0") + "×" + r.height.ToString("0") + ", клетки " + item.size.x + "×" + item.size.y + " — иконка квадратная, в ячейках стоит мельче (preserveAspect)\n");
+                Check(k > 0.65f && k < 1.54f, "PT-INV05 " + def.id + ": картинка " + r.width.ToString("0") + "×" + r.height.ToString("0") + ", клетки " + item.size.x + "×" + item.size.y + " — иконка не по форме клеток (Илья 18.10: «широкие иконки нужны»)");
             }
         }
     }
 
-    if (withDesc.Count > 0) notes.Append("INFO PT-TXT01 правило BUILD.md 10.09 «описаний нет», а у продуктов есть описание: " + string.Join(", ", withDesc.ToArray()) + " — развилка для Ильи\n");
     stage = "DRP01";
     // PT-DRP01: над полом и над столом — FallToSupport
     float top = DeskTop(origin + new UnityEngine.Vector3(-8f, 0f, 0f));
@@ -477,7 +471,9 @@ try
             var args = new object[] { hb, amb, 0f, 0f };
             bool near = (bool)mSample.Invoke(null, args);
             float tgt = (float)args[2];
-            Check(near && tgt < amb - 5f, "PT-B01 " + fdef.id + ": при питании у батона на полке поле " + (near ? tgt.ToString("0.0") + "°" : "не найдено") + ", комната " + amb.ToString("0.0") + "°");
+            var coldField = typeof(Cozy.Grid.TemperatureSim).GetField("ColdOn"); bool coldOn = coldField == null || (bool)coldField.GetValue(null);
+            if (coldOn) Check(near && tgt < amb - 5f, "PT-B01 " + fdef.id + ": при питании у батона на полке поле " + (near ? tgt.ToString("0.0") + "°" : "не найдено") + ", комната " + amb.ToString("0.0") + "°");
+            else Check(!(near && tgt < amb - 5f), "PT-B01 " + fdef.id + ": холод снят пока (Илья 18.10), а у батона на полке поле " + tgt.ToString("0.0") + "° при комнате " + amb.ToString("0.0") + "°");
         }
         notes.Append("INFO PT-B01 " + fdef.id + ": продукт сам " + (loaf.Conducts ? "проводит тепло" : "НЕ в списке проводящих (TemperatureSim его не греет/не холодит)") + ", порча — по календарной дате (FoodSpoil.PastDate), от холода не зависит\n");
         // PT-B04: холодильник с продуктом — снимок → загрузка

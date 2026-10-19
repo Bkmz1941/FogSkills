@@ -105,6 +105,16 @@ foreach (var d in Cozy.Grid.FurnitureCatalog.All()) {
 }
 float refTop = float.NaN;
 var slotA = faceCenter + back * 0f - back * 0.5f;   // точка на полу в 0,5 м от стены, у центра стены
+// Герой — в досягаемость (правило 2 регресса, 19.10): поза тянется к игроку по досягаемости, и герой в 8 м
+// от стены давал призрак в метре от неё и красный — проба краснела по-разному от того, где он стоял.
+var savedFeet = Cozy.Character.PlayerTarget.Feet;
+gc.TeleportPlayerTo(faceCenter - back * 1.5f); UnityEngine.Physics.SyncTransforms();
+// Поворот призрака — состояние курсора (R у игрока), не проба: при 0° мебель вставала боком к стене, и POS01
+// краснел или зеленел от того, как курсор крутили до пробы. Спиной к стене — и вернуть как было.
+var fFreeYaw = T.GetField("_freeYaw", B); var fOrient = T.GetField("_orient", B);
+object savedFreeYaw = fFreeYaw.GetValue(gc), savedOrient = fOrient.GetValue(gc);
+float backYaw = UnityEngine.Mathf.Repeat(UnityEngine.Mathf.Atan2(back.x, back.z) * UnityEngine.Mathf.Rad2Deg, 360f);
+fFreeYaw.SetValue(gc, backYaw); fOrient.SetValue(gc, UnityEngine.Mathf.RoundToInt(backYaw / 90f) % 4);
 try {
     // эталонная высота столешницы
     if (refDef != null) {
@@ -195,6 +205,8 @@ try {
     }
 } finally {
     Clear();
+    gc.TeleportPlayerTo(savedFeet);
+    fFreeYaw.SetValue(gc, savedFreeYaw); fOrient.SetValue(gc, savedOrient);
     cam.transform.SetPositionAndRotation(savedPos, savedRot);
     UnityEngine.Physics.SyncTransforms();
 }

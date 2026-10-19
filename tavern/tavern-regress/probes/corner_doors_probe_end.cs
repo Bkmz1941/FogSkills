@@ -17,5 +17,5 @@ foreach (var io in Cozy.Grid.InteractiveObject.All)
     }
 }
 foreach (var io in new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>(Cozy.Grid.InteractiveObject.All))
-    if (io != null && io.name.StartsWith("DoorProbe_")) UnityEngine.Object.Destroy(io.gameObject);
+    if (io != null && io.name.StartsWith("DoorProbe_")) UnityEngine.Object.DestroyImmediate(io.gameObject);
 return sb.ToString();

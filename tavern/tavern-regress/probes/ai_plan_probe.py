@@ -76,7 +76,7 @@ def push_wait():
 
 def state(mb):
     code = ('var io = Cozy.Grid.InteractiveObject.BySlug(%s); if (io == null) return "нет"; var z = Cozy.Grid.ZonePiece.BySlug(%s); Vector3 b; z.MarkCell(%d, out b); '
-            'return io.transform.position.ToString("0.0") + " | до B " + Vector3.Distance(io.transform.position, b).ToString("0.0") + " | " + (Cozy.Life.CreaturePlan.Describe != null ? Cozy.Life.CreaturePlan.Describe(io) : "?");')
+            'return io.transform.position.ToString("0.0") + " | до B " + Vector3.Distance(io.transform.position, b).ToString("0.0") + " | " + Cozy.Life.CreaturePlan.Describe(io);')
     return lambda zone: run(code % (cs(WHO), cs(zone), mb))
 
 

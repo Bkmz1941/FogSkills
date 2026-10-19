@@ -5,7 +5,9 @@
 //  PL07 лимиты дефа мойки (ObjectDef.pile): до лимита HasRoom = да, сверх лимита — нет (кружки 8, тарелки 5, сковорода 1, кастрюля 1);
 //  PL10/PL02 после каждого ДОБАВЛЕНИЯ раскладка = свежей раскладке того же состава (память посадок стёрта) ±0,5 мм;
 //  PL10/PL03 после СНЯТИЯ кружки или тарелки остальные только оседают: то же пятно (xz ±1 мм), y не выше;
-//  PL04 «загрузка»: стёртая память посадок не перекладывает горку (±0,5 мм).
+//  PL04 «загрузка»: стёртая память посадок не перекладывает горку (±0,5 мм);
+//  PL11 ничто не видно сквозь (Илья 18.10, P1145): посуда, накрывающая поднятую пробку слива, стоит выше её верха (−1 мм),
+//       кружка на кружке — низ верхней не ниже верха нижней (−1 мм) — после каждого шага истории.
 // История — 40 шагов детерминированного случайного «добавить/снять» (System.Random(18)). Всё удаляется в finally.
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var T = typeof(Cozy.Grid.SinkPile);
@@ -57,6 +59,43 @@ try {
         foreach (var io in put) Out(io);
         Lay(); ((System.Collections.IDictionary)mem.GetValue(pile)).Clear();
     }
+    var plugParts = new System.Collections.Generic.List<UnityEngine.Bounds>();
+    foreach (var r in sink.GetComponentsInChildren<UnityEngine.Renderer>())
+        if (r.name == "DrainPlug" || r.name == "DrainPlugCap") plugParts.Add(r.bounds);
+    bool plugFound = plugParts.Count > 0;
+    Check(plugFound, "PL11: у мойки нет узлов DrainPlug/DrainPlugCap");
+    int clearChecks = 0;
+    System.Action<string> Clear = label => {
+        if (!plugFound) return;
+        var list = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>(); pile.Collect(list);
+        foreach (var io in list) {
+            float worst = 0f;
+            foreach (var mf in io.GetComponentsInChildren<UnityEngine.MeshFilter>()) {
+                var mr = mf.GetComponent<UnityEngine.Renderer>();
+                if (mf.sharedMesh == null || mr == null || !mr.enabled || Cozy.Grid.InteractHighlight.IsCopy(mr)) continue;
+                var m = mf.transform.localToWorldMatrix;
+                foreach (var v in mf.sharedMesh.vertices) {
+                    var w = m.MultiplyPoint3x4(v);
+                    foreach (var pb in plugParts) {
+                        if (new UnityEngine.Vector2(w.x - pb.center.x, w.z - pb.center.z).magnitude >= pb.extents.x) continue;
+                        if (w.y > pb.max.y || w.y < pb.min.y - 0.05f) continue;
+                        worst = UnityEngine.Mathf.Max(worst, pb.max.y - w.y);
+                    }
+                }
+            }
+            clearChecks++;
+            Check(worst <= 0.001f, "PL11 " + label + ": " + io.Def.id + " входит в пробку слива на " + (worst * 1000f).ToString("0.0") + " мм");
+        }
+        foreach (var a in list) foreach (var c in list) {
+            if (a == c || !a.Def.id.StartsWith("coffee_cup") || !c.Def.id.StartsWith("coffee_cup")) continue;
+            var ba = a.WorldBounds; var bc = c.WorldBounds;
+            if (bc.center.y <= ba.center.y + 0.1f) continue;
+            var sa = ba; sa.Expand(new UnityEngine.Vector3(-0.01f, 0f, -0.01f));
+            if (sa.min.x > bc.max.x || bc.min.x > sa.max.x || sa.min.z > bc.max.z || bc.min.z > sa.max.z) continue;
+            clearChecks++;
+            Check(bc.min.y >= ba.max.y - 0.001f, "PL11 " + label + ": кружка на кружке входит на " + ((ba.max.y - bc.min.y) * 1000f).ToString("0.0") + " мм");
+        }
+    };
     // ── PL10 живая история
     var pool = new System.Collections.Generic.List<Cozy.Grid.InteractiveObject>();
     foreach (var id in new[] { "coffee_cup_red", "coffee_cup_yellow", "coffee_cup_blue", "coffee_cup_red", "plate", "plate", "plate", "frying_pan", "cooking_pot" }) pool.Add(Make(id));
@@ -75,6 +114,7 @@ try {
             Check(after.Count == inPile.Count, "PL10 шаг " + step + " +" + pick.Def.id + ": в горке " + after.Count + ", положено " + inPile.Count);
             ((System.Collections.IDictionary)mem.GetValue(pile)).Clear(); Lay();
             var fresh = Snap();
+            Clear("шаг " + step + " +" + pick.Def.id);
             foreach (var kv in after) {
                 UnityEngine.Vector3 f; if (!fresh.TryGetValue(kv.Key, out f)) { Check(false, "PL04 шаг " + step + ": после сброса памяти " + kv.Key.Def.id + " выпала из горки"); continue; }
                 float d = (f - kv.Value).magnitude;
@@ -95,7 +135,7 @@ try {
             }
         }
     }
-    sb.Insert(0, "история: добавлений " + adds + ", снятий " + removes + "\n");
+    sb.Insert(0, "история: добавлений " + adds + ", снятий " + removes + ", проверок «сквозь» " + clearChecks + "\n");
 } finally {
     foreach (var g in made) if (g != null) UnityEngine.Object.DestroyImmediate(g);
     UnityEngine.Physics.SyncTransforms();

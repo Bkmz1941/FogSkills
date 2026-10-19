@@ -18,13 +18,15 @@ var spawn = GC.GetMethod("SpawnObject", NP);
 var restoreOne = GC.GetMethod("RestoreOne", NP);
 var tick = IO.GetMethod("Tick", NP);
 var fMoving = IO.GetField("_moving", NP);
+var openLimitM = IO.GetMethod("OpenLimit", NP);
+var setPose = IO.GetMethod("SetPartPose", NP);
 var snapshot = typeof(Cozy.Grid.LevelIO).GetMethod("Snapshot", NPS);
 var collectF = typeof(Cozy.Grid.LevelIO).GetMethod("CollectFeatures", NPS);
 var sb = new System.Text.StringBuilder();
 int fails = 0, checks = 0, skipped = 0;
 System.Action<bool, string> Check = (ok, line) => { checks++; if (!ok) { fails++; if (fails <= 60) sb.Append("FAIL " + line + "\n"); } };
 var made = new System.Collections.Generic.List<UnityEngine.GameObject>();
-var basePos = Cozy.Grid.PlayerRef.Transform.position + new UnityEngine.Vector3(0f, -90f, 0f);
+var basePos = Cozy.Grid.PlayerRef.Transform.position + new UnityEngine.Vector3(-700f, -90f, 0f);
 
 System.Func<object, string, object> F = (o, n) => o.GetType().GetField(n).GetValue(o);
 System.Action<Cozy.Grid.InteractiveObject> Settle = io => {
@@ -111,6 +113,20 @@ try {
         foreach (var m in mine) {
             var tf = (UnityEngine.Transform)F(m, "tf"); float lim = (float)F(m, "limit");
             Check(lim >= 0.99f, "PRT03 " + def.id + "/" + tf.name + ": в чистом поле открывается только на " + (lim * 100f).ToString("0") + " % (" + ((bool)F(m, "rotate") ? (lim * UnityEngine.Quaternion.Angle((UnityEngine.Quaternion)F(m, "closedRot"), (UnityEngine.Quaternion)F(m, "openRot"))).ToString("0") + "°" : "хода") + ") — упирается в свой корпус или соседнюю створку");
+        }
+        io.SetAllDoors(false); Settle(io);
+        // PRT03s стабильность: предел каждой части один и тот же, на каком бы кадре анимации ни стояли соседи
+        io.SetAllDoors(true);
+        foreach (var m in mine) {
+            var tf = (UnityEngine.Transform)F(m, "tf");
+            float first = float.NaN;
+            foreach (float mid in new[] { 0f, 0.1f, 0.3f, 0.6f }) {
+                foreach (var o in mine) if (o != m) setPose.Invoke(io, new object[] { o, mid });
+                float lim = (float)openLimitM.Invoke(io, new object[] { m });
+                if (float.IsNaN(first)) first = lim;
+                Check(UnityEngine.Mathf.Abs(lim - first) < 0.001f, "PRT03s " + def.id + "/" + tf.name + ": предел зависит от кадра анимации соседей — при соседях на " + mid.ToString("0.0") + " хода " + lim.ToString("0.00") + ", при закрытых " + first.ToString("0.00"));
+            }
+            foreach (var o in mine) setPose.Invoke(io, new object[] { o, 0f });
         }
         io.SetAllDoors(false); Settle(io);
         // PRT06 стена сзади и соседи по бокам

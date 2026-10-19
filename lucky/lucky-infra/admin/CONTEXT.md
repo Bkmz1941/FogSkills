@@ -93,7 +93,14 @@ user-юнит `lucky-admin` (:3000, за nginx `admin.luckyserver.pro`), Node 24
   заходить с ним). Аккаунты живут в БД бэка (`root_users`) — создание новых
   описано в `backend/CONTEXT.md`.
 
-## Локализация контента (en/ru) — 15.10.2026, не закоммичено
+## Локализация контента (en/ru) — 15.10.2026; в `dev` `c1bffd5`, `main` `54e27b4`, на проде с 16.10
+
+- **16.10, `64c29bd` dev / merge `cee6cbf` main — обрезанное кольцо у полей в попапах с прокруткой.** Тело формы
+  `ContentEditorDialog` при `scrollBody` имело `overflow-y-auto` + только `pr-1`; `overflow-y` режет и по горизонтали,
+  а `aria-invalid:ring-3` / `focus-visible:ring-3` — box-shadow снаружи элемента, слева места не было, и выпадашка
+  Localization в ошибке выглядела обрезанной (скриншот Ильи). Теперь `-mx-1 px-1`: 4px запаса с обеих сторон, поля на
+  месте, скроллбар на 4px правее внутри паддинга диалога. Воспроизводится без `ru`: открыть Section settings на
+  dev2.admin и поставить `aria-invalid="true"` любому select-trigger в DevTools.
 
 - Локали проекта (General в проекте и у рута, New project): только `en`/`ru`
   (`contentLocales` из контракта); API режет остальное `@IsIn`.

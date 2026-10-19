@@ -47,6 +47,8 @@ def main():
         text = probe.read_text(encoding='utf-8', errors='replace')
         missing = set()
         for ref in QUALIFIED.findall(text):
+            if ref.endswith('.dll'):
+                continue
             parts = ref.split('.')
             while parts and parts[0] in NAMESPACES:
                 parts.pop(0)
