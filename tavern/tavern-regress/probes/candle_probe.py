@@ -13,6 +13,8 @@ python3 candle_probe.py        только в play, на ЛЮБОМ уровн�
 Фаза 2 (через 1,5 с живых кадров — Destroy в Unity отложенный): «Потушить» погасило и кнопка пропала, воск прежний,
 сейв после тушения, огарок догорел и исчез, ни одного осиротевшего пламени.
 Вердикт первой строкой: «ЗЕЛЁНОЕ из N» / «КРАСНОЕ: k из N».
+Ближние объекты ставятся В КЛЕТКЕ ГЕРОЯ (не «перед ним»): в режиме комнат герой в закрытой
+комнате — «внутри здания», и свеча за стеной комнаты гасит свет как чужой контент (22.10, P1201).
 """
 import json, os, subprocess, sys, time
 
@@ -59,11 +61,14 @@ var cursor = Cozy.Grid.GridCursor.I;
 var spawn = typeof(Cozy.Grid.GridCursor).GetMethod("SpawnObject", NP);
 var player = Cozy.Grid.PlayerRef.Transform.position;
 float floorY = Cozy.View.ViewState.CurrentFloorY;
+var coord0 = Cozy.Grid.GridManager.GroundOrFloor();
+var myCell = Cozy.Grid.GridSnap.Cell(player, coord0.Origin, coord0.CellSize);
+var cellMid = new UnityEngine.Vector3(coord0.Origin.x + myCell.x * coord0.CellSize, floorY, coord0.Origin.z + myCell.y * coord0.CellSize);
 int slot = 0, candles = 0;
 int baseFlames = Flames();
 System.Func<Cozy.Grid.ObjectDef, bool, Cozy.Grid.InteractiveObject> Spawn = (def, far) => {
     var p = far ? player + new UnityEngine.Vector3(40f, -90f, 30f + slot * 2f)
-                : new UnityEngine.Vector3(player.x + 0.6f + (slot % 6) * 0.3f, floorY, player.z + 0.6f + (slot / 6) * 0.3f);
+                : new UnityEngine.Vector3(cellMid.x - 1f + (slot % 6) * 0.35f, floorY, cellMid.z - 1f + ((slot / 6) % 6) * 0.35f);
     slot++;
     var io = (Cozy.Grid.InteractiveObject)spawn.Invoke(cursor, new object[] { def, p, 0f });
     if (io != null) io.gameObject.name = "probe_candle_" + def.id + "_" + slot;

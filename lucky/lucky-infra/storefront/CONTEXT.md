@@ -256,15 +256,40 @@ env-файлы). Docker/ansible из репо удалены.
 ### Витрина Crash Heroes — games.crash-heroes.com (сервер крашей 78.141.216.99)
 
 - Тот же lucky-storefront, проект прод-Lucky **«Crash Heroes Catalogue»**. CI нет — выкладка руками.
-- nginx `/etc/nginx/conf.d/games.crash-heroes.com.conf`: `/`, `/assets/`, `pwa-*`, `wheel-fortune-tent.png` и SPA-фолбэк
+- nginx `/etc/nginx/conf.d/games.crash-heroes.com.conf`: с 22.10 все три location витрины (`= /`, `/`, `@storefront`) несут
+  один блок `add_header Last-Modified $date_gmt; add_header Cache-Control "no-store, no-cache, must-revalidate,
+  proxy-revalidate, max-age=0"; expires off; etag off;` (Илья добавил недостающий `Last-Modified` скриптом через `! bash`,
+  бэкап `~/nginx-games.crash-heroes.com.conf.bak-20261022-085112` на crash-prod); хешированные `/assets/*` и pwa-картинки —
+  `immutable` на год, это правильно. На brobro.casino тот же блок стоит в обоих location с самого начала; `/`, `/assets/`, `pwa-*`, `wheel-fortune-tent.png` и SPA-фолбэк
   — из `/home/admin/crashgames/storefront/current` (симлинк на `releases/<sha>-<дата>`); папки игр (`/fatguy/`…) — из
   `/home/admin/crashgames/games`.
 - Сборка: worktree `origin/main` + `.env.prod`, но `APP_PUBLIC_KEY` = ключ проекта Crash Heroes (взять из текущего
   бандла `current/assets/index-*.js`), `APP_DEFAULT_TIME_ZONE=UTC`, `APP_PWA_ENABLED=false`, `APP_PWA_NAME`/`SHORT_NAME`
-  `Crash Heroes`. В `index.html` руками: `<title>Crash Heroes</title>`, description `Crash Heroes casino.`, убрать
+  `Crash Heroes`. **С 22.10 — `APP_AUTH_MODE=guest`** (просьба Полины: демо-стенд, вход без логина и пароля): витрина
+  при заходе сама делает `POST /v1/auth/guest` и держит гостя в localStorage; для этого руту надо включить проекту
+  «Crash Heroes Catalogue» Guest sign-in (Projects → проект → General → Sign-in), иначе сайт тихо работает как обычный
+  (в консоли warning). Режим задаётся только сборкой, в `.env.prod` репо стоит `credentials`. В `index.html` руками: `<title>Crash Heroes</title>`, description `Crash Heroes casino.`, убрать
   `manifest` и `registerSW.js`; `sw.js`, `workbox-*`, `registerSW.js`, `manifest.webmanifest` не выкладывать.
 - Выкладка: rsync в `releases/<sha>-<дата>/`, `ln -sfn … current.new && mv -T current.new current`. Откат — симлинк
   на прошлый релиз. Проверка: `/`, бандл, SPA-маршрут, `/fatguy/`, `/crashhockey/` = 200.
+- Журнал: 22.10 (4-й) `93690b3-guest-20261022` — `main` `93690b3` (один отступ 12 px под шапкой на телефоне на всех страницах),
+  сборка готова, выкладка у Ильи. `7ab8a3a-guest-20261022` выложен Ильёй ~10:00 UTC.
+- Журнал: 22.10 (3-й) `7ab8a3a-guest-20261022` — `main` `7ab8a3a` (+ обновление кошельков/бонусов/попапа «бонус начислен» сразу
+  после депозита, `refreshAfterPayment`), сборка та же, выкладка `deploy-crash-storefront.sh` (PREV теперь читается из живого
+  симлинка). brobro.casino переложен CI (`index-DZAT_vVp.js` = локальная сборка `main`).
+- Журнал: 22.10 (2-й) `b8dfaad-guest-20261022` — `main` `b8dfaad` (пул-ту-рефреш на избранном/истории/профиле, без кнопки
+  «Обновить» в истории на телефоне, без «Выйти» у гостя), та же сборка `crash-storefront-build.sh`, бандл `index-BpYV_O3n.js`;
+  выкладка `deploy-crash-storefront.sh` через `! bash` у Ильи (откат — `dcc08a1-guest-20261022`). brobro.casino и админка на
+  этот коммит переложены CI (бандл `index-BMbqQyN2.js` = локальная сборка `main`).
+- Журнал: 22.10 `dcc08a1-guest-20261022` — релиз до этого (выложил Илья ~08:40 UTC, проверено: бандл `index-DN3L76BA.js` с
+  `APP_AUTH_MODE:"guest"`, заход в чистом браузере = `POST /v1/auth/guest` 200 → bootstrap 200 → попап Welcome bonus 10 000,
+  консоль чистая); `origin/main` `dcc08a1` (гостевой вход), первая сборка с `APP_AUTH_MODE=guest`;
+  собрано из worktree в scratchpad сессии lucky-api (`.env.prod.local`: ключ из живого бандла, `APP_DEFAULT_TIME_ZONE=UTC`,
+  PWA-имена, `APP_AUTH_MODE=guest`; index.html подправлен, PWA-файлы удалены), выкладка — скрипт
+  `deploy-crash-storefront.sh` через `! bash` у Ильи (rsync → `releases/`, симлинк, проверка `/`, бандла, `/settings`,
+  `/wheel-of-fortune`, `/fatguy/`, `/crashhockey/`; откат — симлинк на `90af323-bonus-model-20261020`). Перед выкладкой у
+  проекта Crash Heroes Catalogue должен быть включён Guest sign-in, иначе сайт работает как обычный.
+- Журнал: 20.10 `90af323-bonus-model-20261020` — `dev` `90af323` (модель бонусов), собрано из worktree, ключ Crash Heroes взят из текущего бандла в `.env.prod` worktree; выложил Илья скриптом через `! bash` (авто-режим Claude блокирует выкладку на crash-prod). Прежний релиз — `a294198-light-headings-20261016`.
 - Журнал: 15.10 `8503c9f-grid-20261015` — `origin/main` (= dev = main, `8503c9f`) + сетка 1400 (меню 180 / зазор 20 /
   контент 1200, контейнер 1448) + тот же незакоммиченный `scrollbar-gutter: stable`; собрано из чистого worktree в
   scratchpad (`git worktree add --detach`, `node_modules` симлинком, правки наложены точечно `sed`-ом, НЕ `git diff`
@@ -342,3 +367,13 @@ scrollbar `ff9586c`), merge `de274a2` в `main`, выкачено CI на оба
   языка на лету в обе стороны), баланс, модалка пополнения — всё по-русски,
   ошибок в консоли нет. В локальной БД остался тестовый игрок
   `i18n-check@example.com` (Debug project #1).
+
+### Дев витрины без кэша и без service worker (2026-10-20)
+
+Команда Ильи «убери кэширование совсем через nginx» — после выката он видел старую сборку: PWA (`vite-plugin-pwa`,
+`registerType: autoUpdate`) держала прежнюю версию в кэше браузера. Заголовки и раньше были `no-store` на всё. В вхосте
+`/etc/nginx/sites-available/storefront.luckyserver.pro` (lucky-dev) добавлено: `location = /sw.js` отдаёт скрипт-самоудалитель
+(skipWaiting → стирает все `caches` → `registration.unregister()` → перезагружает открытые вкладки), `location = /registerSW.js`
+отдаёт пустой ответ — приложение больше не регистрирует service worker. Оба с `no-store`. Работает поверх любой сборки: файлы
+`sw.js`/`registerSW.js` из `dist` nginx больше не отдаёт. Бэкап вхоста — `~/deploy-backups/nginx-storefront.luckyserver.pro.<stamp>`.
+Откат — вернуть бэкап, `sudo nginx -t && sudo systemctl reload nginx`. Прод (brobro.casino) не трогали.

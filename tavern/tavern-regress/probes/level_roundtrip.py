@@ -10,6 +10,12 @@
 Нашло 2026-09-01: из 42 объектов доезжало 36-37 (Destroy отложен, привязка
 находила приговорённого хозяина).
 
+Руки героя (2026-10-22, ilya-de): до шага «инвентарь» карманы, надетое и их
+содержимое снимаются `LevelIO.CollectPlayer()` в файл, а в конце возвращаются
+`RestorePlayer` — раньше проба оставляла в руке СВОЙ фонарь, и после каждого
+`check_all` у героя прибавлялся фонарь (потом он уезжал в мир через
+`transfer_probe`, и `cycle.py stop` отказывал по P843 — «утечка фонарика»).
+
 Выключатели (2026-09-28, P631, инвариант 286): у каждого сверяются ПОЗИЦИИ
 ламп, на которые он указывает. Имена целей `деф#N` до и после круга совпадали
 и при баге — путались лампы за этими именами.
@@ -89,6 +95,8 @@ CELLS_FILL = r'''
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var eq = Cozy.Grid.PlayerRef.GameObject.GetComponent<Cozy.Character.Equipment>();
 if (eq == null) return "нет Equipment";
+var keepPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "_roundtrip_keep.json");
+System.IO.File.WriteAllText(keepPath, UnityEngine.JsonUtility.ToJson(Cozy.Grid.LevelIO.CollectPlayer()));
 foreach (var it in new System.Collections.Generic.List<Cozy.Grid.PlacedItem>(eq.Pockets.Items)) eq.Pockets.Remove(it);
 eq.Pockets.TryAdd(Cozy.Grid.Items.Flashlight);
 eq.Pockets.TryAdd(Cozy.Grid.Items.Batteries);
@@ -128,7 +136,12 @@ foreach (var it in eq.Pockets.Items)
     s.Append(' ');
 }
 foreach (var it in new System.Collections.Generic.List<Cozy.Grid.PlacedItem>(eq.Pockets.Items)) eq.Pockets.Remove(it);
-eq.Pockets.TryAdd(Cozy.Grid.Items.Flashlight);
+var keepPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "_roundtrip_keep.json");
+var keepJson = System.IO.File.Exists(keepPath) ? System.IO.File.ReadAllText(keepPath) : "";
+if (keepJson.Length == 0) return s.ToString().Trim() + " | ГЕРОЙ НЕ ВОЗВРАЩЁН: нет снимка карманов";
+var keep = UnityEngine.JsonUtility.FromJson<Cozy.Grid.LevelIO.PlayerData>(keepJson);
+System.IO.File.WriteAllText(keepPath, "");
+Cozy.Grid.LevelIO.RestorePlayer(keep);
 return s.ToString().Trim();
 '''
 

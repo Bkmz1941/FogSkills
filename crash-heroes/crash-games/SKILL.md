@@ -1916,3 +1916,21 @@ Aviatrix): **каждая ставка закрывается ровно одн�
 - Зонд сокета лежит в scratchpad сессии (`rng-probe.mjs` / `rng-start.mjs`, Node 22+ со
   встроенным `WebSocket`): конверт `{id:<целое>, type, data?}`, строковый `id` даёт
   `Invalid message`.
+
+## Журнал: 2026-10-19 — Chick Shot в режиме общего раунда, релиз на прод
+
+Подробно про движок — скил `game-engine-rng`, раздел «Режим `shared`».
+
+- **api-core** `87d6ecc` «Store RNG bets separately and show shared rounds with their bets in the admin» (`develop`) —
+  закоммичена чужая работа 28.09 (`GameRngBet`, миграция `2026_09_28_100001_create_game_rng_bets_and_add_state_to_rng_games`)
+  плюс общие раунды в админ-API: статусы `rolling/finished/canceled`, `RngBetResource`, `mode`/`bets_count`/`bets`/`state`
+  в ресурсе игры, фильтр `hasBets`, сводка solo + shared через union. Миграция: дев ~12:06 UTC, **прод batch 11 ~15:32 UTC**
+  через `e646014` «Merge develop into main» (в `main` до этого только Donkey Rush и демо — всё уже было на проде).
+  Бэкфилл миграции скопировал старые партии Хоккея в `game_rng_bets` (разово).
+- **Админка** `20e9945` (`dev`) → `1010176` «Merge dev into main», прод ~15:34: статусы общих раундов, колонка «Ставок»,
+  таблица ставок в карточке, переключатель «Пустые раунды».
+- `main` обоих репо **не перематывается** с `develop`/`dev` (свои мерж-коммиты) — мержить через `git worktree` в
+  scratchpad, рабочее дерево с чужими правками (`laravel.log`, `.env.local`, `dice-stream`) не трогать.
+- Прод крашей: `chick-shot-engine-1` (:3101) — `GAME_MODE=shared`, `ROLLING_SECONDS=5`, 0.1.19; `crash-engine-rng-1` —
+  0.1.19 `solo`. На проде compose — `docker-compose`.
+- Демо-сессия RNG-игры без подписи: tinker → `GameLaunchService::launchDemo($project, ["game_id" => "<uuid>"])`.

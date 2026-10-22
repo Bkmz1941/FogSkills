@@ -1,3 +1,5 @@
+// 20.10 P1158: целиком по всем предметам одним вызовом уронила редактор (SIGSEGV в драйвере NVIDIA) — не больше 100 стендов
+// за вызов, гонять частями: check_all.py (probe_cs_parts) или parts-копией с `_k++ % K`.
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var F = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
 var T = typeof(Tavern.UI.ItemPreview3D);
@@ -6,6 +8,7 @@ System.Action<object, string, object> Set = (o, f, v) => T.GetField(f, F).SetVal
 System.Action<object, string, object[]> Call = (o, f, a) => T.GetMethod(f, F).Invoke(o, a);
 var sb = new System.Text.StringBuilder();
 int n = 0, bad = 0, checks = 0;
+bool cut = false;
 var badIds = new System.Collections.Generic.Dictionary<string, int>();
 System.Action<bool, string, string> Ok = (ok, code, id) =>
 {
@@ -25,6 +28,7 @@ try
     foreach (var def in Cozy.Grid.FurnitureCatalog.All())
     {
         if (def == null || string.IsNullOrEmpty(def.pickupItemId)) continue;
+        if (n >= 100) { cut = true; break; }
         var p = Tavern.UI.ItemPreview3D.Attach((UnityEngine.RectTransform)holder.transform, def);
         if (p == null) continue;
         n++;
@@ -35,7 +39,9 @@ try
             var model = p.Model;
             var rends = model.GetComponentsInChildren<UnityEngine.Renderer>();
             Ok(holder.GetComponentInChildren<Tavern.UI.ItemPreview3D>() == p && cam.transform.parent.Find("ItemPreviewGrid") == null, "IN-S01", def.id);
-            p.SetGrid(0.35f, 1.05f, 1.6f);
+            p.FitInside(UnityEngine.Mathf.Max(Tavern.UI.InventoryScreenUI.InspectLook.ArrowLeft, Tavern.UI.InventoryScreenUI.InspectLook.ArrowRight) + Tavern.UI.InventoryScreenUI.InspectLook.ArrowSize + Tavern.UI.InventoryScreenUI.InspectLook.ObjectGap,
+                UnityEngine.Mathf.Max(Tavern.UI.InventoryScreenUI.InspectLook.ArrowTop, Tavern.UI.InventoryScreenUI.InspectLook.ArrowBottom) + Tavern.UI.InventoryScreenUI.InspectLook.ArrowSize + Tavern.UI.InventoryScreenUI.InspectLook.ObjectGap);
+            p.SetGrid(0.35f, 1f, 1.6f);
             UnityEngine.Transform grid = null;
             foreach (var t in cam.transform.parent.GetComponentsInChildren<UnityEngine.Transform>()) if (t.name == "ItemPreviewGrid") grid = t;
             Ok(grid != null, "IN-G00", def.id);
@@ -88,7 +94,7 @@ try
                 Call(p, "ClampPan", new object[0]);
                 Call(p, "PlaceCamera", new object[0]);
                 Frame("отдалён и сдвинут");
-                Set(p, "_dist", (float)T.GetMethod("ClampDist", F).Invoke(p, new object[] { fit }));
+                Set(p, "_dist", (float)Get(p, "_distRest"));
                 Set(p, "_pan", pan);
                 Call(p, "ClampPan", new object[0]);
                 Call(p, "PlaceCamera", new object[0]);
@@ -97,7 +103,7 @@ try
             p.ResetView();
             if (spin != null)
                 Ok(UnityEngine.Quaternion.Angle(spin.rotation, (UnityEngine.Quaternion)Get(p, "_spinRest")) < 0.05f
-                   && (spin.localScale - UnityEngine.Vector3.one).sqrMagnitude < 1e-8f && spin.localPosition.sqrMagnitude < 1e-10f, "IN-R01", def.id);
+                   && UnityEngine.Mathf.Abs(spin.localScale.x - (float)Get(p, "_fitDist") / (float)Get(p, "_distRest")) < 1e-4f && spin.localPosition.sqrMagnitude < 1e-10f, "IN-R01", def.id);
             Frame("вид по умолчанию");
         }
         finally { UnityEngine.Object.DestroyImmediate(p.gameObject); }
@@ -132,7 +138,8 @@ try
 finally { UnityEngine.Object.DestroyImmediate(holder); }
 
 foreach (var kv in badIds) bad += kv.Value;
-var head = bad == 0 ? "ЗЕЛЁНОЕ из " + checks + " (предметов " + n + ")" : "КРАСНОЕ: " + bad + " из " + checks + " (предметов " + n + ")";
+var head = cut ? "НЕПОЛНОЕ: больше 100 стендов за вызов — гонять частями (check_all.py, P1158). " : "";
+head += bad == 0 ? "ЗЕЛЁНОЕ из " + checks + " (предметов " + n + ")" : "КРАСНОЕ: " + bad + " из " + checks + " (предметов " + n + ")";
 var sum = new System.Text.StringBuilder();
 foreach (var kv in badIds) sum.Append(" " + kv.Key + "×" + kv.Value);
 return head + sum + "\n" + sb;

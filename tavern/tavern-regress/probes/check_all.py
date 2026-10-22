@@ -48,6 +48,26 @@ def probes_lint():
     return out.returncode == 0
 
 
+# ⭐ 22.10 (ilya-de, P1198): шаблонный `[Bb]uild/` в .gitignore прятал Assets/Modules/Grid/Build — новые исходники
+# не попадали в коммиты. Под Assets игнорируемых исходников быть не должно (кроме _Recovery и токена TelegramBot.json).
+IGNORED_OK = ('Assets/_Recovery/', 'Assets/Game/Resources/TelegramBot.json')
+SOURCE_EXT = ('.cs', '.shader', '.asmdef', '.json', '.fbx', '.png', '.prefab', '.asset', '.unity', '.meta')
+
+
+def ignored_sources():
+    out = subprocess.run(['git', 'status', '--ignored', '--short', '--', 'Assets'], capture_output=True, text=True, timeout=120, cwd=PROJECT)
+    bad = []
+    for line in out.stdout.splitlines():
+        if not line.startswith('!!'):
+            continue
+        path = line[3:].strip().strip('"')
+        if path.startswith(IGNORED_OK) or not path.endswith(SOURCE_EXT):
+            continue
+        bad.append(path)
+    print('игнор под Assets:', 'ок' if not bad else 'КРАСНОЕ — %d файлов скрыты от коммита (P1198): %s' % (len(bad), ', '.join(bad[:6])))
+    return not bad
+
+
 def compile_check():
     out = subprocess.run(['python3', PROJECT + '/compile_check.py'],
                          capture_output=True, text=True, timeout=600, cwd=PROJECT)
@@ -110,6 +130,40 @@ def restore_scene():
     return state in ('ок', 'вернул')
 
 
+HERO_KIT = """if (!UnityEngine.Application.isPlaying) return "";
+Cozy.Character.Equipment eq = null;
+foreach (var e in UnityEngine.Object.FindObjectsByType<Cozy.Character.Equipment>(UnityEngine.FindObjectsSortMode.None)) if (e.IsPlayer) eq = e;
+if (eq == null) return "";
+var sb = new System.Text.StringBuilder("руки:");
+foreach (var it in eq.Pockets.Items) sb.Append(" " + it.def.id + "@" + it.anchor.x + "," + it.anchor.y);
+sb.Append(" | надето:");
+foreach (Cozy.Grid.EquipSlot slot in System.Enum.GetValues(typeof(Cozy.Grid.EquipSlot))) { var d = eq.Get(slot); if (d != null) sb.Append(" " + d.id); }
+return sb.ToString();"""
+_kit = {'was': None, 'leaks': []}
+
+
+def hero_kit():
+    out = subprocess.run(['python3', str(pathlib.Path.home() / '.claude/skills/tavern-game/mcp_call.py'), 'execute_code',
+                          json.dumps({'action': 'execute', 'code': HERO_KIT})], capture_output=True, text=True, timeout=120, cwd=PROJECT)
+    lines = out.stdout.strip().splitlines()
+    try:
+        return str(((json.loads(lines[-1]) if lines else {}).get('data') or {}).get('result') or '')
+    except Exception:
+        return ''
+
+
+# ⭐ 20.10 (ilya-61): после полного прогона руки героя оказались пустыми, фонарь лежал у ног, газета пропала —
+# какая-то проба не вернула героя. Сторож сверяет руки и надетое после каждой пробы и называет первую виноватую.
+def watch_hero(name):
+    if _kit['was'] is None:
+        return
+    now = hero_kit()
+    if now and now != _kit['was']:
+        _kit['leaks'].append(name)
+        print('герой: УТЕЧКА после ' + name + ' — было «' + _kit['was'] + '», стало «' + now + '»')
+        _kit['was'] = now
+
+
 def probe(name, *args):
     out = subprocess.run(['python3', REG + '/probes/' + name] + list(args),
                          capture_output=True, text=True, timeout=300, cwd=PROJECT)
@@ -123,6 +177,7 @@ def probe(name, *args):
     if sep:
         line = (head[:110] + '…' if len(head) > 110 else head) + ' :: ' + rest
     print(name + ':', line[:1400])
+    watch_hero(name)
     return tail
 
 
@@ -141,6 +196,7 @@ def probe_cs(name, again=False):
         time.sleep(2.5)
         return probe_cs(name, again=True)
     print(name + ':', res[:1400])
+    watch_hero(name)
 
 
 def probe_cs_parts(name, parts=4):
@@ -171,12 +227,14 @@ def probe_cs_parts(name, parts=4):
         print(name + ': КРАСНОЕ (частями по %d) — ' % parts + ' || '.join(fails)[:1400])
     else:
         print(name + ': ЗЕЛЁНОЕ из %d (частями по %d)' % (total, parts))
+    watch_hero(name)
 
 
 def main():
     print('=== проверка «всё, что работало, работает» ===')
     ok_lint = lint()
     ok_probes = probes_lint()
+    ok_ignored = ignored_sources()
     ok_compile = compile_check()
     probe('export_facing_probe.py')
     play, compiling = editor_state()
@@ -188,6 +246,8 @@ def main():
     else:
         print('тесты: пропущены — редактор в play')
     if play:
+        _kit['was'] = hero_kit()
+        print('герой до проб:', _kit['was'] or 'не прочитан')
         probe('invariants_play.py')
         probe('transfer_probe.py', '--run')
         probe('level_roundtrip.py')
@@ -226,23 +286,30 @@ def main():
         # одежда (CLOTHING.md): постановка на пол/стол/кровати/в шкафы/стопкой, надеть-снять-карманы-сейв
         probe_cs('clothes_place_probe.cs')
         probe_cs('clothes_wear_probe.cs')
-        # окно «Предмет» (INSPECT.md): кадр, ближняя плоскость, сетка не двигается и не касается, поворот-подставка, вид по умолчанию, галки — по всем предметам
+        # окно «Предмет» (INVENTORY.md): кадр, ближняя плоскость, сетка не двигается и не касается, поворот-подставка, вид по умолчанию, галки — по всем предметам
         probe_cs_parts('inspect_window_probe.cs')
+        probe_cs('hands_probe.cs')  # предметы в руках (HELD.md): клетка руки, риг, клетка в инвентаре, сейв рук (HD-…)
         probe_cs('inventory_doll_probe.cs')  # фигура игрока и попап «Предмет»: камера и сетка стоят, своя текстура сетки (INV-D…)
         probe_cs('kitchen_pile_pick_probe.cs')  # взять из горы посуды на голой мойке и на тумбах (P1142)
         probe_cs('place_false_red_probe.cs')  # ложное красное при перемещении на столешницах кухни (P1146)
         # двери, замки, ключи (DOORS.md): эталон замков 18.10 и логика ключей/дверей/дверец
         probe_cs('padlock_hang_probe.cs')
         probe_cs('doors_probe.cs')
+        probe_cs('zombie_probe.cs')
+        probe_cs('rooms_probe.cs')  # закрытые комнаты (ROOMS.md): флаг, скан HiddenRooms и закрытость независимым обходом, недоступность по AccessCells, крестики
+        probe_cs('attack_reach_probe.cs')  # атака только дотянувшись: стена, окно, закрытая дверь, этаж (ZB-A…, P1174)
     else:
         print('живые пробы: пропущены — нужен play')
     print('=== итог ===')
     print('грабли:', 'ок' if ok_lint else 'КРАСНОЕ')
+    print('игнор под Assets:', 'ок' if ok_ignored else 'КРАСНОЕ (P1198)')
     print('ссылки проб:', 'ок' if ok_probes else 'КРАСНОЕ — защита умерла, чинить пробу')
     print('компиляция:', 'ок' if ok_compile else 'КРАСНОЕ')
     print('тесты:', 'ок' if ok_tests else ('КРАСНОЕ' if ok_tests is False else 'не прогнаны'))
     print('живые пробы: смотри строки выше')
-    sys.exit(0 if ok_lint and ok_probes and ok_compile and ok_tests is not False else 1)
+    if _kit['leaks']:
+        print('герой: КРАСНОЕ — пробы не вернули руки/надетое:', ', '.join(_kit['leaks']))
+    sys.exit(0 if ok_lint and ok_probes and ok_ignored and ok_compile and ok_tests is not False else 1)
 
 
 if __name__ == '__main__':

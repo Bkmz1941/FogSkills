@@ -62,6 +62,8 @@
 | 2026-10-18 | ilya-e3 | 500 | 155881 | 87 | 8 | HudUI.PaletteVillage 166 | 2 | после ночи |
 | 2026-10-19 | ilya-57 | 501 | 157637 | 88 | 8 | HudUI.PaletteVillage 168 | 2 | база ночи 19.10 (ilya-57) |
 | 2026-10-19 | ilya-57 | 501 | 157641 | 88 | 7 | HudUI.PaletteVillage 168 | 2 | после ночи 19.10 (ilya-57) |
+| 2026-10-22 | ilya-de | 506 | 162108 | 92 | 8 | HudUI.PaletteVillage 172 | 2 | база ночи 22.10 |
+| 2026-10-22 | ilya-de | 506 | 162131 | 91 | 8 | HudUI.PaletteVillage 172 | 2 | после ночи 22.10 |
 
 ## Кадр в сборке
 

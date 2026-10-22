@@ -440,6 +440,11 @@ SLEEPING = re.compile(r' :: НЕЧЕГО БЫЛО ПРОВЕРЯТЬ[^:]*(?=( ::
 CLOCKS = (re.compile(r'slider=\[0,24\]=[\d.]+'), re.compile(r'text="\d\d:\d\d"'))
 
 
+# Шанс варианта стычки считается от ТЕКУЩЕЙ энергии героя (CrowEncounter.ChanceOf), а она плывёт за время play:
+# 22.10 база 0.84 против 0.85 через полчаса дала ложное «РАСХОЖДЕНИЕ 8 строк». Гейт по энергии (100/25/10=True/False) остаётся.
+CHANCE = re.compile(r'шанс=\d+(?:[.,]\d+)?')
+
+
 def stable(lines):
     out = []
     for l in lines:
@@ -448,6 +453,7 @@ def stable(lines):
         l = SLEEPING.sub('', l)
         l = CLOCKS[0].sub('slider=[0,24]=HH', l)
         l = CLOCKS[1].sub('text="HH:MM"', l)
+        l = CHANCE.sub('шанс=N', l)
         out.append(l)
     return out
 
@@ -520,9 +526,14 @@ def verify(args):
     ok, text = compare('check', label, '\n'.join(live))
     red = [l for l in live if 'КРАСНОЕ' in l or 'ЗАЩИТА МЕРТВА' in l]
     row('живые пробы', (ok is not False) and not red, text if not red else '; '.join(red)[:600])
-    out = sh([REG / 'debug_panel_probe.py', 'snap', 'night_' + label], 600)
     snap = pathlib.Path.home() / '.cache/tavern-probes' / ('debug_panel_night_%s.txt' % label)
-    ok, text = compare('debug_panel', label, snap.read_text() if snap.exists() else out)
+    # Метки «after»/«final» повторяются из ночи в ночь: 22.10 проба оборвалась на «monsters», и сверка взяла файл 19.10 с той же меткой.
+    if snap.exists(): snap.unlink()
+    out = sh([REG / 'debug_panel_probe.py', 'snap', 'night_' + label], 600)
+    if not snap.exists():
+        ok, text = False, 'проба не дошла до конца: ' + (out.strip().splitlines()[-1] if out.strip() else 'нет ответа')[:300]
+    else:
+        ok, text = compare('debug_panel', label, snap.read_text())
     row('панель дебага', ok, text)
     out = sh([REG / 'encounter_probe.py', 'rules'], 300)
     ok, text = compare('encounter_rules', label, out)

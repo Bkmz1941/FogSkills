@@ -173,7 +173,9 @@ try
                 own.transform.position += far + UnityEngine.Vector3.forward * (10f + side);
             }
             if (borrowed.Count > 0) sb.Append("стенд: замки уровня на старой двери сняты на время пробы: " + borrowed.Count + "\n");
-            for (int side = 0; side < 2; side++)
+            // С 20.10 у старой двери точка подвеса одна — снаружи (`PadlockA`); изнутри щеколда (P1160).
+            Check(door.PadlockPoint(1) == null, "DR-H12 " + door.style + ": изнутри точки подвеса нет (только щеколда)");
+            for (int side = 0; side < 1; side++)
             {
                 var point = door.PadlockPoint(side);
                 if (point == null) { Check(false, "DR-H01 " + door.style + " сторона " + side + ": точки нет"); continue; }
@@ -216,6 +218,149 @@ try
                 Check(door.PadlockOn(b.side) == b.io && (ba == null || ba.Locked == b.locked), "стенд: замок уровня возвращён на сторону " + b.side + (b.locked ? " закрытым" : " открытым"));
             }
         }
+    }
+
+    // ---------- щеколда изнутри (Илья 20.10; P1160, P1161, P1162) ----------
+    var fBolt = typeof(Cozy.Grid.DoorPiece).GetField("_latchBolt", NP);
+    var fSide = typeof(Cozy.Grid.DoorPiece).GetField("_latchSide", NP);
+    var fRoot = typeof(Cozy.Grid.DoorPiece).GetField("_latchRoot", NP);
+    var upLatch = typeof(Cozy.Grid.DoorPiece).GetMethod("UpdateLatch", NP);
+    var fLeafT = typeof(Cozy.Grid.DoorPiece).GetField("_t", NP);
+    var doorUpdate = typeof(Cozy.Grid.DoorPiece).GetMethod("Update", NP);
+    foreach (var door in Cozy.Grid.DoorPiece.All)
+    {
+        if (door == null) continue;
+        bool kit = door.style == Cozy.Grid.DoorStyle.OldPlank || door.style == Cozy.Grid.DoorStyle.WoodModern || door.style == Cozy.Grid.DoorStyle.SteelModern;
+        bool wants = kit || door.style == Cozy.Grid.DoorStyle.Steel || door.style == Cozy.Grid.DoorStyle.WhiteFlat || door.style == Cozy.Grid.DoorStyle.HomeFlat;
+        if (door.style == Cozy.Grid.DoorStyle.GlassModern) wants = false;
+        if (!wants && !door.HasLatch) continue;
+        Check(door.HasLatch == wants, "DR-L01 " + door.style + ": щеколда в модели=" + door.HasLatch + " (ждём " + wants + ")");
+        if (!door.HasLatch) continue;
+        var access = (Cozy.Grid.AccessFeature)doorAccess.GetValue(door);
+        bool wasLatched = door.latched, wasOpen = door.IsOpen, wasLocked = door.Locked;
+        string wasCode = access.KeyCode;
+        var bolt = (UnityEngine.Transform)fBolt.GetValue(door);
+        try
+        {
+            if (door.PadlockHung) { Skip("DR-L02..L06 " + door.style + ": висит замок уровня"); continue; }
+            access.Unlock();
+            door.latched = false;
+            access.SetOpen(false);
+            // створка уровня могла стоять открытой — довести до рамы сразу, иначе щеколда отказывает (ход _t > 0)
+            fLeafT.SetValue(door, 0f);
+            doorUpdate.Invoke(door, null);
+            for (int i = 0; i < 1000; i++) upLatch.Invoke(door, null);  // ход по Time.deltaTime — с запасом до упора
+            // Сторона щеколды — по НЕЗАВИСИМОЙ примете: у старой двери снаружи точка навесного (`PadlockA`),
+            // у кита изнутри (+Y Blender) — сторона замка `LockB`. Щеколда по центру меша засова (P1160).
+            float side = (float)fSide.GetValue(door);
+            UnityEngine.Vector3 n = door.Normal, root = door.transform.position;
+            UnityEngine.Transform truth = door.style == Cozy.Grid.DoorStyle.OldPlank ? door.PadlockPoint(0) : null;
+            if (truth == null)
+                foreach (var t in door.GetComponentsInChildren<UnityEngine.Transform>(true)) if (t.name == "LockB") truth = t;
+            if (truth != null)
+            {
+                var tr = truth.GetComponentInChildren<UnityEngine.Renderer>();
+                float s = UnityEngine.Mathf.Sign(UnityEngine.Vector3.Dot((tr != null ? tr.bounds.center : truth.position) - root, n));
+                bool inside = door.style != Cozy.Grid.DoorStyle.OldPlank;
+                Check(inside ? side == s : side == -s, "DR-L02 " + door.style + ": щеколда на внутренней стороне (сторона " + side + ", примета " + s + ")");
+            }
+            else Skip("DR-L02 " + door.style + ": нет приметы стороны");
+            // Закрытая щеколда держит дверь; закрыть открытую нельзя.
+            door.SetLatched(true);
+            Check(door.latched && door.Barred, "DR-L03 " + door.style + ": щеколда закрыта — дверь заперта (Barred)");
+            access.SetOpen(true);
+            Check(!door.IsOpen, "DR-L03 " + door.style + ": с закрытой щеколдой не открывается");
+            for (int i = 0; i < 1000; i++) upLatch.Invoke(door, null);  // ход по Time.deltaTime — с запасом до упора
+            var bShut = bolt.position;
+            // Закрытый засов входит в ответную часть на раме/косяке (Илья 20.10, скрин 13-11-15: «нет на стене
+            // места, куда щеколда входит»): видимый `LatchKeeper*` пересекается с засовом.
+            var boltBox = bolt.GetComponent<UnityEngine.Renderer>().bounds;
+            boltBox.Expand(0.01f);
+            bool keeperHit = false; int keepers = 0;
+            foreach (var r in door.GetComponentsInChildren<UnityEngine.Renderer>())
+            {
+                bool isKeeper = false;
+                for (var p = r.transform; p != null && p != door.transform; p = p.parent) if (p.name.StartsWith("LatchKeeper")) { isKeeper = true; break; }
+                if (!isKeeper || Cozy.Grid.InteractHighlight.IsCopy(r)) continue;
+                keepers++;
+                if (r.bounds.Intersects(boltBox)) keeperHit = true;
+            }
+            Check(keeperHit, "DR-L13 " + door.style + ": закрытый засов входит в ответную часть (видимых частей " + keepers + ")");
+            door.SetLatched(false);
+            for (int i = 0; i < 1000; i++) upLatch.Invoke(door, null);  // ход по Time.deltaTime — с запасом до упора
+            float travel = (bolt.position - bShut).magnitude;
+            Check(travel > 0.05f && travel < 0.2f, "DR-L04 " + door.style + ": засов отъезжает на " + (travel * 100f).ToString("0.0") + " см");
+            access.SetOpen(true);
+            Check(door.IsOpen, "DR-L03 " + door.style + ": щеколда открыта — дверь открывается");
+            door.SetLatched(true);
+            Check(!door.latched, "DR-L05 " + door.style + ": открытую дверь щеколдой не закрыть");
+            access.SetOpen(false);
+            // Материалы засова — слоты кита с картинкой, не «Lit» по умолчанию (P1161).
+            var latchRoot = (UnityEngine.Transform)fRoot.GetValue(door);
+            bool texOk = true; string bad = "";
+            foreach (var r in latchRoot.GetComponentsInChildren<UnityEngine.MeshRenderer>(true))
+                foreach (var m in r.sharedMaterials)
+                    if (m == null || !m.name.StartsWith("doorKit_") || m.mainTexture == null) { texOk = false; bad = r.name + ":" + (m != null ? m.name : "null"); }
+            if (kit) Check(texOk, "DR-L06 " + door.style + ": у щеколды материалы кита с картинкой" + (texOk ? "" : " (" + bad + ")"));
+            // Глазок — со стороны щеколды (P1166).
+            if (Cozy.Grid.DoorPiece.HasPeephole(door.style))
+                Check(UnityEngine.Vector3.Dot(door.PeepInsideNormal, n) * side > 0f, "DR-L12 " + door.style + ": глазок изнутри — со стороны щеколды");
+        }
+        finally
+        {
+            door.latched = false;
+            access.Unlock();
+            access.KeyCode = wasCode;
+            access.SetOpen(wasOpen);
+            if (wasLocked) { access.SetOpen(false); access.Lock(wasCode); }
+            door.latched = wasLatched && !door.IsOpen;
+            for (int i = 0; i < 1000; i++) upLatch.Invoke(door, null);  // ход по Time.deltaTime — с запасом до упора
+        }
+    }
+    // Фурнитура на одном расстоянии от свободной кромки у всех дверей (Илья 20.10, скрин 13-20-22; P1169): в осях
+    // створки `Leaf` кромка на x = −ширина. Щеколда — центр планки 0,28, личинка — 0,22, глазок — по центру ширины.
+    var fLeafW = typeof(Cozy.Grid.DoorPiece).GetField("_leafW", NP);
+    System.Func<UnityEngine.Transform, UnityEngine.Transform, float> EdgeDist = (leaf, part) =>
+    {
+        var rs = part.GetComponentsInChildren<UnityEngine.Renderer>(true);
+        if (rs.Length == 0) return float.NaN;
+        var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+        return leaf.InverseTransformPoint(b.center).x;
+    };
+    foreach (var door in Cozy.Grid.DoorPiece.All)
+    {
+        if (door == null || door.Leaf == null || door.style == Cozy.Grid.DoorStyle.GlassDouble) continue;
+        float lw = (float)fLeafW.GetValue(door);
+        UnityEngine.Transform latchBase = null, lockPart = null, peep = null;
+        foreach (var t in door.Leaf.GetComponentsInChildren<UnityEngine.Transform>(true))
+        {
+            if (t.name == "LatchBase" && latchBase == null) latchBase = t;
+            else if ((t.name == "LockA" || t.name == "LockRosette") && lockPart == null) lockPart = t;
+            else if ((t.name == "PeepholeA" || t.name == "PeepholeRing0") && peep == null) peep = t;
+        }
+        if (latchBase != null)
+        {
+            float d = EdgeDist(door.Leaf, latchBase) + lw;
+            Check(UnityEngine.Mathf.Abs(d - 0.28f) < 0.03f, "DR-F01 " + door.style + ": щеколда от кромки " + (d * 100f).ToString("0.0") + " см (стандарт 28)");
+        }
+        if (lockPart != null)
+        {
+            float d = EdgeDist(door.Leaf, lockPart) + lw;
+            Check(UnityEngine.Mathf.Abs(d - 0.22f) < 0.03f, "DR-F02 " + door.style + ": личинка от кромки " + (d * 100f).ToString("0.0") + " см (стандарт 22, под ручкой)");
+        }
+        if (peep != null)
+        {
+            float d = EdgeDist(door.Leaf, peep) + lw;
+            Check(UnityEngine.Mathf.Abs(d - lw * 0.5f) < 0.05f, "DR-F03 " + door.style + ": глазок от кромки " + (d * 100f).ToString("0.0") + " см (по центру " + (lw * 50f).ToString("0") + ")");
+        }
+    }
+    // Ответная часть на раме: у стекла спрятана, у остальных кита видна.
+    foreach (var door in Cozy.Grid.DoorPiece.All)
+    {
+        if (door == null || door.style != Cozy.Grid.DoorStyle.GlassModern && door.style != Cozy.Grid.DoorStyle.WoodModern) continue;
+        foreach (var t in door.GetComponentsInChildren<UnityEngine.Transform>(true))
+            if (t.name == "LatchKeeper")
+                Check(t.gameObject.activeInHierarchy == (door.style != Cozy.Grid.DoorStyle.GlassModern), "DR-L07 " + door.style + ": ответная часть щеколды " + (t.gameObject.activeInHierarchy ? "видна" : "спрятана"));
     }
 }
 finally

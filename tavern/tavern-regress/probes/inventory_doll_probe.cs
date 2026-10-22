@@ -10,11 +10,11 @@
 //  INV-D05 сетка фигуры переживает попап предмета с другой толщиной линий (Илья: «открыл попап объекта, закрыл —
 //          пропала сетка у игрока»): у каждого стенда СВОЯ текстура сетки, чужой стенд её не трогает;
 //  INV-D06 фон попапа предмета = фон фигуры игрока (Илья: «фон сетки и фон игрока сделай одинаковым»).
-//  (19.10: при увеличении фигура опускается ВМЕСТЕ с сеткой — иначе голову не увидеть, не нарушив «ноги не под сеткой»)
-//  INV-D07 фигуру нельзя уменьшить колесом (Илья 19.10: «вообще не давай уменьшить»); при максимальном увеличении
-//          её можно опустить так, что макушка в кадре (Илья: «ноги могу посмотреть, а голову нет»);
-//  INV-D08 сетка не гаснет никогда, ноги не заходят под неё ни при каком опускании (Илья 19.10: «сетка никогда не
-//          должна исчезать, игрок её не должен пересекать — добавь отступ»).
+//  INV-D07 фигуру нельзя уменьшить колесом (Илья 19.10: «вообще не давай уменьшить»);
+//  INV-D08 сетка не гаснет и не двигается никогда, ноги не заходят под неё и не касаются её ни при каком опускании и
+//          увеличении, даже при отступе 1,0 (Илья 20.10, скрин 02-51-53: «игрок провалился в сетку и обрезался — никогда
+//          такого не должно быть»); 19.10 «опускается вместе с сеткой» отменено 20.10 «сетка не должна двигаться никогда»;
+//  INV-D09 ноги не уходят за нижний край кадра ни при каком увеличении и опускании.
 if (!UnityEngine.Application.isPlaying) return "не в play";
 var F = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
 var T = typeof(Tavern.UI.ItemPreview3D);
@@ -36,7 +36,7 @@ try
     var doll = Tavern.UI.ItemPreview3D.AttachModel((UnityEngine.RectTransform)holder.transform, visual, K("DollYaw"), Tavern.UI.InventoryScreenUI.PanelLook.DollCamPitch,
         K("DollPitchLimit"), K("DollZoom"), K("DollZoomMin"), K("DollZoomMax"), K("DollLight"));
     if (doll == null) return "КРАСНОЕ: фигура не собралась";
-    doll.SetGrid(0.35f, 1.25f, 1.6f);
+    doll.SetGrid(0.35f, 1f, 1.6f);
     var cam = (UnityEngine.Camera)Get(doll, "_cam");
     UnityEngine.Transform grid = null;
     foreach (var t in cam.transform.parent.GetComponentsInChildren<UnityEngine.Transform>()) if (t.name == "ItemPreviewGrid") grid = t;
@@ -57,7 +57,9 @@ try
         bool camStill = (cam.transform.position - camPos).sqrMagnitude < 1e-10f && UnityEngine.Quaternion.Angle(cam.transform.rotation, camRot) < 0.01f;
         bool gridStill = (cam.WorldToViewportPoint(grid.position) - gridView).sqrMagnitude < 1e-8f;
         Ok(camStill && gridStill, "INV-D02 " + stage + (camStill ? "" : " камера поехала") + (gridStill ? "" : " сетка поехала на экране"));
-        Ok(Feet() > grid.position.y - 0.01f, "INV-D04 " + stage + " ноги под сеткой");
+        Ok(Feet() > grid.position.y + 1e-4f, "INV-D04 " + stage + " ноги под сеткой: " + (Feet() - grid.position.y).ToString("0.0000"));
+        var foot = doll.Model.position; foot.y = Feet();
+        Ok(cam.WorldToViewportPoint(foot).y >= -0.001f, "INV-D09 " + stage + " ноги за нижним краем кадра");
     };
     Still("старт");
     var model = doll.Model;
@@ -94,18 +96,15 @@ try
     { var b1 = doll.Model.GetComponentsInChildren<UnityEngine.Renderer>(); float lo = float.MaxValue, hi = float.MinValue; foreach (var r in b1) if (r.enabled) { lo = UnityEngine.Mathf.Min(lo, r.bounds.min.y); hi = UnityEngine.Mathf.Max(hi, r.bounds.max.y); }
       Ok(hi - lo >= h0 - 1e-3f, "INV-D07 колесо уменьшило фигуру: " + (hi - lo).ToString("0.000") + " < " + h0.ToString("0.000")); }
     for (int i = 0; i < 10; i++) doll.OnScroll(new UnityEngine.EventSystems.PointerEventData(es) { scrollDelta = new UnityEngine.Vector2(0f, 1f) });
-    var yZoomed = model.position.y;
-    float gapZoomed = Feet() - grid.position.y;
+    Still("максимальное увеличение");
     for (int i = 0; i < 40; i++) doll.OnDrag(new UnityEngine.EventSystems.PointerEventData(es) { button = UnityEngine.EventSystems.PointerEventData.InputButton.Middle, delta = new UnityEngine.Vector2(0f, -120f) });
+    Still("увеличена и опущена до упора");
+    for (int i = 0; i < 40; i++) doll.OnDrag(new UnityEngine.EventSystems.PointerEventData(es) { button = UnityEngine.EventSystems.PointerEventData.InputButton.Middle, delta = new UnityEngine.Vector2(0f, 120f) });
+    Still("увеличена и поднята до упора");
     float top = float.MinValue;
     foreach (var r in doll.Model.GetComponentsInChildren<UnityEngine.Renderer>()) if (r.enabled) top = UnityEngine.Mathf.Max(top, r.bounds.max.y);
     var topCenter = doll.Model.position; topCenter.y = top;
     sb.Append("инфо: при максимальном увеличении и полном опускании макушка на y=" + cam.WorldToViewportPoint(topCenter).y.ToString("0.00") + " кадра\n");
-    Ok(model.position.y < yZoomed - 1e-4f, "INV-D07 увеличенную фигуру не опустить средней кнопкой");
-    Ok((cam.transform.position - camPos).sqrMagnitude < 1e-10f, "INV-D02 опускание увеличенной фигуры сдвинуло камеру");
-    Ok(UnityEngine.Mathf.Abs((Feet() - grid.position.y) - gapZoomed) < 1e-3f, "INV-D08 увеличенная фигура опускается без своей сетки (ноги и сетка разошлись)");
-    Ok(cam.WorldToViewportPoint(topCenter).y <= 1.001f, "INV-D07 при максимальном увеличении макушку не опустить в кадр");
-    Ok(Feet() > grid.position.y + 1e-4f, "INV-D08 опущенная фигура зашла ногами под сетку");
     Ok(gridRend.enabled && UnityEngine.Mathf.Abs(gridRend.sharedMaterial.GetColor("_BaseColor").a - grid0) < 1e-4f, "INV-D08 сетка погасла");
     doll.ResetView();
 

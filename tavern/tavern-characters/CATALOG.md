@@ -39,6 +39,7 @@
   `HomePantsM`, `SneakersM`, `SneakersGreyM`, `SlippersM`, `UnderwearM`, `RobeM` (балахон), `HairM`;
 - девушка: `TShirtF`, `HoodieF`, `JeansF`, `SneakersF`, `UnderwearF`, `HairF`;
 - носимое: `BackpackM/F`, `BackpackHoodieM/F`, `BackpackJacketM`, `BriefcaseM/F` (+Hoodie/Jacket), `SportBagM/F`
+  - ⏳ 22.10 походный рюкзак на девушке `HikeF`/`HikeHoodieF` — только Blender, проба в скретчпаде ilya-ac (`tavern-clothes`, таблица носимого)
   (+Hoodie/Jacket/Shirt) — посадка под верх;
 - вещи «как лежит» (мир): `Furniture/jeansFolded`, `homeFolded`, `tshirt*Folded`, `sneakersPair*`, `slippersPair`,
   `jeansGirlFolded`, `tshirtGirlFolded`; очки Ирины — предмет `glasses_sokolova` (не носится).
@@ -66,7 +67,8 @@
 | позы | `Sit_Idle`, `Sit_Idle_Lap`, `Sit_Rocking`, `Sit_Sofa`, `Lie_Idle`, `Lie_Sofa`, `Bath_Lie`, `Kneel_Down/Pray/Pray_Shake/Up` |
 | перелазы | `Window_Climb/Fall`, `Rail_Climb/Fall`, `Ladder_Climb` |
 | трупы (17.10) | `Corpse_back_spread/back_chest/prone_head_side/prone_crawl/side_curled/side_sprawl/back_twisted/sit_wall/sit_tree/hanged` — объект уровня «Труп мужчины/женщины» (`corpse_<поза>_<m|f>`), редактор → Модели → «Смерти», муж/жен, поза листается кнопкой «Поза»; тело героя/героини в трусах, клип одной позой (`CorpsePose`, `NpcDummy.cs`), у повешенного верёвка с петлёй по `corpseHanged.json`; сцена `corpse_poses.py` |
-| состояния | `Sit_Fallen`, `Stand_Up`, `Prone_Fallen`, `Prone_Up`, `Poison_Retch/Fours/Death`, `Bleed_Death`, `Trap_Hit/Pain/Open`, `Throw_Right` |
+| без сознания (21.10, только Blender) | `Hero_Faint` — падает без сознания, неконтролируемо: качнулся, голова упала, ОБА колена подламываются по t² (таз вниз-вперёд, стопы на месте, на носок), удар коленями с отскоком, тело валится вперёд-вбок поворотом вокруг колен как маятник (с инерцией падения), удар грудью с подскоком, доходит до «ничком, лицо набок» (`Corpse_Poses` 03); руки висят по силе тяжести и с головой догоняют тело с запаздыванием. 72 к.; `BlenderWork/faint_fall.py` → `Animations/Faint_Fall.blend`. Общая: голод, удушение и т. п. — в игру по слову |
+| состояния | `Sit_Fallen`, `Stand_Up`, `Prone_Fallen`, `Prone_Up` (⭐ с 21.10 — единое «встать с живота» для героя и всех на его теле, 3,25 с), `Poison_Retch/Fours/Death`, `Bleed_Death`, `Trap_Hit/Pain/Open`, `Throw_Right` |
 | стычка с вороной | `Crow_Brace/Guard/Dodge/Hit/Fall/Melee/Punch/Slip`, сзади `Crow_Back/BackDodge/BackHit/BackSlip` |
 | стычка с сектантом | герой `Hero_SectantBrace/Hit/Dodge/Kill/Guard/Melee/Punch`; сектант `Sectant_Attack/Strike/Miss/Kill/Grapple/Struck/Punched` |
 | сектант | `Sectant_Walk`, `Sectant_PointRise/PointHold`, `Sectant_CandleWalk/CandleStand` |
@@ -81,6 +83,18 @@
 `Phone_Raise`, `Idle_Live`, `Model_Poses`, `Base_Poses`, `Bend_Poses` (эталоны сгибов), `Stun_Stars` (эффект),
 `Sectant_Head_Icons` (значки над головой), `Crow_Fight/Window/WindowDrop` (ворона). Файлы `Sectant_Hit/Dodge/Guard/Melee/
 Punch/Point/Candle/Back` — сцены, из которых выгружены игровые клипы сектанта (имена клипов другие, см. §5).
+`Zombie_Back` (20.10, с 21.10 — УДУШЕНИЕ) — атака зомби сзади: обеими кистями душит за шею, герой откинут назад, отдирает
+его запястья, бьёт спиной и вырывается, зомби отходит шажками; зомби `Zombie_Back` + герой `Hero_ZombieBack`, 168 к.,
+`BlenderWork/zombie_back.py` (`-- export`), В ИГРЕ с 21.10 (сцена `back`, старт из дебага); подробности — `tavern-combat/SKILL.md`.
+
+`Zombie_Axe` (21.10) — безумный против топора: герой выставляет топор поперёк, безумный хватает топорище, борьба, толчок,
+замах к правому плечу и рубящий удар справа налево в голову; зомби `Zombie_Axe` + герой `Hero_ZombieAxe` + топор `Axe_Axe`,
+140 к., `BlenderWork/zombie_axe.py` (`-- export`), В ИГРЕ с 21.10 (сцена `axe`, «Ближняя атака» с топором в руках; топор — настоящий предмет по дорожке `prop`); подробности — `tavern-combat/SKILL.md`.
+
+`Zombie_T1` (21.10) — тесная сцена Т1 «стена сзади, зомби спереди»: захват за шею с петлёй «Вырваться» (`Zombie_T1Hold` + `Hero_ZombieT1Hold`, 130 к.: петля 36–84, «вырвался» 85–130) и «не вырвался» — удар затылком о стену и бросок вбок (`Zombie_T1SlamR/L` + `Hero_ZombieT1SlamR/L`, 48 к.); `BlenderWork/zombie_tight.py` (`-- T1Hold`, `-- T1HoldExport`), В ИГРЕ с 21.10 (сцены `t1Hold`, `t1SlamR/L`, старт из дебага); подробности — `tavern-combat/SKILL.md`, «Тесные сцены».
+`Zombie_T0` (21.10 вечер) — исход «назад в пустоту» хвата спереди (унификация тесных сцен: хват × реакция на преграду): толчок в грудь, герой семенит назад, садится на пол и опрокидывается на спину, лежит как в конце `Crow_Fall` с руками как упали (`Zombie_T0Fall` + `Hero_ZombieT0Fall`, 64 к., с позы конца петли; в файле и хват `Zombie_T0Hold` 84 к. для стыка); `zombie_tight.py -- T0Fall` / `-- T0FallExport`, В ИГРЕ с 22.10 (сцена `t0Fall`: исход проигрыша «Вырваться», когда сзади свободно 2,1 м; ⏳ play); подробности — там же.
+`Zombie_T2` (22.10) — тесная сцена Т2 «стена спереди, безумный сзади»: захват — удушение сзади (`Zombie_T2Hold`, 110 к.), «вырвался» — оттолкнул спиной от стены и развернулся (`Zombie_T2Free` 52 к.), «не вырвался» — лицом в стену и сполз в присед (`Zombie_T2Wall` 60 к.), пары с `Hero_ZombieT2*`; `zombie_tight.py -- T2`, ТОЛЬКО Blender, ждёт оценки; подробности — `tavern-combat/SKILL.md`, «Т2».
+`Zombie_Slip` (22.10) — «Проскользнуть» для схемы «1 анимация + 2 развилки» (подход → оттолкнуть / проскользнуть / успешная атака на все места): безумный бросается и промахивается, герой приседает, ныряет влево под его правую руку, боком проходит вдоль него за спину и идёт дальше (`Zombie_Slip` + `Hero_ZombieSlip`, 64 к.; проход 1,5 м игры: стена и перила ящиками); `BlenderWork/zombie_slip.py` → `Animations/Zombie_Slip.blend`; В ИГРЕ с 22.10 (`Resources/Zombie_Slip.fbx`, `Hero_ZombieSlip.fbx`, сцена `slip`, кнопка «Проскользнуть»; зеркало вправо `Zombie_SlipR` / `Hero_ZombieSlipR`, сцена `slipR` — отражение поз левой по кадрам, `mirror_actions`; ⏳ play не проверен); подробно `tavern-combat/SKILL.md` «Переосмысление тесных сцен 22.10».
 
 ## 7. Файлы и сборки (быстрый ответ)
 
