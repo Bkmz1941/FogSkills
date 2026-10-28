@@ -74,6 +74,23 @@ stateless JWT-auth, контент-модель переразбита, рант
 Node.js/npm (детали — `backend/CONTEXT.md`). Дальше — следующие проходы
 упрощения по всем трём репозиториям.
 
+## Как ходить на серверы и в базы (проверено 28.10.2026)
+
+- Алиасы `~/.ssh/config` ходят по ключу без пароля: `lucky-dev`, `brobro-dev`, `lucky-prod`,
+  `lucky-prod-legacy`, `crash-prod`, `crash-dev`, `kafka-com` (все семь отвечали 28.10 10:40).
+  `olimp-proxy2` (195.181.241.231) 28.10 10:40 **не отвечал вовсе** (ping, :22, :443 — с трёх точек),
+  см. скил olimp-proxy. Также `ssh -T git@gitlab.agg.one` и `git@github.com` — авторизуются.
+- Репо `~/Documents/Work/work-skills` на этой машине **не склонировано** (проверено 28.10); исходники
+  скилов лежат в `/media/ilya/T714/claude-skills` (git-репо FogSkills, master), `~/.claude/skills/*` —
+  симлинки туда. Правки скилов там же копятся незакоммиченными до команды Ильи.
+- Базы Lucky: дев — контейнер `luckyserver-dev-postgres-1`, стек `~/luckyserver-dev`; прод —
+  `luckyserver-postgres-1`, стек `~/luckyserver`; локально — `luckyserverpro-postgres-1`. Рецепт чтения:
+  `ssh <alias> 'cd <stack> && U=$(grep ^DATABASE_USER= .env|cut -d= -f2) && D=$(grep ^DATABASE_NAME= .env|cut -d= -f2)
+  && docker exec <container> psql -U "$U" -d "$D" -c "..." </dev/null'`. Пароль не нужен: контейнер доверяет
+  локальному подключению. Имя пользователя и базы берутся из `.env` на самом сервере и наружу не печатаются.
+- Грабля: внутри скрипта, который идёт через `ssh host 'bash -s'`, `docker exec` писать **без `-i`** и с
+  `</dev/null`, иначе psql забирает остаток скрипта из stdin и скрипт молча заканчивается без вывода.
+
 ## Правила
 
 1. Дев-серверы: 178.104.243.232 (API+админка) и 95.216.163.101 (витрина,

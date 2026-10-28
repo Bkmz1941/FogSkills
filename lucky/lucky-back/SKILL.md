@@ -63,6 +63,26 @@ AdminCN), `lucky-storefront` (витрина, Vite), `brobrocasino` (прежн�
 | Открытые задачи | `others/docs/todo.md` |
 | Формат записи об изменении | верхние блоки `CHANGELOG.md` — соблюдать поля Date/Author/Context/Changed/Files/Reasoning/Verification/Risks/Next steps |
 
+## Папка Ильи с материалами для Claude (с 28.10.2026)
+
+`~/Documents/Work/Lucky/claude/` — сюда Илья складывает инфу по проекту Lucky специально
+для Claude (28.10: «запиши себе … что тут будет инфа для тебя по проекту лаки»). Это не
+репозиторий и не доки `others/docs`: файлы там — его контекст (экспорты переписок, заметки,
+ТЗ). Начиная задачу по Lucky, посмотреть, что там появилось нового, и прочитать как вводную.
+На 28.10 лежит один файл: `2026-10-22 - Настройка бонусов и игрового интерфейса` (~127 КБ).
+
+## Linear (с 28.10.2026)
+
+Трекер задач Lucky — Linear, организация **Lucky Lab** (`luckylab`), команды `LSR` «Lucky Dev» и
+`LSH` «Lucky Marketing»; Илья там админ. Доступ — персональный API-ключ Ильи, выдан 28.10 со
+словами «сохрани его себе навсегда, чтобы пользоваться»:
+
+- Значение ключа лежит только в `~/.config/linear/api_key` (права 600). В чат, скилы, коммиты и
+  память его не выносить.
+- Прямой API: `curl -H "Authorization: $(cat ~/.config/linear/api_key)" -H 'Content-Type: application/json'
+  https://api.linear.app/graphql -d '{"query":"{ viewer { name } }"}'` (ключ без `Bearer`).
+- MCP-сервер `linear` подключён на user-scope (`claude mcp add --scope user --transport http linear https://mcp.linear.app/mcp --header "Authorization: Bearer <ключ>"`), конфиг в `~/.claude.json`; инструменты `mcp__linear__*` доступны в каждой новой сессии без OAuth. Если сломалось — `claude mcp get linear`, пересоздать той же командой с ключом из файла.
+
 ## Ловушка: CLAUDE.md написан под Mac коллеги
 
 Раздел «Canonical local environment» в `CLAUDE.md` — про `/Users/kvalter/…` и
@@ -1129,6 +1149,13 @@ folderId: 0}`). Заголовок первого уровня из markdown у�
 
 ## История
 
+- **2026-10-28 ~08:25 UTC — TRUE LABS: Sync games на проде отдаёт 502 «Provider responded with status 404».** В 08:25:06
+  рут переключил у провайдера `games_url` и `api_endpoint` с `api-test.grandgames.io` на **`api.grandgames.io`**
+  (прод-контур Grand Games), через секунду синк упал. С прод-хоста `GET …/integration/lucky/brobrocasino/games` и
+  `POST …/launch` на `api.grandgames.io` отвечают `404 {"message":"Not found"}` по IPv4 и IPv6 ещё до проверки подписи
+  (на тест-контуре та же ручка даёт 401 `invalid_signature` по IPv4 и 403 «forbidden from this IP» по IPv6 — белый список
+  только наш IPv4). То есть на их проде интеграция `lucky/brobrocasino` не заведена или путь другой — спрашивать у TRUE LABS.
+  Пока URL прод-контура стоят, запуск 233 игр TRUE LABS у игроков тоже упадёт (последний удачный запуск — 07:30 на тесте).
 - **2026-10-22 ~10:10 UTC — один отступ 12 px на телефоне** (Илья: «выровняй отступы под 12 px»). Было 12/20/24/36 px от
   шапки до контента (главная / бонусы / профиль и избранное / колесо): свои `max-md:pt-3`, `max-sm:pt-2`, `py-6` у страниц.
   Сняты, у табов истории `-mt-2` → `md:-mt-2`. Витрина `f8ec14a` → `main` `93690b3`, brobro через CI. Замер — скрипт в

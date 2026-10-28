@@ -44,6 +44,12 @@ description: Прокси-сервер «Olimp» — боевой 195.181.241.23
 
 ## Проверка сервера (последняя — 2026-09-17 16:10 UTC, после апгрейда тарифа и ребута)
 
+**⚠️ 2026-10-28 ~09:45 UTC — сервер не отвечает.** Ping, :22 и :443 закрыты с трёх точек
+(машина Ильи, `kafka-com`, `lucky-dev`), IPv6 не проверялся. Upstream `olimpapi.cc` отвечает 200,
+запасной `dlyamasterapoblokirovkam.top` (80.209.236.223) отвечает 200, DNS `dlyamastera.com`
+по-прежнему → 195.181.241.231. Причина не установлена — смотреть панель / VNC-консоль Time4VPS
+(root для VNC — в `~/password.txt`). После подъёма — прогнать блок проверки ниже.
+
 ```bash
 ssh olimp-proxy2 'uptime; nproc; free -m; df -h /; systemctl is-active haproxy; sudo -n ss -ltnp'
 ssh olimp-proxy2 'sudo -n haproxy -c -f /etc/haproxy/haproxy.cfg; md5sum /etc/haproxy/haproxy.cfg'   # = md5 локальной копии
