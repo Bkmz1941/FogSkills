@@ -8,30 +8,33 @@
 
 ```
 claude-skills/
-  tavern/          игра «Таверна»
-    tavern-game/       память решений и доменные справочники
-    tavern-cooking/    готовка: еда, рецепты, жидкости, посуда
-    tavern-regress/    инварианты, покрытие, зонды, check_all.py
-    tavern-ideas/      компаньон-геймдизайнер: столпы, вкус, отвергнутое, мысли (только по зову)
-    tavern-refactor/   как рефакторим: протокол, приёмы, цели
-    tavern-hands/      руки: предмет в руке (фонарь), наведение, фокус ПКМ, свет
-  unity/           вендорские скилы Unity Technologies (урезанная копия плагина)
-    unity-ugui/ unity-tmp/ unity-urp-post/ unity-urp-rendergraph/
-    unity-shadergraph-node/ unity-audio-mixers/ unity-audio-optimize/
-    unity-physics-3d/ unity-packages/ unity-navmesh/
-  crash-heroes/    crash-games/      инфраструктура краш-игр
-                   game-engine-rng/  новый движок под новую игру (Node 24 + TypeScript)
-  lucky/           Lucky Server (white-label casino SaaS)
-    lucky-infra/       серверы, деплой и CI
-    lucky-back/        бэкенд: код API, модули, схема, деньги
-  olimp/           olimp-api/        CMS и API мобилок OlimpBet
-                   olimp-proxy/      прокси-серверы Olimp: реестр, доступ, runbook'и
-  poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
-  personal/        shinobi-council/  формат ответов «Совет шиноби»
-  tools/           scripts/          наши шелл-скрипты (dps) и их раскатка
-                   image-gen/        генерация картинок локально (ig: ComfyUI + FLUX.2 klein)
-                   img3d/            3D-модель по картинке локально (img3d: TRELLIS.2)
-                   sfx-gen/          звуки локально (sfx: Stable Audio 3 small-sfx)
+  work/            рабочие проекты
+    lucky/           Lucky Server (white-label casino SaaS)
+      lucky-infra/       серверы, деплой и CI
+      lucky-back/        бэкенд: код API, модули, схема, деньги
+    crash-heroes/    crash-games/      инфраструктура краш-игр
+                     game-engine-rng/  новый движок под новую игру (Node 24 + TypeScript)
+    olimp/           olimp-api/        CMS и API мобилок OlimpBet
+                     olimp-proxy/      прокси-серверы Olimp: реестр, доступ, runbook'и
+    poker/           poker-infra/      OlimpBet Poker, контейнеры и серты
+    tools/           scripts/          наши шелл-скрипты (dcps, dci) и их раскатка на машины и серверы
+  personal/        своё
+    tavern/          игра «Таверна»
+      tavern-game/       память решений и доменные справочники
+      tavern-cooking/    готовка: еда, рецепты, жидкости, посуда
+      tavern-regress/    инварианты, покрытие, зонды, check_all.py
+      tavern-ideas/      компаньон-геймдизайнер: столпы, вкус, отвергнутое, мысли (только по зову)
+      tavern-refactor/   как рефакторим: протокол, приёмы, цели
+      tavern-hands/      руки: предмет в руке (фонарь), наведение, фокус ПКМ, свет
+      … ещё два десятка доменных скилов, см. `ls personal/tavern`
+    unity/           вендорские скилы Unity Technologies (урезанная копия плагина)
+      unity-ugui/ unity-tmp/ unity-urp-post/ unity-urp-rendergraph/
+      unity-shadergraph-node/ unity-audio-mixers/ unity-audio-optimize/
+      unity-physics-3d/ unity-packages/ unity-navmesh/
+    shinobi-council/ формат ответов «Совет шиноби»
+    tools/           image-gen/        генерация картинок локально (ig: ComfyUI + FLUX.2 klein)
+                     img3d/            3D-модель по картинке локально (img3d: TRELLIS.2)
+                     sfx-gen/          звуки локально (sfx: Stable Audio 3 small-sfx)
 ```
 
 ### ⚠️ Почему симлинки всё равно ПЛОСКИЕ
@@ -42,8 +45,8 @@ Claude Code **не сканирует `~/.claude/skills` вглубь**: ски�
 указывает внутрь своей проектной папки:
 
 ```
-~/.claude/skills/tavern-game -> .../claude-skills/tavern/tavern-game
-~/.claude/skills/crash-games -> .../claude-skills/crash-heroes/crash-games
+~/.claude/skills/tavern-game -> .../claude-skills/personal/tavern/tavern-game
+~/.claude/skills/crash-games -> .../claude-skills/work/crash-heroes/crash-games
 ```
 
 Отсюда два правила:
@@ -71,22 +74,10 @@ cp tavern/tavern-regress/probes/pre-commit.sh .git/hooks/pre-commit
 ```bash
 R=/media/<user>/T714/claude-skills
 mkdir -p ~/.claude/skills
-for s in tavern-game tavern-cooking tavern-regress tavern-ideas tavern-refactor tavern-hands; do
-  ln -sfn $R/tavern/$s ~/.claude/skills/$s
+# каждый скил — папка с SKILL.md на глубине 1–2 внутри work/ и personal/
+find "$R/work" "$R/personal" -maxdepth 3 -name SKILL.md | while read -r f; do
+  d=$(dirname "$f"); ln -sfn "$d" ~/.claude/skills/"$(basename "$d")"
 done
-for s in unity-ugui unity-tmp unity-urp-post unity-urp-rendergraph unity-shadergraph-node \
-         unity-audio-mixers unity-audio-optimize unity-physics-3d unity-packages unity-navmesh; do
-  ln -sfn $R/unity/$s ~/.claude/skills/$s
-done
-ln -sfn $R/crash-heroes/crash-games   ~/.claude/skills/crash-games
-ln -sfn $R/crash-heroes/game-engine-rng ~/.claude/skills/game-engine-rng
-ln -sfn $R/lucky/lucky-infra          ~/.claude/skills/lucky-infra
-ln -sfn $R/lucky/lucky-back           ~/.claude/skills/lucky-back
-ln -sfn $R/olimp/olimp-api            ~/.claude/skills/olimp-api
-ln -sfn $R/olimp/olimp-proxy          ~/.claude/skills/olimp-proxy
-ln -sfn $R/poker/poker-infra          ~/.claude/skills/poker-infra
-ln -sfn $R/personal/shinobi-council   ~/.claude/skills/shinobi-council
-ln -sfn $R/tools/scripts              ~/.claude/skills/scripts
 ```
 
 Замени `<user>` на своё имя пользователя. Точка монтирования может отличаться —
@@ -112,6 +103,10 @@ done
 
 ## История
 
+- **2026-10-28** — две группы верхнего уровня: `work/` (lucky, crash-heroes, olimp, poker,
+  tools/scripts) и `personal/` (tavern, unity, shinobi-council, tools/image-gen, img3d, sfx-gen).
+  Все симлинки в `~/.claude/skills` перелинкованы; снимок установки — через `find`, список
+  скилов больше не перечисляется руками.
 - **2026-09-07** — разложено по проектным папкам, до этого всё лежало плоско в
   корне. Тогда же удалены `debug-panel`, `admin-ui`, `vitriny-tz` — по решению
   Ильи; восстановимы из истории git.
