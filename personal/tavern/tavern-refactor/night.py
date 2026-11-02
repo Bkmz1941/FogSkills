@@ -518,6 +518,13 @@ def verify(args):
         print('ИТОГ: ЦЕПОЧКА СОРВАНА — play не поднялся (чужой stop или компиляция); пробы не гонялись, повторить verify')
         return 2
     time.sleep(SETTLE)
+    # Растения после автозагрузки досыпаются в фоне (28.10, шаг plants-defer-all-loads):
+    # пробы ждут, пока уровень осядет целиком, иначе снимки «до/после» расходятся.
+    for _ in range(60):
+        left = str(mcp_run('return Cozy.Grid.GridCursor.I != null ? Cozy.Grid.GridCursor.I.PendingPlants.ToString() : "0";') or '0').strip()
+        if left in ('', '0', 'None'):
+            break
+        time.sleep(2)
     out = sh([REG / 'check_all.py'])
     if 'play=True' not in sh([CYCLE, 'status'], 60):
         print('ИТОГ: ЦЕПОЧКА СОРВАНА — play выключили во время живых проб; сверка не делалась, повторить verify')

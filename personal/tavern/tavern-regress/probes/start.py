@@ -57,10 +57,21 @@ def last_headers(path, n, pattern=r'^## '):
     return heads[-n:]
 
 
+def disk_state():
+    empty = sh("find Library/PackageCache -type f -size 0 2>/dev/null | grep -vc 'ModuleCompilationTrigger\\|WEBGL_SUPPORTED\\|converter_widget.uss\\|an_empty_project\\|Samples~\\|MaterialGraph.uss\\|_.sgsubgraphdb'", cwd=PROJECT).strip() or '0'
+    junk = sh("find . -name '._*' -not -path '*/Library/*' 2>/dev/null | wc -l", cwd=PROJECT).strip() or '0'
+    junk_skills = sh("find . -name '._*' 2>/dev/null | wc -l", cwd=SKILLS_REPO).strip() or '0'
+    bad = int(empty) + int(junk) + int(junk_skills)
+    mark = '❌' if bad else '✅'
+    return (f"{mark} диск: пустых файлов в Library/PackageCache {empty}, мусора macOS `._*` в игре {junk}, в скилах {junk_skills}"
+            + (" — P1207: чинить из комплекта редактора (BuiltInPackages), `._*` удалить" if bad else ''))
+
+
 def main():
     print('=== Таверна: старт сессии ===')
     print(mcp_state())
     print(gpu_state())
+    print(disk_state())
     print('blender:', 'запущен' if sh('pgrep -x blender').strip() else 'не запущен')
     print()
     print('--- игра', PROJECT)

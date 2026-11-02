@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Иконки и снимки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: left rail of sections, right a grid of cards; each card opens its own canvas */
+:root {
+  --ground: #efebe3;
+  --panel: #f8f5ef;
+  --card: #ffffff;
+  --ink: #26241f;
+  --muted: #6b665c;
+  --line: #d6cfc2;
+  --accent: #b23a2e;
+  --ok: #3d7a4a;
+  --ok-bg: #e3f0e5;
+  --draft: #8a6a1f;
+  --draft-bg: #f6ecd2;
+  --display: "PT Serif", Georgia, serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #1b1a18; --panel: #24221f; --card: #2b2925; --ink: #ece7dc; --muted: #a39d90; --line: #3f3b35;
+    --accent: #e06a5c; --ok: #8fcf9b; --ok-bg: #233a28; --draft: #e2c27a; --draft-bg: #3a3220;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #1b1a18; --panel: #24221f; --card: #2b2925; --ink: #ece7dc; --muted: #a39d90; --line: #3f3b35;
+  --accent: #e06a5c; --ok: #8fcf9b; --ok-bg: #233a28; --draft: #e2c27a; --draft-bg: #3a3220;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--ground); color: var(--ink); font-family: var(--body); min-height: 100vh; }
+.wrap { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+nav { background: var(--panel); border-right: 1px solid var(--line); padding: 20px 14px; position: sticky; top: 0; height: 100vh; overflow: auto; }
+nav a.home { display: inline-block; margin: 0 6px 14px; font: 500 0.85rem var(--body); color: var(--accent); text-decoration: none; }
+nav a.home:hover { text-decoration: underline; }
+.group { scroll-margin-top: 16px; }
+nav h1 { font-family: var(--display); font-size: 1.25rem; margin: 0 6px 4px; }
+nav p { color: var(--muted); font-size: 0.8rem; margin: 0 6px 18px; line-height: 1.4; }
+nav button { display: flex; justify-content: space-between; align-items: center; width: 100%; font: 500 0.95rem var(--body); color: var(--ink); background: transparent; border: 0; border-radius: 8px; padding: 9px 10px; cursor: pointer; text-align: left; }
+nav button:hover { background: var(--ground); }
+nav button[aria-current="true"] { background: var(--card); color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+nav button span { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+nav button:focus-visible, a.open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+main { padding: 24px 28px 40px; }
+main h2 { font-family: var(--display); font-size: 1.5rem; margin: 0 0 4px; }
+.lead { color: var(--muted); margin: 0 0 20px; max-width: 60ch; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.thumb { background: var(--panel); display: flex; align-items: center; justify-content: center; height: 240px; padding: 14px; overflow: hidden; flex: none; }
+.thumb img { display: block; height: 100%; width: auto; max-width: 100%; object-fit: contain; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+.body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.body h3 { margin: 0; font-size: 1rem; font-weight: 600; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 0.82rem; }
+.desc { font-size: 0.86rem; line-height: 1.45; margin: 2px 0 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; align-items: center; }
+.tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; }
+.tag.ok { background: var(--ok-bg); color: var(--ok); }
+.tag.draft { background: var(--draft-bg); color: var(--draft); }
+a.open { margin-left: auto; font: 500 0.85rem var(--body); color: #fff; background: var(--accent); text-decoration: none; padding: 6px 12px; border-radius: 8px; }
+a.open:hover { filter: brightness(1.08); }
+.empty { border: 1px dashed var(--line); border-radius: 12px; padding: 28px; color: var(--muted); max-width: 520px; line-height: 1.5; }
+.group { margin: 0 0 28px; }
+.group h3 { font-family: var(--display); font-size: 1.15rem; margin: 0 0 10px; display: flex; gap: 8px; align-items: baseline; }
+.group h3 span { color: var(--muted); font: 400 0.85rem var(--body); }
+.icons { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.icons li { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.icons .pic { flex: none; width: 64px; height: 64px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #3a3833; }
+.icons .pic img { width: 56px; height: 56px; object-fit: contain; }
+.icons .txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.icons .nm { font-weight: 500; font-size: 0.9rem; line-height: 1.3; overflow-wrap: anywhere; }
+.icons .nm.none { color: var(--muted); font-weight: 400; font-style: italic; }
+.icons .fn { color: var(--muted); font: 0.78rem ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.find { font: 0.9rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: min(360px, 100%); margin: 0 0 18px; }
+.icons li { cursor: pointer; }
+.icons li:hover { border-color: var(--accent); }
+.icons li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+dialog.inv { border: 0; padding: 0; border-radius: 14px; background: #1a1a1f; color: #ece7dc; max-width: calc(100vw - 32px); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+dialog.inv::backdrop { background: rgba(10,10,12,0.6); }
+.inv .stage { padding: 28px 28px 18px; display: flex; justify-content: center; overflow: auto; }
+.inv .board { position: relative; display: grid; gap: var(--gap); }
+.inv .cell { width: var(--cell); height: var(--cell); background: rgba(41,43,56,0.92); border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
+.inv .tile { position: absolute; background: #292b38; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.inv .tile img { position: absolute; left: 50%; top: 50%; object-fit: contain; transform: translate(-50%, -50%); }
+.inv .info { border-top: 1px solid #33313a; padding: 14px 20px 18px; display: grid; gap: 6px; }
+.inv .info b { font-size: 1.02rem; font-weight: 600; }
+.inv .row { display: flex; gap: 18px; flex-wrap: wrap; color: #a39d90; font-size: 0.88rem; }
+.inv .row span strong { color: #ece7dc; font-weight: 500; }
+.inv .x { position: absolute; top: 8px; right: 10px; background: transparent; border: 0; color: #a39d90; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 4px 8px; }
+.inv .x:hover { color: #ece7dc; }
+@media (max-width: 720px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px 16px; }
+  nav .list { display: flex; flex-wrap: wrap; gap: 4px; }
+  nav button { width: auto; }
+  main { padding: 18px 16px 32px; }
+}
+nav .secs { display: flex; gap: 6px; margin: 0 6px 16px; }
+nav button.sec { width: auto; flex: 1; justify-content: center; border: 1px solid var(--line); background: var(--card); font-weight: 600; }
+nav button.sec[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.shots .shot { font: inherit; color: var(--ink); text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 8px; cursor: pointer; }
+.shots .shot:hover { border-color: var(--accent); }
+.shots .shot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shots .shot img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; background: #3a3833; }
+.shots .shot b { font-weight: 500; font-size: 0.92rem; line-height: 1.3; padding: 0 2px 2px; }
+dialog.shotview { border: 0; padding: 0; border-radius: 14px; background: #1a1a1f; color: #ece7dc; width: min(960px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+dialog.shotview::backdrop { background: rgba(10,10,12,0.7); }
+.shotview > img { display: block; width: 100%; max-height: 70vh; object-fit: contain; background: #111; }
+.shotview .info { padding: 14px 20px 18px; display: grid; gap: 8px; }
+.shotview .info b { font-size: 1.05rem; font-weight: 600; }
+.shotview .info p { margin: 0; color: #c9c3b7; line-height: 1.5; font-size: 0.92rem; }
+.shotview .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.shotview .nb { font: 500 0.88rem var(--body); color: #ece7dc; background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.shotview .nb:disabled { visibility: hidden; }
+.shotview .pos { color: #a39d90; font: 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+.shotview .x { position: absolute; top: 8px; right: 10px; background: rgba(0,0,0,0.45); border: 0; color: #ece7dc; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 4px 10px; border-radius: 8px; }
+@media (max-width: 720px) { nav .secs { margin: 0 0 10px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="https://claude.ai/artifact/N5mpyXvqMebj7DhfR3T3Nx" target="_blank" rel="noopener">Дашборд игры</a>
+    <h1>Иконки и снимки</h1>
+    <p>Иконки предметов и снимки. Сверху — раздел, ниже — группы, клик переносит к группе</p>
+    <div class="list" id="nav"></div>
+  </nav>
+  <main id="main"></main>
+</div>
+<script>
+(() => {
+  const FLYERS = 'https://claude.ai/artifact/T2MvCoU2nEZfcPmGrFsPoo';
+  const SECTIONS = [
+    { id: 'icons', title: 'Иконки', lead: 'Все картинки предметов из папки Icons, как их видно в инвентаре. Под иконкой — имя предмета в игре и имя файла; иконки без предмета — значки интерфейса и запас. Клик по иконке показывает её плиткой, как в инвентаре, с размером и весом', groups: [{"title": "Продукты", "items": [{"f": "banana", "n": "Банан", "ids": ["banana"], "c": ["продукты"], "s": [1, 1], "w": 0.12}, {"f": "mushroom_boletus", "n": "Боровик", "ids": ["mushroom_boletus"], "c": ["продукты"], "s": [1, 1], "w": 0.08}, {"f": "oil_bottle", "n": "Бутылка масла", "ids": ["oil_bottle"], "c": ["продукты"], "s": [1, 2], "w": 1.0}, {"f": "vodka", "n": "Водка", "ids": ["vodka"], "c": ["алкоголь"], "s": [1, 2], "w": 0.9}, {"f": "whisky", "n": "Виски", "ids": ["whisky"], "c": ["алкоголь"], "s": [1, 2], "w": 1.2}, {"f": "water_soda", "n": "Газированная вода", "ids": ["water_soda"], "c": [], "s": [1, 2], "w": 1.3}, {"f": "wild_berry", "n": "Дикая ягода", "ids": ["wild_berry"], "c": ["продукты"], "s": [1, 1], "w": 0.05}, {"f": "ketchup", "n": "Кетчуп", "ids": ["ketchup"], "c": ["кухня"], "s": [1, 2], "w": 0.9}, {"f": "candy_korovka", "n": "Конфета «Коровка»", "ids": ["candy_korovka"], "c": ["продукты"], "s": [1, 1], "w": 0.02}, {"f": "coffee_pack", "n": "Кофе молотый", "ids": ["coffee_pack"], "c": ["продукты"], "s": [1, 1], "w": 0.6}, {"f": "mushroom_agaric", "n": "Мухомор", "ids": ["mushroom_agaric"], "c": ["продукты"], "s": [1, 1], "w": 0.08}, {"f": "mushroom_honey", "n": "Опята", "ids": ["mushroom_honey"], "c": ["продукты"], "s": [1, 1], "w": 0.08}, {"f": "milk_carton", "n": "Пакет молока", "ids": ["milk_carton"], "c": ["продукты"], "s": [1, 2], "w": 1.0}, {"f": "sausage_pack", "n": "Пачка сосисок", "ids": ["sausage_pack"], "c": ["кухня"], "s": [1, 1], "w": 0.6}, {"f": "egg_carton", "n": "Пачка яиц", "ids": ["egg_carton"], "c": [], "s": [2, 1], "w": 0.7}, {"f": "beer_can_green", "n": "Пиво (зелёная банка)", "ids": ["beer_can_green"], "c": ["алкоголь"], "s": [1, 1], "w": 0.52}, {"f": "beer_can_gold", "n": "Пиво (золотая банка)", "ids": ["beer_can_gold"], "c": ["алкоголь"], "s": [1, 1], "w": 0.52}, {"f": "beer_can_red", "n": "Пиво (красная банка)", "ids": ["beer_can_red"], "c": ["алкоголь"], "s": [1, 1], "w": 0.35}, {"f": "beer_can_blue", "n": "Пиво (синяя банка)", "ids": ["beer_can_blue"], "c": ["алкоголь"], "s": [1, 1], "w": 0.52}, {"f": "beer_can_dark", "n": "Пиво (тёмная банка)", "ids": ["beer_can_dark"], "c": ["алкоголь"], "s": [1, 1], "w": 0.35}, {"f": "water_bottle", "n": "Пластиковая бутылка", "ids": ["water_bottle"], "c": [], "s": [1, 2], "w": 1.5}, {"f": "mushroom_toadstool", "n": "Поганка", "ids": ["mushroom_toadstool"], "c": ["продукты"], "s": [1, 1], "w": 0.08}, {"f": "chips_red_open", "n": "Пустая пачка чипсов с креветкой", "ids": ["chips_red_open"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "chips_green_open", "n": "Пустая пачка чипсов с луком", "ids": ["chips_green_open"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "chips_yellow_open", "n": "Пустая пачка чипсов с мясом", "ids": ["chips_yellow_open"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "coffee_filter", "n": "Фильтр для кофе", "ids": ["coffee_filter"], "c": ["продукты"], "s": [1, 1], "w": 0.01}, {"f": "filter_pack", "n": "Фильтры для кофе", "ids": ["filter_pack"], "c": ["продукты"], "s": [1, 1], "w": 0.2}, {"f": "chips_red", "n": "Чипсы с креветкой", "ids": ["chips_red"], "c": ["продукты"], "s": [1, 2], "w": 0.15}, {"f": "chips_green", "n": "Чипсы с луком", "ids": ["chips_green"], "c": ["продукты"], "s": [1, 2], "w": 0.15}, {"f": "chips_yellow", "n": "Чипсы с мясом", "ids": ["chips_yellow"], "c": ["продукты"], "s": [1, 2], "w": 0.15}, {"f": "chocolate_bar", "n": "Шоколадка", "ids": ["chocolate_bar"], "c": ["продукты"], "s": [1, 1], "w": 0.1}, {"f": "apple", "n": "Яблоко", "ids": ["apple"], "c": ["продукты"], "s": [1, 1], "w": 0.2}, {"f": "apple_green", "n": "Яблоко", "ids": ["apple_green"], "c": ["продукты"], "s": [1, 1], "w": 0.2}, {"f": "wine", "n": "Вино", "ids": [], "c": ["алкоголь"], "s": [1, 2]}]}, {"title": "Одежда", "items": [{"f": "robe", "n": "Балахон", "ids": ["robe"], "c": ["одежда"], "s": [2, 2], "w": 1.6}, {"f": "tshirt_beige", "n": "Бежевая футболка", "ids": ["tshirt_beige"], "c": ["одежда"], "s": [2, 2], "w": 0.3}, {"f": "tshirt", "n": "Белая футболка", "ids": ["tshirt"], "c": ["одежда"], "s": [2, 2], "w": 0.3}, {"f": "tshirt_f", "n": "Белая футболка (женская)", "ids": ["tshirt_f"], "c": ["одежда"], "s": [2, 2], "w": 0.25}, {"f": "turtleneck", "n": "Водолазка", "ids": ["turtleneck"], "c": [], "s": [2, 2], "w": 0.45}, {"f": "jeans", "n": "Джинсы", "ids": ["jeans"], "c": ["одежда"], "s": [2, 2], "w": 0.7}, {"f": "jeans_f", "n": "Джинсы (женские)", "ids": ["jeans_f"], "c": ["одежда"], "s": [2, 2], "w": 0.6}, {"f": "home_pants", "n": "Домашние штаны", "ids": ["home_pants"], "c": ["одежда"], "s": [2, 2], "w": 0.5}, {"f": "sneakers", "n": "Кроссовки", "ids": ["sneakers"], "c": ["одежда"], "s": [2, 2], "w": 0.8}, {"f": "sneakers_f", "n": "Кроссовки (женские)", "ids": ["sneakers_f"], "c": ["одежда"], "s": [2, 2], "w": 0.6}, {"f": "sneakers_grey", "n": "Кроссовки серые", "ids": ["sneakers_grey"], "c": ["одежда"], "s": [2, 2], "w": 0.8}, {"f": "glasses_sokolova", "n": "Круглые очки в тонкой оправе", "ids": ["glasses_sokolova"], "c": [], "s": [1, 1], "w": 0.03}, {"f": "jacket", "n": "Куртка", "ids": ["jacket"], "c": ["одежда"], "s": [2, 2], "w": 1.2}, {"f": "police_jacket", "n": "Полицейская куртка", "ids": ["police_jacket", "police_jacket_f"], "c": ["одежда"], "s": [2, 2], "w": 1.1}, {"f": "police_shirt", "n": "Полицейская рубашка с галстуком", "ids": ["police_shirt", "police_shirt_f"], "c": ["одежда"], "s": [2, 2], "w": 0.35}, {"f": "police_shoes", "n": "Полицейские ботинки", "ids": ["police_shoes", "police_shoes_f"], "c": ["одежда"], "s": [2, 2], "w": 1.0}, {"f": "police_trousers", "n": "Полицейские брюки", "ids": ["police_trousers", "police_trousers_f"], "c": ["одежда"], "s": [2, 2], "w": 0.6}, {"f": "briefcase", "n": "Портфель", "ids": ["briefcase"], "c": [], "s": [2, 2], "w": 1.2}, {"f": "backpack", "n": "Рюкзак", "ids": ["backpack_f"], "c": ["одежда"], "s": [2, 2], "w": 0.9}, {"f": "hoodie", "n": "Синяя толстовка", "ids": ["hoodie"], "c": ["одежда"], "s": [2, 2], "w": 0.7}, {"f": "sport_bag", "n": "Спортивная сумка", "ids": ["sport_bag"], "c": ["одежда"], "s": [2, 2], "w": 1.4}, {"f": "slippers", "n": "Тапочки", "ids": ["slippers"], "c": ["одежда"], "s": [2, 2], "w": 0.4}, {"f": "hoodie_f", "n": "Толстовка", "ids": ["hoodie_f"], "c": ["одежда"], "s": [2, 2], "w": 0.6}, {"f": "tshirt_red", "n": "Тёмно-красная футболка", "ids": ["tshirt_red"], "c": ["одежда"], "s": [2, 2], "w": 0.3}, {"f": "hat-glasses", "n": "", "ids": [], "c": []}, {"f": "shirt", "n": "", "ids": [], "c": []}]}, {"title": "Медицина", "items": [{"f": "first_aid_big", "n": "Аптечка большая", "ids": ["first_aid_big"], "c": ["медикаменты"], "s": [2, 1], "w": 1.5}, {"f": "first_aid_small", "n": "Аптечка малая", "ids": ["first_aid_small"], "c": ["медикаменты"], "s": [1, 1], "w": 0.4}, {"f": "bandage_roll", "n": "Бинт", "ids": ["bandage_roll"], "c": ["медикаменты"], "s": [1, 1], "w": 0.03}, {"f": "bandage_pack", "n": "Бинты", "ids": ["bandage_pack"], "c": ["медикаменты"], "s": [1, 1], "w": 0.15}, {"f": "pills_vitamarin", "n": "Витамарин", "ids": ["pills_vitamarin"], "c": ["медикаменты"], "s": [1, 1], "w": 0.15}, {"f": "pills_dormilan", "n": "Дормилан", "ids": ["pills_dormilan"], "c": ["медикаменты"], "s": [1, 1], "w": 0.02}, {"f": "pills_noctavin", "n": "Ноктавин", "ids": ["pills_noctavin"], "c": ["медикаменты"], "s": [1, 1], "w": 0.02}, {"f": "pills_tenorit", "n": "Тенорит", "ids": ["pills_tenorit"], "c": ["медикаменты"], "s": [1, 1], "w": 0.02}, {"f": "pills_febrasol", "n": "Фобразол", "ids": ["pills_febrasol"], "c": ["медикаменты"], "s": [1, 1], "w": 0.03}]}, {"title": "Газеты", "items": [{"f": "newspaper_1_folded", "n": "Газета «Новости из Лихово», 1 октября 2026", "ids": ["newspaper_1_folded"], "c": [], "s": [2, 1], "w": 0.12}, {"f": "newspaper_2_folded", "n": "Газета «Новости из Лихово», 6 августа 2026", "ids": ["newspaper_2_folded"], "c": [], "s": [2, 1], "w": 0.12}, {"f": "magazine_1", "n": "Журнал «Шёпот», октябрь 2026", "ids": ["magazine_1"], "c": [], "s": [1, 1], "w": 0.25}]}, {"title": "Книги", "items": [{"f": "book_calendar", "n": "Календарь православный на 1998 год", "ids": ["book_calendar"], "c": [], "s": [1, 1], "w": 0.2}, {"f": "book_facts", "n": "Книга «1000 удивительных фактов»", "ids": ["book_facts"], "c": [], "s": [1, 1], "w": 0.8}, {"f": "book_akathist", "n": "Книга «Акафистник»", "ids": ["book_akathist"], "c": [], "s": [1, 1], "w": 0.5}, {"f": "book_mushrooms", "n": "Книга «Грибы средней полосы»", "ids": ["book_mushrooms"], "c": [], "s": [1, 1], "w": 0.9}, {"f": "book_kids_bible", "n": "Книга «Детская Библия»", "ids": ["book_kids_bible"], "c": [], "s": [1, 1], "w": 0.9}, {"f": "book_doctor", "n": "Книга «Домашний врач»", "ids": ["book_doctor"], "c": [], "s": [1, 1], "w": 1.1}, {"f": "book_lives", "n": "Книга «Жития святых»", "ids": ["book_lives"], "c": [], "s": [1, 1], "w": 1.0}, {"f": "book_novel", "n": "Книга «Кофе на крыше»", "ids": ["book_novel"], "c": [], "s": [1, 1], "w": 0.3}, {"f": "book_prayer", "n": "Книга «Молитвослов»", "ids": ["book_prayer"], "c": [], "s": [1, 1], "w": 0.3}, {"f": "book_choir", "n": "Книга «Обиход»", "ids": ["book_choir"], "c": [], "s": [1, 1], "w": 1.1}, {"f": "book_parables", "n": "Книга «Притчи»", "ids": ["book_parables"], "c": [], "s": [1, 1], "w": 0.3}, {"f": "book_psalter", "n": "Книга «Псалтирь»", "ids": ["book_psalter"], "c": [], "s": [1, 1], "w": 0.9}, {"f": "book_stories", "n": "Книга «Свет в окне»", "ids": ["book_stories"], "c": [], "s": [1, 1], "w": 0.5}, {"f": "book_fog", "n": "Книга «Туман»", "ids": ["book_fog"], "c": [], "s": [1, 1], "w": 0.5}, {"f": "book_parish", "n": "Книга «Храм в Сосновке»", "ids": ["book_parish"], "c": [], "s": [1, 1], "w": 0.25}]}, {"title": "Комплектующие", "items": [{"f": "batteries", "n": "Батарейки", "ids": ["batteries"], "c": [], "s": [1, 1], "w": 0.05}]}, {"title": "Гаджеты", "items": [{"f": "flashlight", "n": "Фонарь", "ids": ["flashlight"], "c": [], "s": [1, 1], "w": 0.4}, {"f": "phone", "n": "Телефон", "ids": ["phone"], "c": [], "s": [1, 1], "w": 0.2}, {"f": "photo_camera", "n": "Фотоаппарат", "ids": ["photo_camera"], "c": [], "s": [2, 1], "w": 1.1}, {"f": "photo_print", "n": "Фотография — шаблон (снимок ложится в серое окно)", "ids": ["photo_print"], "c": [], "s": [1, 1], "w": 0.01}, {"f": "photo_print_example", "n": "Фотография со снимком (пример)", "ids": [], "c": [], "s": [1, 1], "w": 0.01}, {"f": "photo_cartridge", "n": "Картридж", "ids": ["photo_cartridge"], "c": [], "s": [1, 1], "w": 0.1}, {"f": "meter_transformer", "n": "Трансформатор", "ids": ["meter_transformer"], "c": [], "s": [1, 1], "w": 1.5}]}, {"title": "Ключи", "items": [{"f": "key_bear", "n": "Ключ", "ids": ["key_bear"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "key_blue", "n": "Ключ", "ids": ["key"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "key_fish", "n": "Ключ", "ids": ["key_fish"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "key_red", "n": "Ключ", "ids": ["key_red"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "key_yellow", "n": "Ключ", "ids": ["key_yellow"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "old_key_1", "n": "Старый ключ", "ids": ["old_key_1"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "old_key_2", "n": "Старый ключ", "ids": ["old_key_2"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "old_key_3", "n": "Старый ключ", "ids": ["old_key_3"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "old_key_4", "n": "Старый ключ", "ids": ["old_key_4"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "old_key_5", "n": "Старый ключ", "ids": ["old_key_5"], "c": ["ключи"], "s": [1, 1], "w": 0.1}, {"f": "padlock_key", "n": "Ключ от замка", "ids": ["padlock_key"], "c": ["ключи"], "s": [1, 1], "w": 0.1}]}, {"title": "Документы", "items": [{"f": "passport", "n": "Паспорт", "ids": ["passport"], "c": ["документы"], "s": [1, 1], "w": 0.05}]}, {"title": "Украшения", "items": [{"f": "diamond_ring", "n": "Кольцо с бриллиантом", "ids": ["diamond_ring"], "c": ["украшения"], "s": [1, 1], "w": 0.05}, {"f": "gold_ring", "n": "Золотое кольцо", "ids": ["gold_ring"], "c": ["украшения"], "s": [1, 1], "w": 0.05}, {"f": "crab_pendant", "n": "Подвеска «Крабик»", "ids": ["crab_pendant"], "c": ["украшения"], "s": [1, 1], "w": 0.05}]}, {"title": "Замки", "items": [{"f": "padlock_1", "n": "Замок амбарный", "ids": ["padlock_1"], "c": [], "s": [1, 1], "w": 0.9}, {"f": "padlock_2", "n": "Замок круглый", "ids": ["padlock_2"], "c": [], "s": [1, 1], "w": 0.9}, {"f": "padlock_3", "n": "Замок ржавый", "ids": ["padlock_3"], "c": [], "s": [1, 1], "w": 1.1}, {"f": "padlock_4", "n": "Замок современный", "ids": ["padlock_4"], "c": [], "s": [1, 1], "w": 0.7}]}, {"title": "Инструменты", "items": [{"f": "kitchen_knife", "n": "Нож кухонный", "ids": ["kitchen_knife"], "c": [], "s": [1, 1], "w": 0.3}, {"f": "old_knife", "n": "Нож старый", "ids": ["old_knife"], "c": [], "s": [1, 1], "w": 0.3}, {"f": "home_hammer", "n": "Молоток современный", "ids": ["home_hammer"], "c": [], "s": [1, 1], "w": 0.7}, {"f": "old_hammer", "n": "Молоток", "ids": ["old_hammer"], "c": [], "s": [1, 1], "w": 0.7}, {"f": "home_screwdriver", "n": "Отвёртка", "ids": ["home_screwdriver"], "c": [], "s": [1, 1], "w": 0.15}, {"f": "old_screwdriver", "n": "Отвёртка старая", "ids": ["old_screwdriver"], "c": [], "s": [1, 1], "w": 0.2}, {"f": "axe", "n": "Топор", "ids": ["axe"], "c": [], "s": [1, 2], "w": 2.5}, {"f": "axe_old", "n": "Топор старый", "ids": ["axe_old"], "c": [], "s": [1, 2], "w": 2.5}, {"f": "axe_head", "n": "Голова топора", "ids": ["axe_head"], "c": [], "s": [2, 1], "w": 1.8}, {"f": "axe_handle", "n": "Топорище", "ids": ["axe_handle"], "c": [], "s": [1, 2], "w": 0.7}, {"f": "deco_stick", "n": "Деревянная палка", "ids": ["deco_stick"], "c": [], "s": [1, 2], "w": 0.4}]}, {"title": "Другое", "items": [{"f": "matches", "n": "Спички", "ids": ["matches"], "c": [], "s": [1, 1], "w": 0.03}, {"f": "dice", "n": "Игральные кости", "ids": ["dice"], "c": [], "s": [1, 1], "w": 0.03}, {"f": "firewood_log", "n": "Полено", "ids": ["firewood_log"], "c": ["дрова"], "s": [2, 1], "w": 2.2}, {"f": "firewood_split", "n": "Полено колотое", "ids": ["firewood_split"], "c": ["дрова"], "s": [2, 1], "w": 1.8}, {"f": "stone", "n": "Камень", "ids": ["veg_rock"], "c": [], "s": [1, 1], "w": 0.6}, {"f": "candle_1", "n": "Свеча", "ids": ["candle_1"], "c": [], "s": [1, 1], "w": 1.2}, {"f": "candle_2", "n": "Свеча в стакане", "ids": ["candle_2"], "c": [], "s": [1, 1], "w": 1.2}, {"f": "old_candle_1", "n": "Свеча в подсвечнике", "ids": ["old_candle_1"], "c": [], "s": [1, 1], "w": 0.8}, {"f": "old_candle_2", "n": "Огарок в блюдце", "ids": ["old_candle_2"], "c": [], "s": [1, 1], "w": 0.5}, {"f": "old_candle_3", "n": "Свеча оплывшая", "ids": ["old_candle_3"], "c": [], "s": [1, 1], "w": 0.5}, {"f": "church_candle_1", "n": "Свеча церковная", "ids": ["church_candle_1"], "c": [], "s": [1, 2], "w": 0.3}, {"f": "church_candle_2", "n": "Свеча церковная огарок", "ids": ["church_candle_2"], "c": [], "s": [1, 1], "w": 0.15}, {"f": "church_candle_3", "n": "Свечи церковные связка", "ids": ["church_candle_3"], "c": [], "s": [1, 2], "w": 1.5}]}, {"title": "Разное", "items": [{"f": "sticky_note_long", "n": "Записка", "ids": ["sticky_note_long"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "sticky_note", "n": "Стикер", "ids": ["sticky_note"], "c": [], "s": [1, 1], "w": 0.01}, {"f": "documents", "n": "Билет на автобус (Анна), Билет на автобус (Дмитрий), Билет на автобус (Илья), Договор аренды, Отчёт по проекту, Протокол совещания, Реестр рисков", "ids": ["bus_ticket_anna", "bus_ticket_dima", "bus_ticket_ilya", "lease_contract", "work_minutes", "work_report", "work_risks"], "c": [], "s": [1, 1], "w": 0.005}, {"f": "wallet_m", "n": "Бумажник", "ids": ["wallet_m"], "c": [], "s": [1, 1], "w": 0.2}, {"f": "old_bucket", "n": "Ведро", "ids": ["old_bucket"], "c": [], "s": [1, 2], "w": 1.5}, {"f": "fish_schedule", "n": "График выхода на лов", "ids": ["fish_schedule"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "brush-cleaning", "n": "Губка", "ids": ["sponge"], "c": ["кухня"], "s": [2, 1], "w": 0.1}, {"f": "drawing_artyom", "n": "Детский рисунок «Я, папа и мама»", "ids": ["drawing_artyom"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "cutting-board", "n": "Доска разделочная", "ids": ["cutting_board"], "c": [], "s": [2, 2], "w": 0.9}, {"f": "diary", "n": "Ежедневник", "ids": ["diary"], "c": [], "s": [2, 2], "w": 0.4}, {"f": "catch_log", "n": "Журнал улова", "ids": ["catch_log"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "cooking-pot", "n": "Кастрюля", "ids": ["cooking_pot"], "c": ["кухня"], "s": [2, 2], "w": 1.5}, {"f": "old_phone", "n": "Кнопочный телефон", "ids": ["old_phone"], "c": [], "s": [1, 1], "w": 0.1}, {"f": "wallet_f", "n": "Кошелёк", "ids": ["wallet_f"], "c": [], "s": [1, 1], "w": 0.2}, {"f": "flask-round", "n": "Кувшин кофеварки, Термос", "ids": ["coffee_carafe", "thermos"], "c": ["кухня"], "s": [2, 2], "w": 0.9}, {"f": "letter_sheet", "n": "Лист с письмом", "ids": ["letter_sheet"], "c": [], "s": [1, 1], "w": 0.01}, {"f": "missing_kovaleva", "n": "Листовка «Пропал человек» (Ковалёва)", "ids": ["missing_kovaleva"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "missing_sokolova", "n": "Листовка «Пропал человек» (Соколова)", "ids": ["missing_sokolova"], "c": [], "s": [1, 2], "w": 0.01}, {"f": "cloth_strip_white", "n": "Лоскут ткани (белый)", "ids": ["cloth_strip_white"], "c": ["материалы"], "s": [1, 1], "w": 0.05}, {"f": "cloth_strip_red", "n": "Лоскут ткани (красный)", "ids": ["cloth_strip_red"], "c": ["материалы"], "s": [1, 1], "w": 0.05}, {"f": "cloth_strip_blue", "n": "Лоскут ткани (синий)", "ids": ["cloth_strip_blue"], "c": ["материалы"], "s": [1, 1], "w": 0.05}, {"f": "bird", "n": "Мёртвая ворона", "ids": ["crow_dead"], "c": [], "s": [2, 2], "w": 0.5}, {"f": "scissors", "n": "Ножницы", "ids": ["scissors"], "c": [], "s": [1, 1], "w": 0.15}, {"f": "torch_burnt", "n": "Обгорелая палка", "ids": ["torch_burnt"], "c": [], "s": [1, 2], "w": 0.35}, {"f": "bath_bubble_bath", "n": "Пена для ванны", "ids": ["bath_bubble_bath"], "c": [], "s": [1, 2], "w": 0.5}, {"f": "letter_envelope", "n": "Письмо закрытое", "ids": ["letter_envelope"], "c": [], "s": [1, 1], "w": 0.02}, {"f": "hand-platter", "n": "Противень", "ids": ["baking_tray"], "c": ["кухня"], "s": [2, 2], "w": 1.4}, {"f": "tv_remote", "n": "Пульт от телевизора", "ids": ["tv_remote"], "c": [], "s": [1, 2], "w": 0.15}, {"f": "crumpled_paper", "n": "Скомканная бумага", "ids": ["crumpled_paper_1", "crumpled_paper_2"], "c": [], "s": [1, 1], "w": 0.01}, {"f": "coffee", "n": "Кружка", "ids": ["coffee_cup_blue", "coffee_cup_full", "coffee_cup_red", "coffee_cup_yellow"], "c": ["кухня"], "s": [1, 1], "w": 0.35}, {"f": "glass_tumbler_blue", "n": "Стакан", "ids": ["glass_tumbler_blue"], "c": ["кухня"], "s": [1, 1], "w": 0.3}, {"f": "glass_tumbler_pink", "n": "Стакан", "ids": ["glass_tumbler_pink"], "c": ["кухня"], "s": [1, 1], "w": 0.3}, {"f": "whisky_glass", "n": "Стакан для виски", "ids": ["whisky_glass"], "c": ["кухня"], "s": [1, 1], "w": 0.4}, {"f": "whisky_glass_facet", "n": "Стакан для виски", "ids": ["whisky_glass_facet"], "c": ["кухня"], "s": [1, 1], "w": 0.4}, {"f": "utensils", "n": "Тарелка", "ids": ["old_plate", "plate"], "c": ["кухня"], "s": [2, 2], "w": 0.6}, {"f": "torch_white", "n": "Факел (белая ткань)", "ids": ["torch_white"], "c": ["материалы"], "s": [1, 2], "w": 0.45}, {"f": "torch_red", "n": "Факел (красная ткань)", "ids": ["torch_red"], "c": ["материалы"], "s": [1, 2], "w": 0.45}, {"f": "torch_blue", "n": "Факел (синяя ткань)", "ids": ["torch_blue"], "c": ["материалы"], "s": [1, 2], "w": 0.45}, {"f": "folar", "n": "Фолуары", "ids": ["folar"], "c": [], "s": [1, 1], "w": 0.1}, {"f": "chop_log", "n": "Чурбак", "ids": ["chop_log"], "c": ["дрова"], "s": [2, 2], "w": 5.0}, {"f": "arrow-left-right", "n": "", "ids": [], "c": []}, {"f": "battery-charged", "n": "", "ids": [], "c": []}, {"f": "battery-empty", "n": "", "ids": [], "c": []}, {"f": "bed", "n": "", "ids": [], "c": []}, {"f": "bleeding", "n": "", "ids": [], "c": []}, {"f": "box", "n": "", "ids": [], "c": []}, {"f": "brain_full", "n": "", "ids": [], "c": []}, {"f": "brick-wall", "n": "", "ids": [], "c": []}, {"f": "bug", "n": "", "ids": [], "c": []}, {"f": "calendar", "n": "", "ids": [], "c": []}, {"f": "check", "n": "", "ids": [], "c": []}, {"f": "cloud-rain", "n": "", "ids": [], "c": []}, {"f": "coins", "n": "", "ids": [], "c": []}, {"f": "door-open", "n": "", "ids": [], "c": []}, {"f": "droplet", "n": "", "ids": [], "c": []}, {"f": "drunk", "n": "", "ids": [], "c": []}, {"f": "ear", "n": "", "ids": [], "c": []}, {"f": "effect-bath", "n": "", "ids": [], "c": []}, {"f": "effect-charge", "n": "", "ids": [], "c": []}, {"f": "effect-slots", "n": "", "ids": [], "c": []}, {"f": "effect-water", "n": "", "ids": [], "c": []}, {"f": "effect-wet", "n": "", "ids": [], "c": []}, {"f": "eye", "n": "", "ids": [], "c": []}, {"f": "eye-off", "n": "", "ids": [], "c": []}, {"f": "fence", "n": "", "ids": [], "c": []}, {"f": "filter", "n": "", "ids": [], "c": []}, {"f": "folder-open", "n": "", "ids": [], "c": []}, {"f": "hammer", "n": "", "ids": [], "c": []}, {"f": "headache", "n": "", "ids": [], "c": []}, {"f": "heart_full", "n": "", "ids": [], "c": []}, {"f": "home", "n": "", "ids": [], "c": []}, {"f": "image", "n": "", "ids": [], "c": []}, {"f": "key", "n": "", "ids": [], "c": []}, {"f": "key-copper", "n": "", "ids": [], "c": []}, {"f": "key-round", "n": "", "ids": [], "c": []}, {"f": "knife", "n": "", "ids": [], "c": []}, {"f": "layers", "n": "", "ids": [], "c": []}, {"f": "lease_contract", "n": "", "ids": [], "c": []}, {"f": "lightbulb", "n": "", "ids": [], "c": []}, {"f": "lock", "n": "", "ids": [], "c": []}, {"f": "lock-open", "n": "", "ids": [], "c": []}, {"f": "menu", "n": "", "ids": [], "c": []}, {"f": "minus", "n": "", "ids": [], "c": []}, {"f": "moon", "n": "", "ids": [], "c": []}, {"f": "move", "n": "", "ids": [], "c": []}, {"f": "package", "n": "", "ids": [], "c": []}, {"f": "package-open", "n": "", "ids": [], "c": []}, {"f": "pain", "n": "", "ids": [], "c": []}, {"f": "panels-top-left", "n": "", "ids": [], "c": []}, {"f": "plus", "n": "", "ids": [], "c": []}, {"f": "rotate-cw", "n": "", "ids": [], "c": []}, {"f": "save", "n": "", "ids": [], "c": []}, {"f": "settings", "n": "", "ids": [], "c": []}, {"f": "shovel", "n": "", "ids": [], "c": []}, {"f": "skull", "n": "", "ids": [], "c": []}, {"f": "snowflake", "n": "", "ids": [], "c": []}, {"f": "square", "n": "", "ids": [], "c": []}, {"f": "square-dashed", "n": "", "ids": [], "c": []}, {"f": "star", "n": "", "ids": [], "c": []}, {"f": "store", "n": "", "ids": [], "c": []}, {"f": "sun", "n": "", "ids": [], "c": []}, {"f": "trash-2", "n": "", "ids": [], "c": []}, {"f": "user", "n": "", "ids": [], "c": []}, {"f": "users", "n": "", "ids": [], "c": []}, {"f": "weight", "n": "", "ids": [], "c": []}, {"f": "wind", "n": "", "ids": [], "c": []}, {"f": "x", "n": "", "ids": [], "c": []}, {"f": "zap", "n": "", "ids": [], "c": []}, {"f": "zap_full", "n": "", "ids": [], "c": []}]}], items: [] },
+    {"id": "photos", "title": "Снимки", "lead": "Все снимки в игре и вокруг неё: снимки Ани и фотографии из альбома Клэр. Клик открывает снимок крупно, стрелки ← → листают группу", "photos": [{"title": "Аня · утро 4 октября", "items": [{"f": "anna_photo1", "n": "Снимок 1 · Утренняя тропа", "cap": "Узкая тропа от коттеджа 104 между высокими соснами, роса на траве, первый бледный свет низко между стволами. 4 октября, около 06:00, Аня только вышла из дома"}, {"f": "anna_photo6", "n": "Снимок 2 · Лес", "cap": "Сосновый лес в густом тумане, тропа сворачивает влево и пропадает в белом. Если вглядеться: справа, в тумане за кустами, из-за ствола сосны наполовину выглядывает серый силуэт в балахоне с капюшоном. Аня, похоже, его не заметила"}, {"f": "anna_photo3", "n": "Снимок 3 · Паутина", "cap": "Паутина в каплях росы, за ней сквозь деревья светится озеро. У самого озера"}, {"f": "anna_photo7", "n": "Снимок 4 · Бабочка", "cap": "Туманная тропа между соснами и папоротниками; у тропы на листе папоротника сидит маленькая бледная бабочка. У самого озера, перед мостками"}, {"f": "anna_photo4", "n": "Снимок 5 · Мостки", "cap": "Короткие старые мостки на сваях уходят от травянистого берега в озеро, рядом сосны и высокая трава, дальше вода пропадает в тумане. Около 06:20"}, {"f": "anna_photo5", "n": "Снимок 6 · Туман", "cap": "С конца мостков: её кружка на мокрых досках, а над водой совсем близко стена белого тумана. Последний кадр в картридже — после него Аню больше никто не видел"}]}, {"title": "Итан и Клэр · альбом «Мы»", "items": [{"f": "ec_p01", "n": "Альбом «Мы» · 1", "cap": "«Первое свидание. Он опоздал на 20 минут и принёс два кофе, потому что не знал, какой я люблю. Выпила оба ♥»"}, {"f": "ec_p02", "n": "Альбом «Мы» · 2", "cap": "«Первый пикник. Муравьи съели половину, вторую — он»"}, {"f": "ec_p03", "n": "Альбом «Мы» · 3", "cap": "«Его первые блины. Первый комом, второй тоже. Третий съели вместе и сказали, что вкусно»"}, {"f": "ec_p04", "n": "Альбом «Мы» · 4", "cap": "«Сосновка, год вместе. Сказал, что это лучший вид в Лихове. Смотрел при этом на меня»"}, {"f": "ec_p05", "n": "Альбом «Мы» · 5", "cap": "«Проверяю сочинения. Он носит чай и шёпотом ставит всем пятёрки»"}, {"f": "ec_p06", "n": "Альбом «Мы» · 6", "cap": "«Повесил люстру. Сам. Почти ровно. Гордится уже третий день»"}, {"f": "ec_p07", "n": "Альбом «Мы» · 7", "cap": "«Первый снег. Его ботинки и мои. Угадайте, кто упал (оба)»"}, {"f": "ec_p08", "n": "Альбом «Мы» · 8", "cap": "«Наш балкон. Самое тёплое место в квартире, хотя там минус пять»"}, {"f": "ec_p09", "n": "Альбом «Мы» · 9", "cap": "«1 октября, едем в «Сосны»! Он взял три свитера и забыл зубную щётку»"}, {"f": "ec_p11", "n": "Альбом «Мы» · 10", "cap": "«Бокалов нет, пьём вино из чашек. Лучшее вино в моей жизни»"}]}]}
+  ];
+  const nav = document.getElementById('nav');
+  const main = document.getElementById('main');
+  let current = SECTIONS[0].id;
+  try { const s = localStorage.getItem('guide-section'); if (SECTIONS.some(x => x.id === s)) current = s; } catch (e) {}
+  const fromHash = location.hash.slice(1); if (SECTIONS.some(x => x.id === fromHash)) current = fromHash;
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function renderNav() {
+    nav.textContent = '';
+    const secs = el('div', 'secs');
+    for (const x of SECTIONS) {
+      const b = el('button', 'sec', x.title);
+      b.setAttribute('aria-pressed', String(x.id === current));
+      b.addEventListener('click', () => { current = x.id; try { localStorage.setItem('guide-section', current); } catch (e) {} history.replaceState(null, '', '#' + current); render(); window.scrollTo(0, 0); });
+      secs.appendChild(b);
+    }
+    nav.appendChild(secs);
+    const cur = SECTIONS.find(x => x.id === current);
+    (cur.groups || cur.photos || []).forEach((g, i) => {
+      const b = el('button');
+      b.append(el('b', null, g.title), el('span', null, String(g.items.length)));
+      b.addEventListener('click', () => { const t = document.getElementById('g-' + i); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      nav.appendChild(b);
+    });
+  }
+
+  function weightText(kg) {
+    if (kg == null) return '—';
+    if (kg < 1) return Math.max(1, Math.round(kg * 1000)) + ' г';
+    return (Math.round(kg * 100) / 100).toString().replace('.', ',') + ' кг';
+  }
+
+  let dlg = null;
+  function showInv(x) {
+    if (!dlg) {
+      dlg = el('dialog', 'inv');
+      dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+      document.body.appendChild(dlg);
+    }
+    dlg.textContent = '';
+    const s = x.s || [1, 1];
+    const cell = Math.min(96, Math.floor((Math.min(window.innerWidth, 560) - 120) / (s[0] + 2) * 0.9));
+    const gap = Math.round(cell * 6 / 62);
+    const cols = s[0] + 2, rows = s[1] + 2;
+    const stage = el('div', 'stage');
+    const board = el('div', 'board');
+    board.style.setProperty('--cell', cell + 'px'); board.style.setProperty('--gap', gap + 'px');
+    board.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cell + 'px)';
+    for (let i = 0; i < cols * rows; i++) board.appendChild(el('div', 'cell'));
+    const tw = s[0] * cell + (s[0] - 1) * gap, th = s[1] * cell + (s[1] - 1) * gap;
+    const tile = el('div', 'tile');
+    tile.style.left = (cell + gap) + 'px'; tile.style.top = (cell + gap) + 'px';
+    tile.style.width = tw + 'px'; tile.style.height = th + 'px';
+    const img = el('img'); img.alt = x.n || x.f;
+    img.style.width = tw + 'px'; img.style.height = th + 'px';
+    img.onload = () => {
+      if ((img.naturalWidth - img.naturalHeight) * (tw - th) < 0) {
+        img.style.width = th + 'px'; img.style.height = tw + 'px';
+        img.style.transform = 'translate(-50%, -50%) rotate(-90deg)';
+      }
+    };
+    img.src = 'icons/' + x.f + '.png?v=100';
+    tile.appendChild(img); board.appendChild(tile); stage.appendChild(board);
+    const info = el('div', 'info');
+    info.appendChild(el('b', null, x.n || 'без предмета'));
+    const row = el('div', 'row');
+    const part = (k, v) => { const sp = el('span', null, k + ' '); sp.appendChild(el('strong', null, v)); return sp; };
+    row.append(part('Размер', x.s ? s[0] + '×' + s[1] : '—'), part('Вес', weightText(x.w)), part('Файл', x.f + '.png'));
+    info.appendChild(row);
+    const close = el('button', 'x', '×'); close.setAttribute('aria-label', 'Закрыть'); close.addEventListener('click', () => dlg.close());
+    dlg.append(close, stage, info);
+    dlg.showModal();
+  }
+
+  function renderIcons(s) {
+    const find = el('input', 'find'); find.type = 'search'; find.placeholder = 'Найти по имени или файлу'; find.setAttribute('aria-label', 'Поиск иконки');
+    const box = el('div');
+    main.append(find, box);
+    function draw() {
+      const q = find.value.trim().toLowerCase();
+      box.textContent = '';
+      for (const g of s.groups) {
+        const list = g.items.filter(x => !q || (x.n + ' ' + x.f).toLowerCase().includes(q));
+        if (!list.length) continue;
+        const sec = el('section', 'group'); sec.id = 'g-' + s.groups.indexOf(g);
+        const h = el('h3', null, g.title); h.appendChild(el('span', null, String(list.length)));
+        const ul = el('ul', 'icons');
+        for (const x of list) {
+          const li = el('li');
+          const pic = el('div', 'pic'); const img = el('img'); img.src = 'icons/' + x.f + '.png?v=100'; img.alt = x.n || x.f; img.loading = 'lazy'; pic.appendChild(img);
+          const txt = el('div', 'txt');
+          txt.append(el('div', 'nm' + (x.n ? '' : ' none'), x.n || 'без предмета'), el('div', 'fn', x.f + '.png'));
+          li.append(pic, txt);
+          li.tabIndex = 0; li.setAttribute('role', 'button');
+          li.addEventListener('click', () => showInv(x));
+          li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showInv(x); } });
+          ul.appendChild(li);
+        }
+        sec.append(h, ul); box.appendChild(sec);
+      }
+    }
+    find.addEventListener('input', draw);
+    draw();
+  }
+
+  function renderMain() {
+    const s = SECTIONS.find(x => x.id === current);
+    main.textContent = '';
+    main.append(el('h2', null, s.title), el('p', 'lead', s.lead));
+    if (s.groups) { renderIcons(s); return; }
+    if (s.photos) { renderPhotos(s); return; }
+    if (!s.items.length) { main.append(el('div', 'empty', 'Пока ничего нет')); return; }
+    const grid = el('div', 'grid');
+    for (const it of s.items) {
+      const card = el('article', 'card');
+      const th = el('div', 'thumb');
+      const img = el('img'); img.src = it.img; img.alt = 'Обложка: ' + it.title; img.loading = 'lazy';
+      th.appendChild(img);
+      const body = el('div', 'body');
+      body.append(el('h3', null, it.title), el('div', 'meta', it.meta), el('p', 'desc', it.desc));
+      const tags = el('div', 'tags');
+      tags.appendChild(el('span', 'tag ' + (it.game ? 'ok' : 'draft'), it.game ? 'в игре' : 'только холст'));
+      const a = el('a', 'open', 'Открыть'); a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
+      tags.appendChild(a);
+      body.appendChild(tags);
+      card.append(th, body);
+      grid.appendChild(card);
+    }
+    main.appendChild(grid);
+  }
+
+  let shotDlg = null, shotList = null, shotAt = 0;
+  function showShot(list, i) {
+    shotList = list; shotAt = i;
+    if (!shotDlg) {
+      shotDlg = el('dialog', 'shotview');
+      shotDlg.addEventListener('click', e => { if (e.target === shotDlg) shotDlg.close(); });
+      shotDlg.addEventListener('keydown', e => {
+        const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (d) { e.preventDefault(); step(d); }
+      });
+      document.body.appendChild(shotDlg);
+    }
+    const x = list[i];
+    shotDlg.textContent = '';
+    const img = el('img'); img.src = 'photos/' + x.f + '.jpg?v=7'; img.alt = x.n;
+    const info = el('div', 'info');
+    const top = el('div', 'top');
+    const prev = el('button', 'nb', '← Предыдущий'); prev.disabled = i === 0; prev.addEventListener('click', () => step(-1));
+    const next = el('button', 'nb', 'Следующий →'); next.disabled = i === list.length - 1; next.addEventListener('click', () => step(1));
+    top.append(prev, el('span', 'pos', (i + 1) + ' из ' + list.length), next);
+    info.append(top, el('b', null, x.n), el('p', null, x.cap));
+    const close = el('button', 'x', '×'); close.setAttribute('aria-label', 'Закрыть'); close.addEventListener('click', () => shotDlg.close());
+    shotDlg.append(close, img, info);
+    if (!shotDlg.open) shotDlg.showModal();
+  }
+  function step(d) { const n = shotAt + d; if (shotList && n >= 0 && n < shotList.length) showShot(shotList, n); }
+
+  function renderPhotos(s) {
+    s.photos.forEach((g, gi) => {
+      const sec = el('section', 'group'); sec.id = 'g-' + gi;
+      const h = el('h3', null, g.title); h.appendChild(el('span', null, String(g.items.length)));
+      const grid = el('div', 'shots');
+      g.items.forEach((x, i) => {
+        const a = el('button', 'shot');
+        const img = el('img'); img.src = 'photos/' + x.f + '.jpg?v=7'; img.alt = ''; img.loading = 'lazy';
+        a.append(img, el('b', null, x.n));
+        a.addEventListener('click', () => showShot(g.items, i));
+        grid.appendChild(a);
+      });
+      sec.append(h, grid); main.appendChild(sec);
+    });
+  }
+
+  function render() { renderNav(); renderMain(); }
+  render();
+})();
+</script>
+</body>
+</html>

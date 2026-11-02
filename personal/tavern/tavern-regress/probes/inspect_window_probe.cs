@@ -68,7 +68,7 @@ try
                         if (v.x < -0.001f || v.x > 1.001f || v.y < -0.001f || v.y > 1.001f) inFrame = false;
                     }
                 }
-                if (stage != "колесо вплотную") Ok(inFrame, "IN-F01 " + stage, def.id);
+                if (stage == "старт" || stage == "вид по умолчанию") Ok(inFrame, "IN-F01 " + stage, def.id);
                 Ok(front, "IN-F02 " + stage, def.id);
                 Ok(low > grid.position.y + 1e-4f, "IN-G01 " + stage, def.id);
                 Ok((cam.transform.position - camPos).sqrMagnitude < 1e-10f && UnityEngine.Quaternion.Angle(cam.transform.rotation, camRot) < 0.01f

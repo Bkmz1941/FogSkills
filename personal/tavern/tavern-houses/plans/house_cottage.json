@@ -1,0 +1,47 @@
+{
+ "name": "Котедж 104 — план (снят руками 28.10.2026)",
+ "source": "Котедж 104",
+ "i0": 49, "j0": 48, "nx": 4, "nz": 5,
+ "roof": {"style": 0},
+ "porch": {"side": "W", "cells": [[-1, 1], [-1, 2], [-1, 3]]},
+ "balcony": true,
+ "floors": [
+  {
+   "rooms": [
+    {"name": "гостиная", "type": "living", "cells": [[0,0],[0,1],[0,2],[0,3],[0,4],[1,0],[1,1],[1,2],[1,3],[1,4]]},
+    {"name": "кухня", "type": "kitchen", "cells": [[2,0],[2,1],[2,2],[3,0],[3,1],[3,2]]},
+    {"name": "кабинет", "type": "bedroom", "cells": [[2,3],[2,4],[3,3],[3,4]]}
+   ],
+   "open": [[[1,4],[2,4]]],
+   "doors": [
+    {"a": [1,2], "b": [2,2], "style": 7, "open": true},
+    {"a": [1,3], "b": [2,3], "style": 7, "open": false}
+   ],
+   "ext_doors": [{"cell": [0,2], "side": "W", "style": 8, "open": true, "key": "100", "entrance": true}],
+   "windows": [
+    {"cell": [0,0], "side": "S", "style": 0, "offset": 0.48},
+    {"cell": [3,0], "side": "S", "style": 0, "offset": -0.48},
+    {"cell": [2,4], "side": "N", "style": 0, "offset": 0.48}
+   ],
+   "stair": {"cells": [[0,4],[1,4]], "landing": true}
+  },
+  {
+   "rooms": [
+    {"name": "ванная", "type": "bathroom", "cells": [[0,0],[0,1],[1,0],[1,1]]},
+    {"name": "холл", "type": "hall", "cells": [[0,2],[0,3],[0,4],[1,2],[1,3],[1,4]], "holes": [[0,3]]},
+    {"name": "комната", "type": "storage", "cells": [[2,0],[2,1],[2,2],[3,0],[3,1],[3,2]]},
+    {"name": "спальня", "type": "bedroom", "cells": [[2,3],[2,4],[3,3],[3,4]]}
+   ],
+   "doors": [
+    {"a": [0,1], "b": [0,2], "style": 7, "open": true},
+    {"a": [1,2], "b": [2,2], "style": 7, "open": false},
+    {"a": [1,3], "b": [2,3], "style": 7, "open": true}
+   ],
+   "ext_doors": [{"cell": [0,2], "side": "W", "style": 9, "open": true}],
+   "windows": [
+    {"cell": [1,4], "side": "N", "style": 0, "offset": -0.18},
+    {"cell": [2,4], "side": "N", "style": 0, "offset": 0.12}
+   ]
+  }
+ ]
+}

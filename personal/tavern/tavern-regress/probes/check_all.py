@@ -20,6 +20,19 @@ def mcp(tool, payload):
         return {}
 
 
+# Растения после загрузки игроком досыпаются в фоне (28.10, шаг plants-defer-all-loads):
+# живые пробы ждут, пока уровень осядет целиком, иначе снимки «до/после» расходятся.
+def wait_plants():
+    code = 'return Cozy.Grid.GridCursor.I != null ? Cozy.Grid.GridCursor.I.PendingPlants.ToString() : "0";'
+    for _ in range(60):
+        d = mcp('execute_code', {"action": "execute", "code": code})
+        left = str((d.get('data') or {}).get('result') or '0').strip()
+        if left in ('', '0'):
+            return
+        print('ждём досыпку растений:', left)
+        time.sleep(2)
+
+
 def editor_state():
     d = mcp('execute_code', {"action": "execute", "code":
             'return UnityEngine.Application.isPlaying + "|" + UnityEditor.EditorApplication.isCompiling;'})
@@ -237,6 +250,8 @@ def main():
     ok_ignored = ignored_sources()
     ok_compile = compile_check()
     probe('export_facing_probe.py')
+    probe('level_dups_probe.py')  # P1261: (id, number) объектов уникальны в каждом уровне — оффлайн
+    probe('house_probe.py')  # генерация домов (HOUSES.md, HG-…): эталон «Котедж 104», коробка по плану, обстановка и сиды — оффлайн, без play
     play, compiling = editor_state()
     print('редактор: play =', play, ', компилируется =', compiling)
     ok_tests = None
@@ -248,6 +263,7 @@ def main():
     if play:
         _kit['was'] = hero_kit()
         print('герой до проб:', _kit['was'] or 'не прочитан')
+        wait_plants()
         probe('invariants_play.py')
         probe('transfer_probe.py', '--run')
         probe('level_roundtrip.py')
@@ -266,6 +282,8 @@ def main():
         probe_cs('dirt_probe.cs')
         probe_cs('roof_snap_pick_probe.cs')
         probe_cs('product_card_probe.cs')
+        probe_cs('cold_probe.cs')
+        probe_cs('ground_probe.cs')  # P1221, инв. 621: растения и камни на рельефе
         # ⭐ 18.10 продукты и кухня (PRODUCTS.md, KITCHEN.md): Илья «крит важно, чтобы не ломалось»
         probe_cs('products_probe.cs')
         probe('products_probe.py')  # внутри и parts_motion_probe.cs (ящики, дверцы)

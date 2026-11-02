@@ -75,7 +75,10 @@
 ### Предмет и слот
 
 - `ItemDef` (`Modules/Grid/Inventory/ItemDef.cs`): `slot` (`EquipSlot`),
-  `soleLift`, `iconPicture`, `category`, `weight`, `size`, `color`.
+  `soleLift`, `iconPicture`, `category`, `weight`, `size`, `color`, ⭐ `warmth` (28.10: утепление для
+  холода, `ItemDef.Warmth` — явное число или по слоту: Верх 8, Тело 2, Ноги 3, Ступни 2, Голова 2, Руки 1;
+  футболки/рубашки 1, толстовки 4, водолазка 3, балахон 5, полицейская куртка 7, домашние штаны 2, тапки 0;
+  новая вещь без `warmth:` получает значение слота — `tavern-game/EFFECTS.md`, «Замерзание и простуда»).
   `EquipSlot { None, Head, Body, Hands, Belt, Legs, Bag, Feet, Outer }` —
   `Feet` (05.09) и `Outer` (08.09, второй слой тела) добавлены В КОНЕЦ:
   порядок значений менять нельзя, на нём сейвы.

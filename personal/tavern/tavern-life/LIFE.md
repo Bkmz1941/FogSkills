@@ -25,6 +25,8 @@ Conditions: `[every 15 min]`, `[HH:MM]`, `[on load]`, `[zone][none][kind]`,
 `[lost player]`, `[sees][object]`, `[reached][zone/marker_N]`, `[appeared]`,
 `[finished]`. Actions: `[spawn][kind name][zone/marker_N | zone/tree |
 zone/ground | zone]`, `[remove][kind | name | all][zone]`,
+⭐ 28.10 ПОГОДА действиями (ilya-b6, Илья: «цифры улицы… через правила, динамически или заранее»): `[temperature 4]` / `[temperature][-2]`, `[rain off|coming|on|weak|strong]`, `[wind off|on|weak|strong]` — без существа, с `[at HH:MM]` (при загрузке проигрываются хронологически до текущего часа, `LifeRules.SeedWeather`), голые = `on load`, с окном `[from..to]` = каждые 15 мин в окне. Температура идёт к цели плавно (`Weather.TemperatureRate`), при прыжке часов > 1 ч и при загрузке — мгновенно. Подробно — `tavern-game/WEATHER.md` §14.
+
 `[go][where][run|walk]`, `[wait][15s]`, `[look][object | player][10s]`,
 `[roam][30s]`, `[on|off|toggle][object]`, `[open|close][object]`,
 `[vanish][unseen]`, `[continue]`, `[sectant_point_hand 3s]`, `[track player]`, `[pray 10s]` (все три — только сектант). Kinds: crow, owl, robin, sectant, madman (с 21.10 «Безумный», бывший зомби: имена `madman_1…`, слово `безумный`; `zombie`/`зомби` — запасные для старых уровней; с 20.10: зомби — только `[spawn]`, `[remove]`, `[zone][none|has][zombie]`; шагов и реакций нет — строка с шагами для зомби красная, поведения ещё нет). Существо

@@ -1,0 +1,3444 @@
+{
+ "source": "Котедж 104",
+ "wall_h": {
+  "bath_hook": 1.92,
+  "wall_switch_toggle": 2.19,
+  "bath_shelf": 1.56,
+  "bath_paper_holder": 0.84,
+  "lamp_fairy_curtain": 1.14,
+  "home_under_light_corner_wide": 1.85,
+  "home_wall_clock_1": 2.14,
+  "wall_socket": 0.98,
+  "home_painting_4": 1.8,
+  "wall_switch": 2.14,
+  "home_wall_sconce": 0.96,
+  "home_wall_cabinet_corner_wide": 1.88,
+  "home_tv": 1.33,
+  "shelf_plank": 1.99,
+  "lamp_wall_garland": 1.43,
+  "home_painting_1": 1.92,
+  "home_bathroom_cabinet": 1.74,
+  "meter_outdoor": 1.26,
+  "home_painting_2": 1.79,
+  "home_towel_rail": 1.72,
+  "bath_towel_hanging_2": 2.01
+ },
+ "gap": {
+  "home_wardrobe_room": 0.15,
+  "home_bedside_table": 0.15,
+  "curtain_drapes": 0.0,
+  "home_radiator": 0.01,
+  "trash_bin_modern_2": 0.15,
+  "pipe_valve": 0.01,
+  "bench_modern_3": 0.207,
+  "home_fridge": 0.15,
+  "home_plant_8": 0.103,
+  "bath_console": 0.221,
+  "home_bed": 0.0,
+  "blind_venetian": 0.0,
+  "home_washer": 0.007,
+  "hallway_rack": 0.007,
+  "home_bath": 0.015,
+  "home_work_desk": 0.15,
+  "home_sink_cabinet_corner": 0.15,
+  "home_tv_stand": 0.15,
+  "home_fireplace": 0.15,
+  "sofa_corner_left": 0.15,
+  "home_bathroom_sink": 0.0,
+  "home_toilet": 0.0,
+  "home_stove": 0.15
+ },
+ "look": {
+  "bath_hook": {
+   "pcSet": true,
+   "pcr": 0.14899995923042297,
+   "pcg": 0.16079995036125183,
+   "pcb": 0.17249995470046997,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "cardboard_box": {
+   "pcSet": false,
+   "pcr": 0.0,
+   "pcg": 0.0,
+   "pcb": 0.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "lamp_ceiling_modern": {
+   "pcSet": true,
+   "pcr": 0.8471000790596008,
+   "pcg": 0.713699996471405,
+   "pcb": 0.5489999651908875,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "wall_switch_toggle": {
+   "pcSet": true,
+   "pcr": 0.15000000596046448,
+   "pcg": 0.15000000596046448,
+   "pcb": 0.17000000178813934,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": false
+  },
+  "home_wardrobe_room": {
+   "pcSet": true,
+   "pcr": 0.8471000790596008,
+   "pcg": 0.713699996471405,
+   "pcb": 0.5489999651908875,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "bath_shelf": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_bedside_table": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "lamp_fairy_curtain": {
+   "pcSet": true,
+   "pcr": 0.10589996725320816,
+   "pcg": 0.11369998008012772,
+   "pcb": 0.12549996376037598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "curtain_drapes": {
+   "pcSet": true,
+   "pcr": 0.6510000228881836,
+   "pcg": 0.41569995880126953,
+   "pcb": 0.3332999646663666,
+   "scSet": true,
+   "scr": 0.1881999671459198,
+   "scg": 0.19999995827674866,
+   "scb": 0.21179994940757751,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_rug_6": {
+   "pcSet": true,
+   "pcr": 1.0,
+   "pcg": 1.0,
+   "pcb": 1.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "wall_socket": {
+   "pcSet": true,
+   "pcr": 0.8399999737739563,
+   "pcg": 0.7099999785423279,
+   "pcb": 0.5899999737739563,
+   "scSet": true,
+   "scr": 0.9373000264167786,
+   "scg": 0.980400025844574,
+   "scb": 0.9568999409675598,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "side_table_round": {
+   "pcSet": true,
+   "pcr": 0.8980000019073486,
+   "pcg": 0.6000000238418579,
+   "pcb": 0.39219996333122253,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "wall_switch": {
+   "pcSet": true,
+   "pcr": 0.7411999702453613,
+   "pcg": 0.8234999775886536,
+   "pcb": 0.8392000198364258,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": false
+  },
+  "home_rug_1": {
+   "pcSet": true,
+   "pcr": 1.0,
+   "pcg": 1.0,
+   "pcb": 1.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_fridge": {
+   "pcSet": true,
+   "pcr": 0.6862999796867371,
+   "pcg": 0.7764999866485596,
+   "pcb": 0.800000011920929,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 3,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_wall_sconce": {
+   "pcSet": true,
+   "pcr": 0.10589996725320816,
+   "pcg": 0.11369998008012772,
+   "pcb": 0.12549996376037598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": false,
+   "switchOn": true
+  },
+  "home_wall_cabinet_corner_wide": {
+   "pcSet": false,
+   "pcr": 0.0,
+   "pcg": 0.0,
+   "pcb": 0.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 4,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "side_table": {
+   "pcSet": true,
+   "pcr": 0.8510000109672546,
+   "pcg": 0.7020000219345093,
+   "pcb": 0.5098000168800354,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "bath_console": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": true,
+   "scr": 0.9528999924659729,
+   "scg": 0.800000011920929,
+   "scb": 0.6588000059127808,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "blind_venetian": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": true,
+   "scr": 0.9294000267982483,
+   "scg": 0.9175999760627747,
+   "scb": 0.89410001039505,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "column_post": {
+   "pcSet": true,
+   "pcr": 0.6200000047683716,
+   "pcg": 0.5600000023841858,
+   "pcb": 0.5,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_washer": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_bed": {
+   "pcSet": false,
+   "pcr": 0.0,
+   "pcg": 0.0,
+   "pcb": 0.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 1,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "lamp_wall_garland": {
+   "pcSet": true,
+   "pcr": 0.10589996725320816,
+   "pcg": 0.11369998008012772,
+   "pcb": 0.12549996376037598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": false,
+   "switchOn": true
+  },
+  "hallway_rack": {
+   "pcSet": false,
+   "pcr": 0.0,
+   "pcg": 0.0,
+   "pcb": 0.0,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 0,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_bath": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "lamp_pendant_lantern": {
+   "pcSet": true,
+   "pcr": 0.10589996725320816,
+   "pcg": 0.11369998008012772,
+   "pcb": 0.12549996376037598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_bathroom_cabinet": {
+   "pcSet": true,
+   "pcr": 0.9373000264167786,
+   "pcg": 0.980400025844574,
+   "pcb": 0.9568999409675598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_sink_cabinet_corner": {
+   "pcSet": true,
+   "pcr": 0.9372549057006836,
+   "pcg": 0.9803921580314636,
+   "pcb": 0.95686274766922,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "meter_outdoor": {
+   "pcSet": true,
+   "pcr": 0.8510000109672546,
+   "pcg": 0.8626999855041504,
+   "pcb": 0.8392000198364258,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_phone": {
+   "pcSet": true,
+   "pcr": 0.16862745583057404,
+   "pcg": 0.1764705926179886,
+   "pcb": 0.20000000298023224,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "sofa_corner_left": {
+   "pcSet": true,
+   "pcr": 0.7608000040054321,
+   "pcg": 0.7020000219345093,
+   "pcb": 0.6391999125480652,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_bathroom_sink": {
+   "pcSet": true,
+   "pcr": 0.8744999766349792,
+   "pcg": 0.9175999760627747,
+   "pcb": 0.9254999756813049,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": 1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_toilet": {
+   "pcSet": true,
+   "pcr": 0.949999988079071,
+   "pcg": 0.9399999976158142,
+   "pcb": 0.9200000166893005,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  },
+  "home_stove": {
+   "pcSet": true,
+   "pcr": 0.9373000264167786,
+   "pcg": 0.980400025844574,
+   "pcb": 0.9568999409675598,
+   "scSet": false,
+   "scr": 0.0,
+   "scg": 0.0,
+   "scb": 0.0,
+   "palette": -1,
+   "pattern": 0,
+   "partCol": "",
+   "powerOn": true,
+   "switchOn": true
+  }
+ },
+ "keep_plinth": [
+  "bath_console",
+  "blind_venetian",
+  "home_bed",
+  "home_bedside_table",
+  "home_fireplace",
+  "home_fridge",
+  "home_shelving",
+  "home_sink_cabinet_corner",
+  "home_stove",
+  "home_tv_stand",
+  "home_wardrobe_room",
+  "home_work_desk",
+  "pipe_valve",
+  "sofa_corner_left"
+ ],
+ "kits": {
+  "meter_outdoor": [
+   {
+    "id": "meter_transformer",
+    "rel": [
+     0.0564,
+     0.315,
+     0.165
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "meter_outdoor",
+    "carrierNode": "Slot_Transformer",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -8.940696716308594e-07,
+     4.3213367462158203e-07,
+     -5.960464477539063e-08
+    ],
+    "localRotY": 0.0
+   }
+  ],
+  "home_bedside_table": [
+   {
+    "id": "flashlight",
+    "rel": [
+     0.0535,
+     0.56,
+     -0.0573
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [
+      {
+       "id": "batteries",
+       "x": 0,
+       "y": 0,
+       "rot": 0,
+       "state": "",
+       "charge": 96.80017852783203,
+       "host": -1,
+       "studied": false
+      }
+     ],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bedside_table",
+    "carrierNode": "Drawer",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.050199467688798904,
+     -0.16771799325942993,
+     -0.06499969959259033
+    ],
+    "localRotY": -90.0
+   }
+  ],
+  "bath_console": [
+   {
+    "id": "bath_shampoo_2",
+    "rel": [
+     -0.2806,
+     1.1265,
+     0.2449
+    ],
+    "dyaw": 30.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_paper_pack",
+    "rel": [
+     0.4397,
+     1.1265,
+     0.1341
+    ],
+    "dyaw": 105.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_shampoo_1",
+    "rel": [
+     -0.493,
+     1.1265,
+     0.2454
+    ],
+    "dyaw": 360.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_shelving": [
+   {
+    "id": "book_doctor",
+    "rel": [
+     0.4774,
+     0.9503,
+     0.0166
+    ],
+    "dyaw": 135.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_desk_chair": [
+   {
+    "id": "book_fog",
+    "rel": [
+     0.331,
+     1.15,
+     -0.2616
+    ],
+    "dyaw": 165.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "side_table_round": [
+   {
+    "id": "magazine_1",
+    "rel": [
+     -0.1197,
+     0.7589,
+     -0.0317
+    ],
+    "dyaw": 300.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_bathroom_cabinet": [
+   {
+    "id": "pills_vitamarin",
+    "rel": [
+     -0.1354,
+     0.4573,
+     0.0548
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": 60,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 14,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.13537025451660156,
+     0.008735597133636475,
+     0.45725017786026
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "pills_febrasol",
+    "rel": [
+     -0.3344,
+     0.4609,
+     0.0943
+    ],
+    "dyaw": 240.0,
+    "fields": {
+     "items": [],
+     "count": 8,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 13,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.3343772888183594,
+     -0.03080180287361145,
+     0.4608502984046936
+    ],
+    "localRotY": -120.0
+   },
+   {
+    "id": "first_aid_big",
+    "rel": [
+     -0.3239,
+     0.027,
+     0.0612
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": 5,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.32387351989746094,
+     0.0023021940141916275,
+     0.026999954134225845
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "pills_noctavin",
+    "rel": [
+     -0.4892,
+     0.4573,
+     0.0224
+    ],
+    "dyaw": 210.0,
+    "fields": {
+     "items": [],
+     "count": 9,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 7,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.48923683166503906,
+     0.041095733642578125,
+     0.45725017786026
+    ],
+    "localRotY": -150.0
+   },
+   {
+    "id": "pills_dormilan",
+    "rel": [
+     0.5067,
+     0.4573,
+     0.0756
+    ],
+    "dyaw": 240.0,
+    "fields": {
+     "items": [],
+     "count": 9,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 17,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.5066661834716797,
+     -0.012081265449523926,
+     0.45725017786026
+    ],
+    "localRotY": -120.0
+   },
+   {
+    "id": "bandage_roll",
+    "rel": [
+     0.1441,
+     0.4573,
+     0.0524
+    ],
+    "dyaw": 180.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_bathroom_cabinet",
+    "carrierNode": "homeBathroomCabinet(Clone)",
+    "carrierRel": [
+     -0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.14408493041992188,
+     0.011117875576019287,
+     0.45725017786026
+    ],
+    "localRotY": -179.99998474121094
+   }
+  ],
+  "home_washer": [
+   {
+    "id": "home_basin",
+    "rel": [
+     0.3295,
+     1.56,
+     0.0045
+    ],
+    "dyaw": 330.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_towel_1",
+    "rel": [
+     -0.4096,
+     1.56,
+     -0.0883
+    ],
+    "dyaw": 60.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_tv_stand": [
+   {
+    "id": "home_desk_clock_1",
+    "rel": [
+     -1.0268,
+     0.55,
+     0.1214
+    ],
+    "dyaw": 345.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "home_tv_remote",
+    "rel": [
+     0.2295,
+     0.55,
+     0.0873
+    ],
+    "dyaw": 345.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": 100.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_fireplace": [
+   {
+    "id": "firewood_log",
+    "rel": [
+     -0.38,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.37999916076660156,
+     0.08660008758306503,
+     -0.11650079488754272
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_split",
+    "rel": [
+     -0.19,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.1900005340576172,
+     0.08660008758306503,
+     -0.11650081723928452
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     0.57,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.569999635219574,
+     0.08660008758306503,
+     -0.11650097370147705
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "home_plant_3",
+    "rel": [
+     0.4642,
+     1.65,
+     0.3498
+    ],
+    "dyaw": 75.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     -0.57,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.569999635219574,
+     0.08660008758306503,
+     -0.11650073528289795
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_split",
+    "rel": [
+     -0.0,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -2.2351741790771484e-08,
+     0.08660008758306503,
+     -0.1165008470416069
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "candle_1",
+    "rel": [
+     -0.3475,
+     1.65,
+     0.2662
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": 100.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     -0.475,
+     0.2576,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.47500038146972656,
+     0.2576001286506653,
+     -0.11650076508522034
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "matches",
+    "rel": [
+     -0.47,
+     1.65,
+     -0.1318
+    ],
+    "dyaw": 45.0,
+    "fields": {
+     "items": [],
+     "count": 4,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     -0.285,
+     0.2576,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.2849998474121094,
+     0.2576001286506653,
+     -0.11650079488754272
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     0.19,
+     0.1096,
+     -0.128
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.1899985820055008,
+     0.10960006713867188,
+     -0.12800028920173645
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     0.38,
+     0.0866,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.3799991011619568,
+     0.08660008758306503,
+     -0.11650091409683228
+    ],
+    "localRotY": 90.00000762939453
+   },
+   {
+    "id": "firewood_log",
+    "rel": [
+     -0.095,
+     0.2576,
+     -0.1165
+    ],
+    "dyaw": 90.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fireplace",
+    "carrierNode": "Object_home_fireplace",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.09499932825565338,
+     0.2576001286506653,
+     -0.11650083214044571
+    ],
+    "localRotY": 90.00000762939453
+   }
+  ],
+  "home_bathroom_sink": [
+   {
+    "id": "bath_shave_gel",
+    "rel": [
+     0.6482,
+     1.1,
+     0.4049
+    ],
+    "dyaw": 105.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_soap",
+    "rel": [
+     -0.4453,
+     1.1,
+     0.4084
+    ],
+    "dyaw": 165.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_tooth_cup",
+    "rel": [
+     -0.5985,
+     1.1,
+     0.307
+    ],
+    "dyaw": 330.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_toothpaste",
+    "rel": [
+     -0.5783,
+     1.1,
+     -0.0142
+    ],
+    "dyaw": 30.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_razor",
+    "rel": [
+     0.5239,
+     1.1,
+     0.3066
+    ],
+    "dyaw": 30.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bath_bubble_bath",
+    "rel": [
+     0.5724,
+     1.1,
+     -0.2891
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": 10,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_work_desk": [
+   {
+    "id": "home_desk_clock_2",
+    "rel": [
+     0.7821,
+     1.15,
+     0.3343
+    ],
+    "dyaw": 30.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "home_plant_9",
+    "rel": [
+     -0.761,
+     1.15,
+     0.2316
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "backpack_f",
+    "rel": [
+     0.4629,
+     1.15,
+     0.1191
+    ],
+    "dyaw": 305.68,
+    "fields": {
+     "items": [
+      {
+       "id": "lease_contract",
+       "x": 0,
+       "y": 0,
+       "rot": 0,
+       "state": "",
+       "charge": 100.0,
+       "host": -1,
+       "studied": false
+      },
+      {
+       "id": "work_report",
+       "x": 1,
+       "y": 0,
+       "rot": 2,
+       "state": "",
+       "charge": 100.0,
+       "host": -1,
+       "studied": false
+      },
+      {
+       "id": "wallet_f",
+       "x": 2,
+       "y": 0,
+       "rot": 0,
+       "state": "",
+       "charge": 100.0,
+       "host": -1,
+       "studied": false
+      }
+     ],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_stove": [
+   {
+    "id": "frying_pan",
+    "rel": [
+     0.2525,
+     1.159,
+     -0.1436
+    ],
+    "dyaw": 285.87,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_stove",
+    "carrierNode": "Slot_Zone4",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.09445187449455261,
+     2.3096799850463867e-07,
+     0.051191337406635284
+    ],
+    "localRotY": -74.13201904296875
+   }
+  ],
+  "home_fridge": [
+   {
+    "id": "ketchup",
+    "rel": [
+     0.4747,
+     0.995,
+     -0.4075
+    ],
+    "dyaw": 55.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "кетчуп",
+     "liquidL": 0.4399999976158142,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 16,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "DoorShelfB",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.4597083330154419,
+     0.11000007390975952,
+     -0.0200003981590271
+    ],
+    "localRotY": 54.99999237060547
+   },
+   {
+    "id": "oil_bottle",
+    "rel": [
+     0.2668,
+     0.995,
+     -0.4184
+    ],
+    "dyaw": 55.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "масло",
+     "liquidL": 0.4599999785423279,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 7,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "DoorShelfB",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.2517871558666229,
+     0.09909892082214355,
+     -0.0200003981590271
+    ],
+    "localRotY": 54.99999237060547
+   },
+   {
+    "id": "sausage_pack",
+    "rel": [
+     0.0208,
+     1.7951,
+     -0.2141
+    ],
+    "dyaw": 15.0,
+    "fields": {
+     "items": [],
+     "count": 9,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": -7,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "Shelf2",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.020757706835865974,
+     -0.2666229009628296,
+     -0.010000944137573242
+    ],
+    "localRotY": 14.999984741210938
+   },
+   {
+    "id": "milk_carton",
+    "rel": [
+     0.0708,
+     0.995,
+     -0.4437
+    ],
+    "dyaw": 75.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "молоко",
+     "liquidL": 1.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": -23,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "DoorShelfB",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.055802345275878906,
+     0.0737539529800415,
+     -0.0200003981590271
+    ],
+    "localRotY": 74.99999237060547
+   },
+   {
+    "id": "egg_carton",
+    "rel": [
+     -0.1379,
+     1.2722,
+     -0.2753
+    ],
+    "dyaw": 285.0,
+    "fields": {
+     "items": [],
+     "count": 8,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 13,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "Shelf1",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.13788603246212006,
+     -0.32781434059143066,
+     -0.010000467300415039
+    ],
+    "localRotY": -75.0
+   },
+   {
+    "id": "sausage_pack",
+    "rel": [
+     -0.3942,
+     1.7951,
+     -0.1022
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [],
+     "count": 9,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 10,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "Shelf2",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.3942318558692932,
+     -0.15466153621673584,
+     -0.010000944137573242
+    ],
+    "localRotY": -90.0
+   },
+   {
+    "id": "egg_carton",
+    "rel": [
+     -0.421,
+     1.2722,
+     -0.2814
+    ],
+    "dyaw": 285.0,
+    "fields": {
+     "items": [],
+     "count": 6,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": -24,
+     "open": true,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_fridge",
+    "carrierNode": "Shelf1",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.42096713185310364,
+     -0.33393311500549316,
+     -0.010000467300415039
+    ],
+    "localRotY": -75.0
+   }
+  ],
+  "side_table": [
+   {
+    "id": "glass_tumbler_blue",
+    "rel": [
+     0.7098,
+     0.95,
+     0.176
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "glass_tumbler_blue",
+    "rel": [
+     0.433,
+     0.95,
+     0.454
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "board_game",
+    "rel": [
+     0.4654,
+     0.95,
+     -0.2798
+    ],
+    "dyaw": 300.0,
+    "fields": {
+     "items": [],
+     "count": 3,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "lamp_bedside",
+    "rel": [
+     -0.573,
+     0.95,
+     0.1916
+    ],
+    "dyaw": 75.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": false
+    }
+   },
+   {
+    "id": "glass_tumbler_pink",
+    "rel": [
+     -0.1269,
+     0.95,
+     -0.4737
+    ],
+    "dyaw": 270.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "chips_yellow",
+    "rel": [
+     -0.4712,
+     0.95,
+     -0.3323
+    ],
+    "dyaw": 195.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 16,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_wardrobe_room": [
+   {
+    "id": "home_pants_folded",
+    "rel": [
+     -0.3522,
+     0.869,
+     -0.0207
+    ],
+    "dyaw": 202.64,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "table_round": [
+   {
+    "id": "chocolate_bar",
+    "rel": [
+     0.0199,
+     1.166,
+     0.3236
+    ],
+    "dyaw": 315.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 20,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "apple_green",
+    "rel": [
+     0.227,
+     1.2044,
+     -0.0363
+    ],
+    "dyaw": 311.05,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 9,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "fruit_bowl",
+    "carrierNode": "Object_fruit_bowl",
+    "carrierRel": [
+     0.2228,
+     1.166,
+     -0.1093
+    ],
+    "localPos": [
+     0.004159920383244753,
+     0.03838849067687988,
+     0.07305527478456497
+    ],
+    "localRotY": -48.950286865234375
+   },
+   {
+    "id": "fruit_bowl",
+    "rel": [
+     0.2228,
+     1.166,
+     -0.1093
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "apple",
+    "rel": [
+     0.221,
+     1.2113,
+     -0.1892
+    ],
+    "dyaw": 349.6,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 17,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "fruit_bowl",
+    "carrierNode": "Object_fruit_bowl",
+    "carrierRel": [
+     0.2228,
+     1.166,
+     -0.1093
+    ],
+    "localPos": [
+     -0.0017528461758047342,
+     0.04530501365661621,
+     -0.07987595349550247
+    ],
+    "localRotY": -10.4000244140625
+   }
+  ],
+  "home_wall_cabinet_corner_wide": [
+   {
+    "id": "plate",
+    "rel": [
+     0.1943,
+     0.045,
+     0.5026
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_wall_cabinet_corner_wide",
+    "carrierNode": "Main",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.19370344281196594,
+     -0.005000918637961149,
+     0.04500001668930054
+    ],
+    "localRotY": 119.99990844726562
+   },
+   {
+    "id": "filter_pack",
+    "rel": [
+     -1.1967,
+     0.045,
+     -0.342
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": 8,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 19,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_wall_cabinet_corner_wide",
+    "carrierNode": "Wing",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     -0.010444113053381443,
+     0.05269253998994827,
+     0.04500022530555725
+    ],
+    "localRotY": 120.00001525878906
+   },
+   {
+    "id": "coffee_pack",
+    "rel": [
+     -1.1653,
+     0.045,
+     -0.6131
+    ],
+    "dyaw": 45.0,
+    "fields": {
+     "items": [],
+     "count": 7,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 12,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_wall_cabinet_corner_wide",
+    "carrierNode": "Wing",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.26067426800727844,
+     0.021447449922561646,
+     0.04500025510787964
+    ],
+    "localRotY": 45.0
+   }
+  ],
+  "home_bed": [
+   {
+    "id": "toy_teddy_bear",
+    "rel": [
+     -0.7402,
+     0.7706,
+     -1.1258
+    ],
+    "dyaw": 315.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "home_sink_cabinet_corner": [
+   {
+    "id": "coffee_filter_cone",
+    "rel": [
+     -1.5181,
+     1.654,
+     -0.9092
+    ],
+    "dyaw": 255.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 19,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_coffee_machine",
+    "carrierNode": "Object_home_coffee_machine",
+    "carrierRel": [
+     -1.576,
+     1.15,
+     -0.9248
+    ],
+    "localPos": [
+     6.537884473800659e-07,
+     0.5040000677108765,
+     -0.05999939143657684
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "plate",
+    "rel": [
+     -0.4495,
+     2.1576,
+     1.0388
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "plate",
+    "carrierNode": "Object_plate",
+    "carrierRel": [
+     -0.4495,
+     2.1186,
+     1.0388
+    ],
+    "localPos": [
+     0.0,
+     0.03900003433227539,
+     0.0
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "coffee_grounds",
+    "rel": [
+     -1.5181,
+     1.668,
+     -0.9092
+    ],
+    "dyaw": 255.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 12,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_coffee_machine",
+    "carrierNode": "Object_home_coffee_machine",
+    "carrierRel": [
+     -1.576,
+     1.15,
+     -0.9248
+    ],
+    "localPos": [
+     6.537884473800659e-07,
+     0.5180001258850098,
+     -0.05999939143657684
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "home_coffee_machine",
+    "rel": [
+     -1.576,
+     1.15,
+     -0.9248
+    ],
+    "dyaw": 255.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "coffee_tank",
+    "rel": [
+     -1.7886,
+     1.204,
+     -0.9817
+    ],
+    "dyaw": 255.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_coffee_machine",
+    "carrierNode": "homeCoffeeMachine(Clone)",
+    "carrierRel": [
+     -1.576,
+     1.15,
+     -0.9248
+    ],
+    "localPos": [
+     -1.7397105693817139e-06,
+     0.2200002372264862,
+     -0.054000064730644226
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "coffee_cup_blue",
+    "rel": [
+     -0.9201,
+     1.15,
+     0.6262
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "home_plant_9",
+    "rel": [
+     1.5335,
+     1.15,
+     0.8036
+    ],
+    "dyaw": 345.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "home_sink",
+    "rel": [
+     0.0,
+     1.15,
+     0.65
+    ],
+    "dyaw": 0.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "coffee_carafe",
+    "rel": [
+     -1.4312,
+     1.2085,
+     -0.8859
+    ],
+    "dyaw": 255.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_coffee_machine",
+    "carrierNode": "homeCoffeeMachine(Clone)",
+    "carrierRel": [
+     -1.576,
+     1.15,
+     -0.9248
+    ],
+    "localPos": [
+     -5.21540641784668e-07,
+     -0.14999893307685852,
+     -0.05850003659725189
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "coffee_cup_red",
+    "rel": [
+     -1.0005,
+     1.15,
+     0.956
+    ],
+    "dyaw": 10.68,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "plate",
+    "rel": [
+     -0.4495,
+     2.0431,
+     1.0388
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "plate",
+    "carrierNode": "Object_plate",
+    "carrierRel": [
+     -0.4495,
+     2.0041,
+     1.0388
+    ],
+    "localPos": [
+     0.0,
+     0.03900003433227539,
+     0.0
+    ],
+    "localRotY": 0.0
+   },
+   {
+    "id": "plate",
+    "rel": [
+     -0.4495,
+     2.0041,
+     1.0388
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   },
+   {
+    "id": "bucket",
+    "rel": [
+     0.0544,
+     0.328,
+     0.77
+    ],
+    "dyaw": 84.02,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    },
+    "carrierId": "home_sink_cabinet_corner",
+    "carrierNode": "homeSinkCabinet",
+    "carrierRel": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "localPos": [
+     0.05422379821538925,
+     0.12000000476837158,
+     -0.3280382752418518
+    ],
+    "localRotY": 84.01529693603516
+   },
+   {
+    "id": "sponge",
+    "rel": [
+     0.866,
+     1.15,
+     0.8508
+    ],
+    "dyaw": 120.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 0,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ],
+  "sofa_corner_left": [
+   {
+    "id": "chips_red",
+    "rel": [
+     -1.2363,
+     0.6228,
+     -1.1709
+    ],
+    "dyaw": 315.0,
+    "fields": {
+     "items": [],
+     "count": -1,
+     "liquidKind": "",
+     "liquidL": 0.0,
+     "cook": "",
+     "pattern": 0,
+     "palette": -1,
+     "pcSet": false,
+     "pcr": 0.0,
+     "pcg": 0.0,
+     "pcb": 0.0,
+     "fireLit": false,
+     "wax": -1.0,
+     "cellCharge": -2.0,
+     "expiry": 18,
+     "open": false,
+     "switchOn": true,
+     "powerOn": true
+    }
+   }
+  ]
+ },
+ "stair_rail": {
+  "rel": [
+   1.35,
+   0.0,
+   -1.5
+  ],
+  "dyaw": 90.0
+ }
+}

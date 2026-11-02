@@ -6,6 +6,9 @@ if (string.IsNullOrEmpty(name)) return "СОХРАНЕНО: уровень бе�
 string path = Cozy.Grid.LevelIO.PathFor(name);
 if (!System.IO.File.Exists(path)) return "НЕ СОХРАНЕНО: файла уровня нет — " + path;
 var saved = UnityEngine.JsonUtility.FromJson<Cozy.Grid.LevelIO.LevelData>(System.IO.File.ReadAllText(path));
+// Растения «по умолчанию» с 29.10 лежат в файле короткими записями plants (plants-compact-save): без распаковки
+// все 59 639 растений «Котеджа 104» считались новыми живыми объектами и stop отказывал всегда (P1230).
+Cozy.Grid.LevelIO.UnpackPlants(saved);
 var live = new Cozy.Grid.LevelIO.LevelData();
 foreach (var step in new[] { "CollectBlocks", "CollectDoors", "CollectWindows", "CollectStairs", "CollectObjects", "CollectZones", "CollectRoofs", "CollectWater" })
     io.GetMethod(step, BF).Invoke(null, new object[] { live });

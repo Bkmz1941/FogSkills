@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дашборд игры</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap">
+<style>
+/* Досье: концовки стопкой, у каждой маршрут шагов слева направо */
+:root{
+  --bg:#eef0f2; --sheet:#ffffff; --fg:#1d2228; --muted:#5f6873; --line:#d5dae0;
+  --ink:#24435e;
+  --place:#e4ecf4; --clue:#fbf0c2; --threat:#f6dcd8; --fork:#e2e0f4; --loot:#dcefd9; --time:#e9e6df;
+  --good:#2f7a3d; --bad:#a8231a; --mid:#7a7f86; --s:16px;
+  --display:"Oswald","Arial Narrow",sans-serif; --body:"PT Sans","Helvetica Neue",Arial,sans-serif; --mono:"PT Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14171b; --sheet:#1d2127; --fg:#e7eaee; --muted:#9aa3ad; --line:#323840; --ink:#8fb6da;
+  --place:#243241; --clue:#3b3520; --threat:#41272a; --fork:#2d2b45; --loot:#233a27; --time:#30302c;
+  --good:#6cc27c; --bad:#ff6b5e; --mid:#a0a6ad; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14171b; --sheet:#1d2127; --fg:#e7eaee; --muted:#9aa3ad; --line:#323840; --ink:#8fb6da;
+  --place:#243241; --clue:#3b3520; --threat:#41272a; --fork:#2d2b45; --loot:#233a27; --time:#30302c;
+  --good:#6cc27c; --bad:#ff6b5e; --mid:#a0a6ad; color-scheme:dark}
+html{scrollbar-gutter:stable}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:var(--s) calc(var(--s) * 2);display:grid;gap:var(--s)}
+h1,h2{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+h1{font-size:2.2rem;line-height:1.05}
+h2{font-size:1.25rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+.t-place{background:var(--place)} .t-clue{background:var(--clue)} .t-threat{background:var(--threat)}
+.t-fork{background:var(--fork)} .t-loot{background:var(--loot)} .t-time{background:var(--time)}
+.fold{display:grid;gap:var(--s)}
+.fold>summary{cursor:pointer;font-size:.86rem;color:var(--ink);font-weight:700;width:max-content;max-width:100%}
+.fold>summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.mx-wrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--line);border-radius:6px}
+.mx{border-collapse:collapse;width:100%;font-size:.84rem;font-variant-numeric:tabular-nums}
+.mx th,.mx td{padding:8px var(--s);border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+.mx thead th{font-family:var(--display);font-weight:500;font-size:.8rem;vertical-align:bottom;line-height:1.15;white-space:normal;min-width:84px}
+.mx tbody th{text-align:left;font-weight:400;position:sticky;left:0;background:var(--sheet)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.list{display:grid;gap:var(--s)}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--line);padding-bottom:var(--s)}
+.tab{font:inherit;font-family:var(--display);font-weight:500;font-size:.92rem;background:var(--sheet);color:var(--fg);border:1px solid var(--line);border-left:4px solid var(--mid);border-radius:5px;padding:6px 12px;cursor:pointer;min-height:36px}
+.tab.good{border-left-color:var(--good)} .tab.bad{border-left-color:var(--bad)}
+.tab:hover{background:var(--bg)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.end{background:var(--sheet);border:1px solid var(--line);border-left:6px solid var(--mid);border-radius:6px;padding:var(--s);display:grid;gap:var(--s)}
+.end.good{border-left-color:var(--good)} .end.bad{border-left-color:var(--bad)}
+.head{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}
+.head h3{font-family:var(--display);font-weight:500;font-size:1.3rem;margin:0}
+.badge{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:3px;border:1px solid currentColor}
+.badge.good{color:var(--good)} .badge.bad{color:var(--bad)} .badge.mid{color:var(--mid)}
+.badge.dead{background:#6e0b14;color:#ffffff;border-color:#6e0b14}
+.badge.alive{background:#ffffff;color:#1d2228;border-color:var(--line)}
+.badge.d1{color:var(--good)} .badge.d2{color:#b8860b} .badge.d3{color:var(--bad)}
+.what{margin:0;max-width:72ch}
+.route{display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center}
+.route .or{font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:100%;margin-top:2px}
+.step{font-size:.84rem;padding:4px 8px;border-radius:4px;min-width:0}
+.step small{display:block;font-size:.72rem;color:var(--muted);line-height:1.2}
+.arr{color:var(--muted);font-size:.9rem;padding:0 2px}
+.fin{font-family:var(--display);font-size:.9rem;padding:4px 9px;border-radius:4px;color:var(--sheet);background:var(--mid)}
+.end.good .fin{background:var(--good)} .end.bad .fin{background:var(--bad)}
+.frames{margin:0;padding:var(--s) var(--s) var(--s) calc(var(--s) + 14px);background:var(--bg);border-radius:4px;display:grid;gap:4px;font-size:.86rem}
+.frames li::marker{font-family:var(--mono);color:var(--muted)}
+.frames .cap{list-style:none;margin-left:-18px;font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.view{display:grid;gap:var(--s)}
+.panel[hidden]{display:none!important}
+.dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:var(--s)}
+.tile{display:flex;align-items:center;gap:12px;padding:var(--s);background:var(--sheet);border:1px solid var(--line);border-radius:10px;color:var(--fg);text-decoration:none;transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--ink);transform:translateY(-2px)}
+.tile:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.tile b{font-family:var(--display);font-weight:600;font-size:1.2rem;letter-spacing:.02em;text-transform:uppercase}
+.tile[aria-disabled="true"]{cursor:default;border-style:dashed}
+.tile[aria-disabled="true"]:hover{transform:none;border-color:var(--line)}
+.ic{width:44px;height:44px;border-radius:10px;background:var(--place);display:grid;place-items:center;flex:none}
+.ic svg{width:26px;height:26px;fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.phd{display:grid;gap:var(--s)}
+@media (prefers-reduced-motion:reduce){.tile{transition:none}.tile:hover{transform:none}}
+.view[hidden]{display:none}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s)}
+.pcard{font:inherit;text-align:left;color:var(--fg);background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:var(--s);display:grid;grid-template-columns:44px 1fr;column-gap:12px;align-items:center;cursor:pointer}
+.pcard:hover{border-color:var(--ink)}
+.pcard:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.ava{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-family:var(--display);font-size:1.2rem}
+.pcard b{font-family:var(--display);font-weight:500;font-size:1.15rem;line-height:1.2}
+.back{font:inherit;font-size:.95rem;color:var(--ink);background:none;border:0;padding:0;cursor:pointer;width:max-content;text-decoration:none}
+.back:hover{text-decoration:underline}
+.back:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.phead{display:flex;gap:var(--s);align-items:center}
+.phead .ava{width:64px;height:64px;font-size:1.8rem}
+.portrait{width:120px;height:160px;object-fit:contain;object-position:bottom;flex:none}
+.pcard .pic{width:44px;height:44px;border-radius:50%;object-fit:cover;object-position:top;background:var(--bg)}
+.phead p{margin:4px 0 0;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s)}
+.fact{background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:var(--s)}
+.fact b{display:block;font-family:var(--mono);font-weight:400;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.block{background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:var(--s);display:grid;gap:var(--s)}
+.block .mx-wrap{border:0}
+.block ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.day{display:grid;gap:8px}
+.day+.day{border-top:1px solid var(--line);padding-top:var(--s)}
+.day h3{margin:0;font-family:var(--display);font-weight:500;font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em}
+.slot{display:grid;grid-template-columns:120px 1fr;gap:var(--s);align-items:baseline}
+.lines{display:grid;gap:8px}
+.line{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.kind{justify-self:start;font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;white-space:nowrap;color:var(--fg)}
+.kind.s{background:var(--fork)} .kind.w{background:var(--loot)}
+.block .legend{align-items:center;gap:8px}
+.block .legend .kind+*{margin-right:var(--s)}
+.slot time{font-family:var(--mono);font-size:.9rem;color:var(--ink);font-variant-numeric:tabular-nums}
+@media (max-width:560px){.slot{grid-template-columns:1fr;gap:8px}}
+.xlink{font-family:var(--display);font-size:.95rem;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:5px;padding:6px 12px;text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
+.xlink:hover{border-color:var(--ink)}
+a.endlink{text-decoration:none;display:inline-flex;align-items:center}
+a.pcard{text-decoration:none}
+.rel{display:grid;grid-template-columns:120px 1fr;gap:var(--s);align-items:center}
+.rel>b{font-family:var(--mono);font-weight:400;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.rels{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:var(--s)}
+@media (max-width:560px){.rel{grid-template-columns:1fr;gap:8px}}
+.endlinks{display:flex;flex-wrap:wrap;gap:8px}
+.endlink{font:inherit;font-family:var(--display);font-size:.92rem;background:var(--sheet);color:var(--fg);border:1px solid var(--line);border-left:4px solid var(--mid);border-radius:5px;padding:6px 12px;cursor:pointer;min-height:36px}
+.endlink.good{border-left-color:var(--good)} .endlink.bad{border-left-color:var(--bad)}
+.endlink:hover{background:var(--bg)}
+.things{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--s)}
+.thing{display:grid;gap:8px;background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:8px;color:var(--fg);text-decoration:none}
+.thing:hover{border-color:var(--ink)}
+.thing:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.thing img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;background:#20242a}
+.thing b{font-family:var(--display);font-weight:500;font-size:1.05rem;line-height:1.2;padding:0 4px 4px}
+.ithumb{width:64px;height:64px;border-radius:8px;object-fit:cover;background:#20242a;flex:none}
+.photo.item{max-height:420px;object-fit:contain;background:#20242a}
+.nav{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.arrow{font:inherit;font-family:var(--display);font-size:.95rem;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:5px;padding:6px 12px;min-height:36px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.arrow:hover{border-color:var(--ink)}
+.arrow[aria-disabled="true"]{visibility:hidden}
+.nav .pos{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.shot{display:block;max-width:100%;max-height:72vh;margin:0 auto;border-radius:6px;border:1px solid var(--line);background:#20242a}
+.photo{display:block;width:100%;max-height:520px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--sheet)}
+.info{display:grid;grid-template-columns:160px 1fr;gap:8px var(--s);margin:0;align-items:baseline}
+.info dt{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.info dd{margin:0}
+.info dd.none{color:var(--muted)}
+@media (max-width:560px){.info{grid-template-columns:1fr;gap:2px}.info dd+dt{margin-top:8px}}
+</style>
+
+<div class="wrap">
+ <div class="view" id="person" hidden></div>
+ <div class="view" id="main">
+
+  <section class="panel" id="t-home">
+    <nav class="dash" aria-label="Разделы">
+      <a class="tile" href="#endings">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19h16M6 19V9l6-5 6 5v10"/><path d="M10 19v-5h4v5"/></svg></span>
+        <b>Концовки</b>
+      </a>
+      <a class="tile" href="#chars">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14c2.4 0 4.3 1.6 5 4.4"/></svg></span>
+        <b>Персонажи</b>
+      </a>
+      <a class="tile" href="https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs" target="_blank" rel="noopener">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5C6.5 4 9.5 4 12 5.5v14C9.5 18 6.5 18 4 19.5z"/><path d="M20 5.5C17.5 4 14.5 4 12 5.5v14c2.5-1.5 5.5-1.5 8 0z"/></svg></span>
+        <b>Книги</b>
+      </a>
+      <a class="tile" href="https://claude.ai/artifact/KsX99viCV1aEP6tYsVBeho" target="_blank" rel="noopener">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+        <b>Иконки</b>
+      </a>
+      <a class="tile" id="mapTile" href="https://claude.ai/artifact/XLzgXUzn2Zt2cZ3aVMvH6E" target="_blank" rel="noopener">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>
+        <b>Карта</b>
+      </a>
+      <a class="tile" href="#items">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span>
+        <b>Предметы</b>
+      </a>
+      <a class="tile" href="#places">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg></span>
+        <b>Места</b>
+      </a>
+    </nav>
+  </section>
+
+  <section class="panel" id="t-chars" style="display:grid;gap:var(--s)">
+    <div class="phd"><a class="back" href="#">Назад</a><h2>Персонажи</h2></div>
+    <details class="fold" open>
+    <summary>Главные герои</summary>
+    <div class="people" id="heroes"></div>
+    </details>
+    <details class="fold" open>
+    <summary>Полицейские</summary>
+    <div class="people" id="police"></div>
+    </details>
+    <details class="fold" open>
+    <summary>Нейтральные</summary>
+    <div class="people" id="neutral"></div>
+    </details>
+  </section>
+
+  <section class="panel" id="t-items" style="display:grid;gap:var(--s)">
+    <div class="phd"><a class="back" href="#">Назад</a><h2>Предметы</h2></div>
+    <details class="fold" open>
+    <summary>Аня</summary>
+    <div class="things" id="items-anna"></div>
+    </details>
+    <details class="fold" open>
+    <summary>Итан и Клэр</summary>
+    <div class="things" id="items-ec"></div>
+    </details>
+    <details class="fold" open>
+    <summary>Паспорта</summary>
+    <div class="things" id="items-passport"></div>
+    </details>
+    <details class="fold" open>
+    <summary>Билеты</summary>
+    <div class="things" id="items-ticket"></div>
+    </details>
+  </section>
+
+  <section class="panel" id="t-places" style="display:grid;gap:var(--s)">
+    <div class="phd"><a class="back" href="#">Назад</a><h2>Места</h2></div>
+    <div class="people" id="places"></div>
+  </section>
+
+  <section class="panel" id="t-endings" style="display:grid;gap:var(--s)">
+    <div class="phd"><a class="back" href="#">Назад</a><h2>Концовки</h2></div>
+    <details class="fold" id="fold2" open>
+    <summary>Обозначения</summary>
+    <div class="legend">
+      <span><i class="t-time"></i>время</span><span><i class="t-clue"></i>узнал</span><span><i class="t-loot"></i>нашёл на озере</span><span><i class="t-fork"></i>разговор</span>
+      <span><i class="t-place"></i>встреча</span><span><i class="t-threat"></i>угроза</span>
+    </div>
+    </details>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Концовки"></div>
+    <div class="list" id="list" role="tabpanel"></div>
+  </section>
+
+ </div>
+</div>
+
+<script>
+const S={
+ ev_phone:["Нашёл телефон","clue"],
+ ev_number:["Узнал номер телефона полиции","clue"],
+ ev_address:["Узнал точный адрес коттеджа","clue"],
+ ev_stphone:["Нашёл телефон Степана","loot"],
+ ev_notebook:["Нашёл тетрадь культа","loot"],
+ ev_hale_call:["Дозвонился до Хейла","fork"],
+ ev_linda_call:["Дозвонился до Линды","fork"],
+ ev_told:["Рассказал про культ","fork"],
+ ev_silent:["Не рассказал про культ","fork"],
+ ev_hale_deal:["Договорился с Хейлом о встрече","fork"],
+ ev_linda_deal:["Договорился с Линдой о встрече","fork"],
+ ev_wait:["Дождался Хейла на остановке","place"],
+ ev_trap:["Прошёл ловушку дорог","place"],
+ ev_met:["Встретился с Линдой","place"],
+ ev_clean:["Обыск не нашёл улик","fork"],
+ ev_dirty:["Обыск нашёл улики","fork"],
+ ev_window:["Узнал, когда сегодня бьёт колокол","clue","каждый день в разное время"],
+ ev_diary:["Нашёл дневник рыбака","clue","расписание звона по дням"],
+ ev_books:["Нашёл в церковных книгах звон стражей","clue","комбинация ударов"],
+ ev_guard_ring:["Пробил звон стражей","threat","ошибка зовёт Безумных"],
+ ev_night1:["Позвонил в первую ночь","time","в Лихове ещё тихо"],
+ ev_night2:["Позвонил на второй день до 18:00","time","в Лихове начинается хаос"],
+ ev_linda_trust:["Договорился с Линдой","fork","она встревожена и ничего не понимает"],
+ ev_linda_personal:["Получил личный номер Линды","clue"],
+ ev_day3:["Дожил до третьего дня","time"],
+ ev_killed:["Погиб от вороны или истощения","threat"],
+ camp:["Лагерь туристов","place"],
+ matches:["Спички","clue"],
+ icons:["Сжечь 4 иконы","threat","серый мир"],
+ rounds:["Обход Тихона","time","окно для поджога"],
+ timofey:["Икона Тимофея","threat","код 21.05"],
+ tihon:["Убить Тихона","threat"],
+ keys:["Ключи","loot","церковь и комната"],
+ lamp:["Лампада","loot","убежище"]
+};
+const BASE=["ev_phone","ev_number","ev_address"];
+const END=[
+ {t:"Сами найдутся",out:"Смерть",d:1,tone:"bad",st:"решено",what:"Герой доверился участковому и сел в его машину, уверенный, что спасён. Пока Лихово горит, Хейл везёт его не в город, а к Чёрному озеру, где героя отдают туману. Теперь он пропал так же, как его друзья.",
+  routes:[[...BASE,"ev_hale_call","ev_silent","ev_hale_deal","ev_wait","ev_clean"]]},
+ {t:"Всё хорошо, мам",out:"Смерть",d:1,tone:"bad",st:"решено",what:"Герой рассказал участковому слишком много. Хейл увёз его в лес и сделал так, чтобы его никто не искал: родные уверены, что у него всё хорошо.",
+  routes:[[...BASE,"ev_hale_call","ev_told","ev_hale_deal","ev_wait"],[...BASE,"ev_hale_call","ev_silent","ev_hale_deal","ev_wait","ev_dirty"]]},
+ {t:"Скатертью дорога",out:"Жив",d:3,tone:"mid",st:"черновик",what:"Герой никому не дозвонился и выбрался из леса сам. Друзей он не нашёл, и что с ними случилось, не узнал. Туман расходится только под звон стражей, и герой пробил его сам, пока на звон шли Безумные.",
+  routes:[["keys","ev_books","ev_guard_ring","ev_trap"]]},
+ {t:"Линда · пустые руки",out:"Жив",d:2,tone:"good",st:"решено",what:"«Заявление приму утром». Едете молча, в зеркале туман.",
+  routes:[[...BASE,"ev_night1","ev_linda_call","ev_window","ev_linda_deal","ev_trap","ev_met"]]},
+ {t:"Линда · хаос",out:"Жив",d:3,tone:"good",st:"черновик",what:"На второй день Лихово накрыло: сектанты вышли на охоту, Линда ушла из участка. Линда выживает сама и не понимает, что происходит. На третий день двое выживших находят друг друга на шоссе.",
+  routes:[[...BASE,"ev_night2","ev_linda_call","ev_linda_trust","ev_linda_personal","ev_day3","ev_window","ev_linda_deal","ev_trap","ev_met"]]},
+ {t:"Линда · союзник",out:"Жив",d:3,tone:"good",st:"черновик",what:"Линда видит номер Хейла у сектанта: «хейл. я догадывалась». Выключает рацию: «отвезу тебя к одному человеку».",
+  routes:[["ev_stphone",...BASE,"ev_linda_call","ev_window","ev_linda_deal","ev_trap","ev_met"]]},
+ {t:"Линда · большая история",out:"Жив",d:3,tone:"good",st:"черновик",what:"Линда читает строку про Глеба: «Глеб Никонович… его надо предупредить. не по телефону».",
+  routes:[["ev_notebook",...BASE,"ev_linda_call","ev_window","ev_linda_deal","ev_trap","ev_met"]]},
+ {t:"Смерть: ворона, истощение",out:"Смерть",tone:"bad",st:"есть в игре",what:"Ролики death_crow и death_exhaustion.",routes:[["ev_killed"]]}
+];
+const FR={
+ "Сами найдутся":["Сидим на заднем сиденье, впереди затылок и плечи Хейла за рулём. Рядом с нами лежит красная детская кепка, как у Артёма Гусева с листовки.","За стеклом туман по обочинам, лес тянется без конца. Сверху на зеркале болтается деревянный брелок, треугольник с глазом.","Поворот на грунтовку. Слева над лесом горит Лихово, по обочине бегут люди, за ними идут фигуры в рясах с факелами. Хейл не сбавляет хода.","Причал в свете фар. Фигуры в рясах со свечами ждут у лодки.","Вид с лодки: берег уходит, туман смыкается. Впереди в белом стоит высокая тёмная фигура.","Доска объявлений на пустой остановке. Листовка «ПРОПАЛИ ЛЮДИ» с Аней, Димой и героем выцвела и размокла, дата не читается. Поверх наклеены чужие листовки, свежие. Непонятно, прошла неделя или годы."],
+ "Всё хорошо, мам":["Дорога из Лихова. На обочине горит перевёрнутая машина, Хейл объезжает её не глядя.","Машина сворачивает в ельник, фары упираются в деревья. Двигатель глохнет.","Рука Хейла вытряхивает наш рюкзак на капот. В свете фар лопата, прислонённая к дереву.","Утро. Чужая рука держит наш телефон. На экране переписка с мамой: «всё хорошо, мам. остаёмся ещё на неделю». Отправлено.","Мама отвечает сердечком. Телефон гаснет."],
+ "Скатертью дорога":["Туман расступается, впереди прямая дорога.","Рассвет, оглядываемся: за спиной стена тумана.","С холма видно Лихово в дыму. По улицам ходят фигуры в рясах, у домов стоят Безумные.","Указатель «Верхнелесск 24». Идём пешком, ни одной машины.","Телефон: пропущенные от мамы, у Ани «не в сети»."],
+ "Линда · пустые руки":["Фары на обочине, рука с фонарём машет нам.","Салон машины: рация, термос, наши грязные руки на коленях.","Зеркало заднего вида: туман за машиной отстаёт, а над Лиховом поднимается первое зарево.","Телефон: СМС от Ани «ты это видишь?»."],
+ "Линда · хаос":["Разбитая машина на обочине, одна фара не горит.","Салон: рукав Линды в крови, на заднем сиденье ружьё.","Проезжаем край Лихова: участок горит, на крыльце стоят фигуры в рясах.","Указатель «Верхнелесск 24», машина сворачивает туда."],
+ "Линда · союзник":["Фары на обочине, рука с фонарём.","Её рука листает телефон Степана, на экране контакт «Хейл».","Палец выключает рацию.","Объезд Лихова: над посёлком дым, у поворота брошен пустой УАЗ Хейла с открытой дверью.","Развилка: машина сворачивает не к «Лихово».","Телефон: СМС от Ани «ты это видишь?»."],
+ "Линда · большая история":["Фары на обочине, рука с фонарём.","Тетрадь раскрыта на строке «Он должен войти сам».","Её руки сжимают руль, на зеркале нательный крестик.","Над лесом зарево. Вдоль дороги в сторону посёлка бредут Безумные.","Ночная дорога, указатель «Каменоград 190».","Телефон: СМС от Ани «ты это видишь?»."],
+ "Смерть: ворона, истощение":["Уже есть ролики: нападение, тело в траве, туман над лесом."]
+};
+
+const chip=id=>{const [t,k,n]=S[id];return `<span class="step t-${k}">${t}${n?`<small>${n}</small>`:""}</span>`};
+const arrow='<span class="arr" aria-hidden="true">→</span>';
+const card=e=>{
+ const routes=e.routes.map((r,i)=>(i?'<span class="or">или</span>':"")+r.map(chip).join(arrow)+arrow+`<span class="fin">${e.out||e.t}</span>`).join("");
+ return `<article class="end ${e.tone}">
+  <div class="head"><h3>${e.t}</h3><span class="badge ${e.tone}">${e.tone==="good"?"хорошая":e.tone==="bad"?"плохая":"нейтральная"}</span>${e.out?`<span class="badge ${e.out==="Жив"?"alive":"dead"}">${e.out}</span>`:""}${e.d?`<span class="badge d${e.d}">${["","лёгкая","средняя","сложная"][e.d]}</span>`:""}</div>
+  <p class="what">${e.what}</p><div class="route">${routes}</div>${FR[e.t]?`<ol class="frames"><li class="cap">Кадры финала</li>${FR[e.t].map(f=>`<li>${f}</li>`).join("")}</ol>`:""}${endLinks(e)}</article>`};
+const tabs=document.getElementById("tabs"),list=document.getElementById("list");
+let cur=0;
+try{const s=+localStorage.getItem("endTab");if(s>=0&&s<END.length)cur=s}catch(e){}
+tabs.innerHTML=END.map((e,i)=>`<button class="tab ${e.tone}" role="tab" data-i="${i}">${e.t}</button>`).join("");
+function show(i){
+ cur=i;
+ tabs.querySelectorAll(".tab").forEach((b,k)=>{b.setAttribute("aria-selected",k===i);b.tabIndex=k===i?0:-1});
+ list.innerHTML=card(END[i]);
+ try{localStorage.setItem("endTab",i)}catch(e){}
+}
+tabs.addEventListener("click",ev=>{const b=ev.target.closest(".tab");if(b)show(+b.dataset.i)});
+tabs.addEventListener("keydown",ev=>{
+ const d=ev.key==="ArrowRight"?1:ev.key==="ArrowLeft"?-1:0;if(!d)return;
+ ev.preventDefault();const n=(cur+d+END.length)%END.length;show(n);tabs.children[n].focus()});
+
+const P={
+ anna:{img:"portraits/anna.png?v=2",name:"Аня",role:"Девушка героя; главная героиня, если играть за девушку",color:"#E8B4C0",
+  place:"cottage104",
+  info:{age:"27 лет",born:"17.08.1999",phone:"+7 926 718-53-04",job:"руководитель проекта «Маяк»",work:"ООО «Кварц Софт»",from:"г. Каменоград"},
+  facts:[["Кто","девушка героя; руководитель проекта «Маяк» в ООО «Кварц Софт». Если играть за девушку, героиня — она, а пропавшим становится Илья"],["Культ","не связана"],["Характер","весёлая, практичная, подкалывает героя; фотографирует на моментальный фотоаппарат, снимки сразу выходят карточками"],["Поездка","сама нашла объявление о коттедже, встретилась с Морином в Каменограде 26 сентября, получила ключи и подписала договор аренды как арендатор: с 3 по 7 октября"],["Что случилось","Морин сам посоветовал ей сходить на озеро на рассвете: «туман там красивый». После ночной игры она не легла спать. Пила кофе на балконе, увидела дымку над озером и ушла снимать рассвет: одна, с фотоаппаратом, кружкой и сумочкой, никого не разбудила. На мостках туман пришёл по воде за минуту, и из леса её позвал голос героя: «Ань. Иди сюда. Тут что-то есть». За спиной по доскам зашлёпали мокрые босые шаги. Она обернулась, выронила фотоаппарат и снимки. Потом ушла в лес сама, следом за тем, кто стоял у неё за спиной"],["Её не тащили","следов борьбы нет. От мостков в лес идут её ровные спокойные шаги, а впереди них узкие длинные босые следы: он шёл первым, она за ним. В тетради культа: «Он должен войти сам»"],["Кто видел","сектант шёл за ней от самого дома: он попал на её второй снимок. На мостках он встал у неё за спиной вплотную, и упавший фотоаппарат сам снял его ноги. Пальцем он её не тронул. Морин дал культу знать, что в 104 заехали трое"],["Где она сейчас","в тумане. Её телефон ушёл с ней, поэтому днём герою звонят с её номера её голосом. Вернуть её можно или нет — не решено"],["Что осталось","на балконе газета и конфета; на мостках кружка, рассыпанные снимки, фотоаппарат и последний снимок «Ноги»; на тропе в лес снимок «Лес» у сосны и сумочка с паспортом и деньгами на ветке. Вся раскладка — на вкладке «Следы»"],["Телефон","«Луч Air», розовый; код 1708. Ушёл с ней в туман"]],
+  trail:[["Коттедж 104 · балкон",[["Газета «Вестник» № 214","на столике раскрыта на «Разыскиваются» (Ковалёва), край придавлен блюдцем"],["Конфета «Коровка»","на столике у газеты, одна. Ещё две в её рюкзаке"],["Пустое место от кружки","кружки на балконе нет: Аня унесла её с собой. Второй стул отодвинут к перилам, к виду на озеро"]]],
+   ["Коттедж 104 · прихожая",[["Её тапочки","у двери: переобулась и ушла. Её кроссовок нет"]]],
+   ["Коттедж 104 · 2-й этаж, её рюкзак",[["Договор аренды № 17-10","в рюкзаке, номер Морина под пятном от чая"],["Две конфеты «Коровка»","в боковом кармане"],["Рабочие бумаги «Маяк»","три листа с её пометками"],["Паспорта нет","важное у неё в маленькой сумочке, сумочку она взяла с собой"]]],
+   ["Изумрудное озеро · мостки",[["Кружка из коттеджа","стоит ровно посреди мостков, кофе не пролит. Вокруг всё разбросано, а кружка стоит, будто Аня сейчас вернётся"],["Четыре снимка","Тропа, Паутина, Бабочка — рассыпаны по доскам; «Мостки» плавает у сваи картинкой вверх"],["Фотоаппарат","у самого конца мостков объективом к воде. Ремень свесился в воду"],["Крышка объектива","в щели между досками, в шаге от фотоаппарата"],["Снимок 6 · Ноги","рядом с фотоаппаратом картинкой вниз: он выплюнул его сам, когда упал и сработал затвор. На снимке мокрые доски, её кроссовки и вплотную за ними серые босые ступни, пальцы смотрят ей в пятки"],["Следы на досках","мокрые следы только её кроссовок. Босых на досках нет"]]],
+   ["Тропа от мостков в лес",[["Её следы","от берега не к дому, а в лес. Шаг ровный, она не бежала"],["Босые следы","через несколько метров в грязи впереди её следов: узкие, длинные, пальцы вытянуты. Он шёл первым"],["Снимок 2 · Лес","у сосны на тропе картинкой вверх. Это та самая сосна со снимка: подняв его, игрок стоит там, где на снимке стоит фигура. Аня держала этот снимок в руке до последнего"],["Её сумочка","маленькая, висит на ветке на уровне глаз, ремешок аккуратно обмотан вокруг сучка. Так не роняют, так вешают. Внутри паспорт с билетом в обложке и деньги. Телефона нет"],["Конец следов","у стены тумана. Последние два отпечатка рядом и глубже остальных: она остановилась и стояла. Босых следов дальше нет"]]],
+   ["Изумрудное озеро · берег",[["Фонарик Димы","в траве у воды, включён, луч в сторону леса. Это не её след: Дима пришёл сюда искать её около 07:00 и пошёл на её голос из леса"]]],
+   ["Нигде на уровне",[["Телефон Ани","ушёл с ней. Только звонок с её номера на тропе"],["Её куртка и кроссовки","были на ней"]]]],
+  days:[["12 сентября",[["23:14","s","Находит объявление о коттедже: «И цена какая-то смешная. Подозрительно смешная)»"]]],
+   ["23 сентября",[["17:40","s","Звонит Морину по объявлению. Он не хочет говорить по телефону: «Ключи передам лично, так надёжнее». Назначает встречу в Каменограде"]]],
+   ["26 сентября",[["12:00","s","Кафе «Перрон» на автовокзале Каменограда, откуда уходит рейс 512. Морин уже сидит лицом к двери, перед ним остывший чай, к которому он не притронулся. Вежливый, в дорогом пальто, руки всё время чем-то заняты: крутит кольцо для ключей"],["12:00","s","Первым делом спрашивает: «Сколько вас будет?» Она отвечает: трое. Через пять минут спрашивает снова. Услышав «трое», выдыхает: «Трое — это хорошо»"],["12:00","s","Спрашивает невзначай, есть ли у них родня в Лихове и знает ли кто-нибудь, куда они едут. Аня шутит: «Только мама». Он кивает и больше не спрашивает"],["12:00","s","Деньги берёт только наличными, без расписки. Договор подписывает при ней и дописывает свой номер ручкой: «Если что — звоните. Но лучше без «если что»». Правило одно: не дольше пяти суток"],["12:00","s","Отдаёт ключи на кольце с деревянной биркой «104». Под номером видны соскобленные старые цифры: бирку перебивали много раз"],["12:00","s","На прощание, уже вставая, говорит как о погоде: «Сходите на озеро на рассвете. Туман там красивый». Уходит, не допив чай"],["18:05","s","Пишет герою: «Видела Морина. Странный. Спросил два раза, сколько нас. И есть ли у нас родня в Лихове». И следом: «Зато сказал, что на рассвете на озере туман красивый. Беру фотоаппарат 😄»"]]],
+   ["3 октября",[["09:40","w","Автобус 512 из Каменограда, место 15 рядом с героем"],["16:20","s","Последнее сообщение герою: «Связь всё. Идеально, с работы не дозвонятся ❤️»"],["20:00","w","Настольная ролёвка у камина до утра"]]],
+   ["День 1 · 4 октября",[["05:10","s","Игра кончилась. Герой уснул у камина, Дима ушёл наверх. Ане не спится"],["05:30","s","Варит кофе и выходит на балкон: газета, конфета «Коровка». Над озером дымка и первый свет"],["05:50","s","Решает снять рассвет. Берёт фотоаппарат и маленькую сумочку с паспортом и деньгами, рюкзак оставляет наверху; переобувается у двери и уходит с кружкой в руке, никого не будит"],["06:00","s","Снимок 1 «Тропа», сразу за домом"],["06:05","s","Снимок 2 «Лес». Справа за сосной стоит сектант, она его не видит"],["06:12","s","Снимки 3 «Паутина» и 4 «Бабочка» у самого озера"],["06:20","s","Выходит на мостки, где за полчаса до неё Итан сделал Клэр предложение. Снимок 5 «Мостки». Ставит кружку на доски, готовые снимки держит в руке и идёт к концу мостков"],["06:25","s","По воде за минуту приходит туман. Из леса её зовёт голос героя: «Ань. Иди сюда. Тут что-то есть». Она отвечает"],["06:25","s","За спиной по доскам шлёпают мокрые босые шаги. Она оборачивается, роняет снимки и фотоаппарат; от удара срабатывает затвор, и он выплёвывает снимок «Ноги»"],["06:27","s","Уходит в лес сама, следом за ним. У сосны со второго снимка роняет снимок «Лес»"],["06:30","s","Вешает сумочку на ветку, или её вешают. Её следы обрываются у стены тумана. Аня пропадает"],["06:40","s","Дима просыпается, Ани нет (вкладка Димы)"],["00:00–12:00","s","Звонок герою с её номера, когда он идёт по тропе к остановке. Связь рвётся, её голос далеко: «…я на мостках… тут так тихо…». Потом тишина. Перезвонить — «абонент недоступен»"]]]],
+  ends:[]},
+ dima:{img:"portraits/dima.png?v=2",name:"Дима",role:"Лучший друг героя",color:"#5B6B3A",
+  place:"cottage104",
+  info:{age:"29 лет",born:"25.05.1997",phone:"+7 903 264-91-58",job:"",work:"",from:"г. Каменоград"},
+  facts:[["Кто","лучший друг героя; не виделись два года: переехал и пропал в работе"],["Культ","не связан"],["Характер","шутит, опаздывает, в игре всегда сговаривается против героя"],["Поездка","согласился сразу: «Звучит как начало фильма, где я умираю первым. Еду». Билет купил отдельно, место 31"],["Странное","опоздал на автобус на две минуты, водитель сам подождал: сказал, что «вас троих ждёт»"],["Что случилось","спал чутко и проснулся на рассвете. Ани долго не было, он пошёл искать её к озеру и вошёл в туман на её голос"],["Телефон","«Норд 11», оливковый; код 2525"]],
+  days:[["14 сентября",[["22:48","s","Отвечает герою на приглашение: «Еду»"]]],
+   ["3 октября",[["09:12","s","«Опоздал на 2 минуты, водитель подождал. Прикинь, сам предложил. Сказал, вас троих ждёт»"],["20:00","w","Настольная ролёвка у камина до утра"]]],
+   ["День 1 · 4 октября",[["06:40","s","Просыпается: Ани нет, её долго нет. Идёт искать к озеру"],["07:00","s","Слышит из леса в тумане её голос и идёт на него. Пропадает"]]]],
+  ends:[]},
+ hale:{img:"portraits/hale.png",name:"Хейл",role:"Участковый посёлка Лихово",color:"#4A4E54",
+  place:"police",
+  info:{age:"47 лет",born:"04.11.1978",phone:"+7 919 300-02-03",job:"участковый, дневная смена",work:"полицейский участок, пос. Лихово",from:"г. Верхнелесск"},
+  facts:[["Кто","дежурный полиции посёлка Лихово, дневная смена"],["Культ","тайно с культом, ближний круг"],["Туман","его не трогает"],["Телефон","«Норд 9», серый"]],
+  days:[["День 1",[["08:00–20:00","s","Можно договориться о встрече на остановке"],["08:00–20:00","w","Дежурит на номере участка"],["20:00–08:00","w","Не на смене: номер участка у Линды"]]],["День 2",[["08:00–18:00","w","Не на смене: номер участка у Линды"],["18:00–00:00","w","На номере участка всегда он"]]],["День 3",[["00:00–24:00","w","На номере участка всегда он"]]]],
+  any:[["s","После договорённости приезжает к остановке когда угодно"],["s","Обыскивает героя: найдёт улики — увезёт в лес, не найдёт — отвезёт к Чёрному озеру"],["w","Закрывает заявления о пропавших: один из четырёх каналов похищений культа"]],
+  ends:["Сами найдутся","Всё хорошо, мам"]},
+ moore:{img:"portraits/moore.png",name:"Линда Мур",role:"Ночная смена участка Лихово",color:"#1E3260",
+  place:"police",
+  info:{age:"30 лет",born:"12.04.1996",phone:"+7 919 300-02-02",job:"офицер полиции, ночная смена",work:"полицейский участок, пос. Лихово",from:"пос. Лихово"},
+  facts:[["Кто","офицер полиции посёлка Лихово, ночная смена"],["Культ","не с культом, ничего не понимает"],["Характер","спокойная, тёплая, по делу"],["Телефон","«Норд 12», тёмно-синий"]],
+  days:[["День 1",[["20:00–08:00","s","Можно договориться о встрече"],["08:00–20:00","w","Не на смене: номер участка у Хейла"],["20:00–08:00","w","Ночная смена на номере участка, всё как обычно"]]],["День 2",[["08:00–18:00","s","Встревожена: можно получить её личный номер"],["18:00–00:00","s","Уходит из участка"],["08:00–18:00","w","Дежурит на номере участка"],["18:00–00:00","w","Доступна только по личному номеру"]]],["День 3",[["00:00–24:00","s","Выживает сама и не понимает, что происходит"],["00:00–24:00","w","Доступна только по личному номеру"]]]],
+  any:[["s","Ждёт на выходе из ловушки дорог и по рации знает, когда на Чёрном озере звонят"]],
+  ends:["Линда · пустые руки","Линда · хаос","Линда · союзник","Линда · большая история"]},
+ ethan:{img:"portraits/ethan.png",name:"Итан Брукс",role:"Гость второго коттеджа, из посёлка Лихово",color:"#3E4A52",
+  place:"cottage2",
+  info:{age:"29 лет",born:"09.02.1997",phone:"+7 919 306-21-08",job:"инженер-проектировщик",work:"",from:"пос. Лихово"},
+  facts:[["Кто","инженер-проектировщик из Лихова; приехал с Клэр на своей машине: сбежали от всех на несколько дней в 6 км от дома, серебристом хэтчбеке"],["Культ","не связан, ничего о нём не знал"],["Что задумал","сделать Клэр предложение на рассвете, на мостках Изумрудного озера"],["Что случилось","она сказала «да», а по дороге обратно туман забрал её с пассажирского сиденья. Его туман не взял, но вернул пустым"],["Сейчас","лежит без сознания во втором коттедже, с её шарфом в руке, и шепчет «она сказала да»"],["Потом","на второй день очнётся Безумным: ищет Клэр по лесу и у озера и нападает на игрока"],["Телефон","«Норд 13», графитовый; код 2108 — день, когда они познакомились"]],
+  days:[["1 октября",[["14:00","w","Приезжают из Лихова, заселяются во второй коттедж Морина на 4 ночи"]]],
+   ["3 октября",[["18:00","s","Пока Клэр клеит в альбом новые фотографии, перекладывает кольцо из сумки в карман куртки"],["23:30","s","Пишет маме Клэр: «Всё готово. На рассвете. Держите кулаки»"]]],
+   ["День 1 · 4 октября",[["05:10","s","Будит Клэр поцелуем: «поехали встречать рассвет»"],["05:40","s","На мостках встаёт на колено. Клэр плачет и говорит «да», он надевает ей кольцо"],["05:55","s","Едут обратно, на лесной дороге встаёт туман. Он смотрит на неё, а сиденье уже пустое, ремень так и пристёгнут"],["06:30","s","Возвращается в коттедж и ложится на пол у кровати, прижав к себе её шарф"],["08:00–24:00","w","Лежит без сознания, дышит, разбудить нельзя; шепчет «она сказала да»"]]],
+   ["День 2",[["08:00–18:00","w","Всё так же лежит в коттедже"],["18:00","s","Очнулся Безумным, когда в Лихове начался хаос"],["18:00–24:00","w","Ищет Клэр: ходит между коттеджами, лесной дорогой и озером, зовёт «Клэр, подожди»"],["18:00–24:00","w","Увидит игрока — нападает"]]],
+   ["День 3",[["00:00–24:00","w","Ищет Клэр у Изумрудного озера и по лесной дороге, повторяет «она сказала да»"],["00:00–24:00","w","Увидит игрока — нападает"]]]],
+  ends:[]},
+ claire:{img:"portraits/claire.png",name:"Клэр Уэст",role:"Гостья второго коттеджа, девушка Итана",color:"#C98B6B",
+  place:"cottage2",
+  info:{age:"27 лет",born:"30.06.1999",phone:"+7 919 306-29-03",job:"преподаватель литературы",work:"колледж Лихова",from:"пос. Лихово"},
+  facts:[["Кто","преподаёт литературу в колледже Лихова; мама и сестра живут там же"],["Культ","не связана"],["Вместе","пять лет; спит в его толстовке, смеётся над его серьёзностью, до сих пор подкладывает ему записки в карманы"],["Альбом","бумажный фотоальбом, который она ведёт все пять лет: печатает снимки с телефона на маленьком фотопринтере, клеит и подписывает от руки. Альбом и принтер взяла с собой"],["Предложение","сказала «да» 4 октября на рассвете, на мостках Изумрудного озера"],["Туман","забрал через пятнадцать минут, прямо из машины, и кольцо соскользнуло с пальца: оно было велико"],["Телефон","«Луч 8», бежевый; код 2903 — её день рождения"]],
+  days:[["1 октября",[["14:00","w","Приезжают из Лихова, она сразу фотографирует дом и сосны для альбома"]]],
+   ["3 октября",[["22:00","s","Клеит в альбом снимки дня и пишет от руки: «3 октября, вечер. У соседей горят окна, они во что-то играют и смеются. Как мы с тобой». Под записью наклеивает пустые уголки: место для снимка рассвета"],["23:50","s","Пишет сестре: «Тут так хорошо. Кажется, я самая счастливая на свете. Приедем, всё расскажу». Сообщение не ушло: связи нет"]]],
+   ["День 1 · 4 октября",[["05:10","s","Сонная, в его толстовке, смеётся: «какой рассвет, ты с ума сошёл»"],["05:40","s","Говорит «да»"],["05:55","s","Туман на лесной дороге: её больше нет, на пассажирском сиденье только пристёгнутый ремень и телефон"]]]],
+  ends:[]}
+};
+const initial=n=>n.trim()[0];
+const EC="https://claude.ai/artifact/W84HEbueXGpfQW49ocTWAX";
+const IT={
+ anna_photo1:{grp:"anna",name:"Снимок 1 · Утренняя тропа",where:"тропа от коттеджа 104",img:"items/anna_photo1.jpg?v=4",owners:["anna"],place:"cottage104",
+  facts:[["Что на снимке","узкая тропа между высокими соснами, роса на траве, первый бледный свет низко между стволами, дымка над землёй"],["Когда","4 октября, около 06:00, Аня только вышла из дома"]]},
+ anna_photo6:{grp:"anna",name:"Снимок 2 · Лес",where:"тропа к озеру",img:"items/anna_photo6.jpg?v=6",owners:["anna"],place:"lake",
+  facts:[["Что на снимке","сосновый лес в густом тумане, тропа сворачивает влево и пропадает в белом"],["Если вглядеться","справа, в тумане за кустами, из-за ствола сосны наполовину выглядывает серый силуэт в балахоне с капюшоном. С первого взгляда — тень у дерева"],["Когда","4 октября, по дороге к озеру. Аня, похоже, фигуру не заметила"],["Где нашли","у той самой сосны на тропе от мостков в лес, картинкой вверх. Аня держала его в руке до последнего"]]},
+ anna_photo3:{grp:"anna",name:"Снимок 3 · Паутина",where:"тропа у озера",img:"items/anna_photo3.jpg?v=4",owners:["anna"],place:"lake",
+  facts:[["Что на снимке","паутина в каплях росы между сосновыми ветками, за ней сквозь деревья светится озеро"],["Когда","4 октября, у самого озера"]]},
+ anna_photo7:{grp:"anna",name:"Снимок 4 · Бабочка",where:"тропа у озера",img:"items/anna_photo7.jpg?v=4",owners:["anna"],place:"lake",
+  facts:[["Что на снимке","туманная тропа между соснами и папоротниками; у тропы на листе папоротника сидит маленькая бледная бабочка — её не сразу заметишь"],["Когда","4 октября, у самого озера, перед мостками"]]},
+ anna_photo4:{grp:"anna",name:"Снимок 5 · Мостки",where:"Изумрудное озеро",img:"items/anna_photo4.jpg?v=5",owners:["anna"],place:"lake",
+  facts:[["Что на снимке","короткие старые мостки на сваях уходят от травянистого берега в озеро; рядом сосны и высокая трава, дальше вода пропадает в тумане"],["Когда","4 октября, около 06:20"]]},
+ album:{name:"Фотоальбом «Мы»",where:"второй коттедж, на столе",img:"items/album.jpg",url:EC+"#album",owners:["claire","ethan"],place:"cottage2",
+  facts:[["Что это","бумажный фотоальбом Клэр за пять лет: снимки с телефона, напечатанные на мини-фотопринтере, приклеены скотчем, подписи от руки"],["Внутри","обложка и три разворота: «Как всё началось», «Наш дом», «Сосны»; десять снимков в пастели, подписи смешные и нежные"],["Последняя запись","от руки, без снимка, вечер 3 октября: «У соседей горят окна, они во что-то играют и смеются. Как мы с тобой»"],["Под ней","пустые уголки для следующего снимка: Клэр оставила место для рассвета"],["Где","на столе во втором коттедже, рядом фотопринтер"]]},
+ speech:{name:"Листок с речью",where:"второй коттедж, карман куртки Итана",img:"items/speech.jpg",url:EC+"#speech",owners:["ethan"],place:"cottage2",
+  facts:[["Что это","листок из блокнота, сложенный вчетверо: речь Итана для предложения, вся в зачёркиваниях"],["Последняя строка","другой ручкой: «забудь всё. просто скажи»"],["Где","в кармане его куртки на спинке стула, рядом записка Клэр «люблю тебя, зануда»; черновики с тем же началом скомканы в мусорке"]]},
+ list:{name:"Список дел",where:"второй коттедж, холодильник",img:"items/list.jpg",url:EC+"#list",owners:["claire","ethan"],place:"cottage2",
+  facts:[["Что это","жёлтый листок под красным магнитом: «Сосны», 1–5 октября», шесть пунктов почерком Клэр"],["Седьмой пункт","«ты», дописал Итан другой ручкой. Клэр его не видела"],["Где","на дверце холодильника во втором коттедже"]]},
+ ring:{name:"Кольцо",where:"машина Итана, коврик у пассажирского сиденья",img:"items/ring.png",url:EC+"#ring",owners:["ethan","claire"],place:"cottage2",
+  facts:[["Что это","тонкое золотое кольцо с маленьким круглым камнем; Итан купил его полгода назад"],["Почему здесь","размер угадывал на глаз, кольцо было велико и соскользнуло с пальца Клэр, когда её забрал туман"],["Где","на коврике у пассажирского сиденья; пустая коробочка на панели"]]},
+ passport_ilya:{grp:"passport",name:"Паспорт: Илья Воронцов",where:"в вещах героя",img:"items/passport_ilya.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:[],place:"cottage104",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Воронцов Илья Андреевич, 12.03.1998, г. Каменоград"],["Номер","46 17 318204, выдан ОВД г. Каменограда 03.04.2018"],["Пометка","имена, даты и номера — черновик"]]},
+ passport_anna:{grp:"passport",name:"Паспорт: Анна Левина",where:"сумочка Ани на ветке, тропа от мостков в лес",img:"items/passport_anna.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["anna"],place:"lake",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Левина Анна Сергеевна, 17.08.1999, г. Каменоград"],["Номер","46 19 522417, выдан ОВД г. Каменограда 29.08.2019"],["Пометка","имена, даты и номера — черновик"]]},
+ passport_dima:{grp:"passport",name:"Паспорт: Дмитрий Карпов",where:"вещи Димы, коттедж 104",img:"items/passport_dima.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["dima"],place:"cottage104",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Карпов Дмитрий Олегович, 25.05.1997, г. Каменоград"],["Номер","46 17 104933, выдан ОВД г. Каменограда 11.06.2017"],["Пометка","имена, даты и номера — черновик"]]},
+ passport_ethan:{grp:"passport",name:"Паспорт: Итан Брукс",where:"куртка Итана, второй коттедж",img:"items/passport_ethan.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["ethan"],place:"cottage2",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Брукс Итан, 09.02.1997, пос. Лихово"],["Номер","52 17 077310, выдан ОВД пос. Лихово 20.02.2017"],["Пометка","имена, даты и номера — черновик"]]},
+ passport_claire:{grp:"passport",name:"Паспорт: Клэр Уэст",where:"сумка Клэр, второй коттедж",img:"items/passport_claire.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["claire"],place:"cottage2",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Уэст Клэр, 30.06.1999, пос. Лихово"],["Номер","52 19 203118, выдан ОВД пос. Лихово 14.07.2019"],["Пометка","имена, даты и номера — черновик"]]},
+ ticket_ilya:{grp:"ticket",name:"Билет на автобус: Илья",where:"в вещах героя",img:"items/ticket_ilya.jpg",owners:[],place:"cottage104",
+  facts:[["Что это","пассажирский билет на автобус, рейс 512 Каменоград — пов. «Сосны», штамп «Оплачено», корешок «Контроль»"],["Пассажир","ИЛЬЯ, серия АВ № 017342, место 14"],["Отправление","03.10.2026, 09:40; тариф полный, 487 руб."]]},
+ ticket_anna:{grp:"ticket",name:"Билет на автобус: Анна",where:"в паспортной обложке, сумочка Ани",img:"items/ticket_anna.jpg",owners:["anna"],place:"lake",
+  facts:[["Что это","пассажирский билет на автобус, рейс 512 Каменоград — пов. «Сосны», штамп «Оплачено», корешок «Контроль»"],["Пассажир","АННА, серия АВ № 017343, место 15"],["Отправление","03.10.2026, 09:40; тариф полный, 487 руб."]]},
+ ticket_dima:{grp:"ticket",name:"Билет на автобус: Дмитрий",where:"в вещах Димы, коттедж 104",img:"items/ticket_dima.jpg",owners:["dima"],place:"cottage104",
+  facts:[["Что это","пассажирский билет на автобус, рейс 512 Каменоград — пов. «Сосны», штамп «Оплачено», корешок «Контроль»"],["Пассажир","ДМИТРИЙ, серия АВ № 017398, место 31"],["Отправление","03.10.2026, 09:40; тариф полный, 487 руб."],["Странное","куплен отдельно от билетов Ильи и Ани, место в другом конце салона"]]},
+ passport_hale:{grp:"passport",name:"Паспорт: Дэниел Хейл",where:"у Хейла, полицейский участок",img:"items/passport_hale.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["hale"],place:"police",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Хейл Дэниел, 04.11.1978, г. Верхнелесск"],["Номер","52 23 418806, выдан ОВД г. Верхнелесска 21.11.2023"],["Пометка","имя, даты и номер — черновик"]]},
+ passport_moore:{grp:"passport",name:"Паспорт: Линда Мур",where:"у Линды, полицейский участок",img:"items/passport_moore.jpg?v=2",url:"https://claude.ai/artifact/DJ5sV1bE4S3DuDnnro3PWs",owners:["moore"],place:"police",
+  facts:[["Что это","коричневая книжечка; при осмотре открыта только первая страница с данными владельца"],["Владелец","Мур Линда, 12.04.1996, пос. Лихово"],["Номер","52 16 031447, выдан ОВД пос. Лихово 27.04.2016"],["Пометка","имена, даты и номера — черновик"]]},
+};
+const itemsOf=pid=>Object.keys(IT).filter(k=>IT[k].owners.includes(pid));
+const thing=id=>`<a class="thing" href="#i=${id}"><img src="${IT[id].img}" alt="" loading="lazy"><b>${IT[id].name}</b></a>`;
+const xi=id=>`<a class="xlink" href="#i=${id}">${IT[id].name}</a>`;
+const navBar=(list,id,href,label)=>{const i=list.indexOf(id),n=list.length;
+ const prev=i>0?list[i-1]:null,next=i<n-1?list[i+1]:null;
+ return `<div class="nav"><a class="arrow" data-nav="prev" ${prev?`href="${href}${prev}"`:'aria-disabled="true"'} aria-label="Предыдущий: ${label}">← Предыдущий</a><span class="pos">${i+1} из ${n}</span><a class="arrow" data-nav="next" ${next?`href="${href}${next}"`:'aria-disabled="true"'} aria-label="Следующий: ${label}">Следующий →</a></div>`};
+const PL={
+ police:{name:"Полицейский участок",where:"посёлок Лихово",color:"#24435e",
+  facts:[["Где","посёлок Лихово"],["Телефон","+7 919 300-02-02 — дежурный номер, им же пользуется Линда Мур"],["Откуда номер у героя","газета, вакансия «Помощник участкового», стр. 3"],["Смены","день 08:00–20:00 — Хейл; ночь 20:00–08:00 — Линда Мур"],["С вечера второго дня","Линда ушла, на номере всегда Хейл"]],
+  people:["hale","moore"]},
+ church:{name:"Церковь Святого Павла",where:"у деревни Болотьево, квадрат F7",color:"#6b4f8e",img:"places/church_pavel.jpg",
+  facts:[["Где","у деревни Болотьево, квадрат F7 карты"],["Какая","большая бревенчатая, вся из тёмного дерева; стены глухие, без окон"],["Вход","одна дверь на длинной стене у левого угла"],["Колокольня","массивная квадратная башня, наверху один колокол"],["Вокруг","низкий старый штакетник, лиственные деревья"]],
+  people:[]},
+ busstop:{name:"Остановка 227",where:"у дороги к коттеджу 104, квадрат G7",color:"#1a73e8",img:"places/bus_stop_227.jpg",
+  facts:[["Где","у дороги к коттеджу 104, квадрат G7 карты"],["Какая","современный павильон: тёмный каркас, зеленоватое стекло, бетонная плита"],["Рядом","лавочка, урна, расписание на столбике"],["Стоит","на траве в стороне от дороги"]],
+  people:[]},
+ reserve:{name:"Заповедник им. Гусева",where:"квадрат G7",color:"#188038",img:"places/reserve_gusev.jpg",
+  stand:{img:"places/stand_reserve.jpg?v=3",facts:[["Что это","поле информационного стенда у входа на тропу: шапка с названием, карта леса издалека — Изумрудное озеро по контуру с карты, правила посещения, телефон лесничества"],["Телефон","+7 919 300-27-14"],["Размер","поле 1,75 × 1,2 м на стенде в игре"]]},
+  facts:[["Где","квадрат G7 карты"],["Вход","лесная тропа, деревянный щит с объявлениями, жердевые ограды"],["Лес","лиственный, папоротник и поваленные брёвна"]],
+  people:[]},
+ cottage2:{name:"Второй коттедж",where:"рядом с коттеджем 104, квадрат G7",color:"#8a6a4a",
+  facts:[["Где","на той же поляне, что и коттедж 104: из его окон видно окна соседей"],["Чей","Александра Морина, второй дом; сдан Итану и Клэр с 1 по 5 октября"],["Утром дня 1","дверь распахнута. На полу у кровати лежит Итан без сознания, с шарфом Клэр в руке, и шепчет «она сказала да». С вечера второго дня его здесь нет: он ищет Клэр и нападает на игрока"],["Внутри","на столе бутылка вина и две чашки вместо бокалов, рядом фотоальбом и маленький фотопринтер; в кармане его куртки на спинке стула — листок с речью и её записка «люблю тебя, зануда»; на холодильнике её список дел"],["Альбом Клэр","бумажный, пять лет их фотографий с подписями её рукой. Последняя запись — от руки, про соседей из коттеджа 104: «Как мы с тобой». Под ней пустые уголки для следующего снимка"],["Машина у дома","серебристый хэтчбек. Пассажирская дверь открыта, ремень пристёгнут на пустом сиденье, рядом её телефон с неотправленным сообщением сестре. На коврике у пассажирского сиденья кольцо: велико, соскользнуло с её пальца. На панели пустая коробочка, стёкла изнутри в испарине"]],
+  people:["ethan","claire"]},
+ lake:{name:"Изумрудное озеро",where:"северный берег, квадрат F7",color:"#1f8a70",img:"places/emerald_lake.jpg",
+  facts:[["Где","северный берег, квадрат F7 карты"],["Какое","большое, вода изумрудная, дальнего берега не видно — туман"],["У берега","старые деревянные мостки, гладкие валуны на мелководье"],["Мостки","здесь на рассвете 4 октября Итан сделал Клэр предложение, и она сказала «да»"],["Аня","через полчаса после них, около 06:20, пришла сюда с фотоаппаратом, кружкой и сумочкой. Туман пришёл по воде, из леса её позвал голос героя, а за спиной встал сектант. Она ушла за ним в лес сама. На досках остались кружка, рассыпанные снимки, упавший фотоаппарат и снимок «Ноги»; на тропе в лес — снимок «Лес» и её сумочка на ветке"],["Дима","около 07:00 пошёл сюда искать Аню и ушёл в лес, в туман, на её голос. Его фонарик остался в траве у воды, включённый"]],
+  people:["ethan","claire","anna","dima"]},
+ cottage104:{name:"Коттедж 104",where:"поляна в лесу, квадрат G7",color:"#3f6b4a",
+  facts:[["Где","поляна в лесу у дороги к остановке 227, квадрат G7 карты; на той же поляне второй коттедж"],["Чей","Александра Морина; сдан Ане по договору № 17-10 с 3 по 7 октября"],["Какой","два этажа и чердак, камин, кухня, ванная, балкон"],["Вечером 3 октября","трое друзей играют у камина в настольную ролёвку до утра; соседи из второго коттеджа видят их окна"],["Утром дня 1","герой просыпается один: Ани и Димы нет. На балконе её кружки нет, газета и конфета лежат; у двери её тапочки"]],
+  people:["anna","dima"]}
+};
+const face=p=>p.img?`<img class="pic" src="${p.img}" alt="">`:`<span class="ava" style="background:${p.color}">${initial(p.name)}</span>`;
+const personCard=id=>{const p=P[id];return `<a class="pcard" href="#p=${id}">${face(p)}<b>${p.name}</b></a>`};
+const PIN='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
+const placeCard=id=>{const q=PL[id];return `<a class="pcard" href="#pl=${id}"><span class="ava" style="background:${q.color}">${PIN}</span><b>${q.name}</b></a>`};
+const xp=id=>`<a class="xlink" href="#p=${id}">${P[id].name}</a>`;
+const xpl=id=>`<a class="xlink" href="#pl=${id}">${PL[id].name}</a>`;
+const xe=t=>{const i=END.findIndex(e=>e.t===t);return `<a class="endlink ${END[i].tone}" href="#e=${i}">${t}</a>`};
+const peopleOfEnd=t=>Object.keys(P).filter(id=>P[id].ends.includes(t));
+const placesOf=ids=>[...new Set(ids.map(id=>P[id].place).filter(Boolean))];
+const relRow=(label,html)=>html?`<div class="rel"><b>${label}</b><div class="endlinks">${html}</div></div>`:"";
+const related=rows=>{const body=rows.map(([l,h])=>relRow(l,h)).join("");return body?`<div class="block"><h2>Связи</h2>${body}</div>`:""};
+function endLinks(e){const ppl=peopleOfEnd(e.t);
+ const body=relRow("Персонажи",ppl.map(xp).join(""))+relRow("Места",placesOf(ppl).map(xpl).join(""));
+ return body?`<div class="rels">${body}</div>`:""}
+document.getElementById("police").innerHTML=["hale","moore"].map(personCard).join("");
+document.getElementById("neutral").innerHTML=["ethan","claire"].map(personCard).join("");
+document.getElementById("heroes").innerHTML=["anna","dima"].map(personCard).join("");
+document.getElementById("items-anna").innerHTML=Object.keys(IT).filter(k=>IT[k].grp==="anna").map(thing).join("");
+document.getElementById("items-ec").innerHTML=Object.keys(IT).filter(k=>!IT[k].grp).map(thing).join("");
+document.getElementById("items-passport").innerHTML=Object.keys(IT).filter(k=>IT[k].grp==="passport").map(thing).join("");
+document.getElementById("items-ticket").innerHTML=Object.keys(IT).filter(k=>IT[k].grp==="ticket").map(thing).join("");
+document.getElementById("places").innerHTML=Object.keys(PL).map(placeCard).join("");
+const main=document.getElementById("main"),person=document.getElementById("person");
+const KIND={s:"сюжет",w:"открытый мир"};
+const line=(k,x)=>`<div class="line"><span>${x}</span>${k==="s"?`<span class="kind s">${KIND.s}</span>`:""}</div>`;
+const byKind=rows=>["s","w"].flatMap(k=>rows.filter(r=>r.k===k));
+function slots(rows){
+ const times=[...new Set(rows.map(r=>r.t))].sort();
+ return times.map(t=>`<div class="slot"><time>${t}</time><div class="lines">${byKind(rows.filter(r=>r.t===t)).map(r=>line(r.k,r.x)).join("")}</div></div>`).join("");
+}
+const PTABS=[["gen","Общее"],["days","Распорядок"],["trail","Следы"],["things","Вещи"],["misc","Разное"]];
+const INFO=[["age","Возраст"],["born","Дата рождения"],["phone","Личный номер"],["job","Кем работает"],["work","Где работает"],["from","Откуда"]];
+const infoBlock=p=>`<div class="block"><dl class="info">${INFO.map(([k,n])=>`<dt>${n}</dt><dd${p.info[k]?"":' class="none"'}>${p.info[k]||"—"}</dd>`).join("")}</dl></div>`;
+let ptab="gen",shown=null;
+function personPage(id){const p=P[id];
+ const its=itemsOf(id);
+ const tabs=PTABS.filter(([k])=>(k!=="things"||its.length)&&(k!=="trail"||p.trail));
+ if(!tabs.some(([k])=>k===ptab))ptab="gen";
+ return `<button class="back" data-back>Назад</button>
+ <div class="phead">${p.img?`<img class="portrait" src="${p.img}" alt="${p.name}">`:`<span class="ava" style="background:${p.color}">${initial(p.name)}</span>`}<div><h1>${p.name}</h1><p>${p.role}</p></div></div>
+ <div class="tabs" role="tablist" aria-label="${p.name}">${tabs.map(([k,n])=>`<button class="tab" role="tab" data-ptab="${k}" aria-selected="${k===ptab}">${n}</button>`).join("")}</div>
+ ${ptab==="gen"?infoBlock(p)
+ :ptab==="misc"?`<div class="facts">${p.facts.map(([k,v])=>`<div class="fact"><b>${k}</b>${v}</div>`).join("")}</div>`
+ :ptab==="things"?`<div class="things">${its.map(thing).join("")}</div>`
+ :ptab==="trail"?`<div class="block">${p.trail.map(([w,rows])=>`<div class="day"><h3>${w}</h3><div class="facts">${rows.map(([k,v])=>`<div class="fact"><b>${k}</b>${v}</div>`).join("")}</div></div>`).join("")}</div>`
+ :`<div class="block">${p.days.map(([d,rows])=>`<div class="day"><h3>${d}</h3>${slots(rows.map(([t,k,x])=>({t,k,x})))}</div>`).join("")}</div>`}
+ ${related([["Место",p.place?xpl(p.place):""],["Вещи",its.map(xi).join("")],["Концовки",p.ends.map(xe).join("")]])}`}
+let fromPerson=null;
+function itemPage(id){const q=IT[id];
+ const who=fromPerson&&q.owners.includes(fromPerson)?fromPerson:q.owners[0];
+ const list=who?itemsOf(who):[];
+ return `<button class="back" data-back>Назад</button>
+ ${list.length>1?navBar(list,id,"#i=",`вещам: ${P[who].name}`):""}
+ <div class="phead"><img class="ithumb" src="${q.img}" alt=""><div><h1>${q.name}</h1><p>${q.where}</p></div></div>
+ <div class="tabs" role="tablist" aria-label="${q.name}"><button class="tab" role="tab" aria-selected="true">Общее</button></div>
+ <img class="photo item" src="${q.img}" alt="${q.name}">
+ <div class="facts">${q.facts.map(([k,v])=>`<div class="fact"><b>${k}</b>${v}</div>`).join("")}</div>
+ ${q.url?`<div><a class="xlink" href="${q.url}" target="_blank" rel="noopener">Открыть в «Бумагах»</a></div>`:""}
+ ${related([["Чьё",q.owners.map(xp).join("")],["Место",q.place?xpl(q.place):""]])}`}
+const QTABS=[["gen","Общее"],["stand","Стенд"],["people","Люди"]];
+let qtab="gen";
+function placePage(id){const q=PL[id];
+ const ends=[...new Set(q.people.flatMap(pid=>P[pid].ends))];
+ const tabs=QTABS.filter(([k])=>(k!=="people"||q.people.length)&&(k!=="stand"||q.stand));
+ if(!tabs.some(([k])=>k===qtab))qtab="gen";
+ return `<button class="back" data-back>Назад</button>
+ <div class="phead"><span class="ava" style="background:${q.color}">${PIN}</span><div><h1>${q.name}</h1><p>${q.where}</p></div></div>
+ <div class="tabs" role="tablist" aria-label="${q.name}">${tabs.map(([k,n])=>`<button class="tab" role="tab" data-qtab="${k}" aria-selected="${k===qtab}">${n}</button>`).join("")}</div>
+ ${qtab==="people"?`<div class="people">${q.people.map(personCard).join("")}</div>`
+ :qtab==="stand"?`<img class="photo" style="object-fit:contain;max-height:none" src="${q.stand.img}" alt="Стенд: ${q.name}"><div class="facts">${q.stand.facts.map(([k,v])=>`<div class="fact"><b>${k}</b>${v}</div>`).join("")}</div>`
+ :`${q.img?`<img class="photo" src="${q.img}" alt="${q.name}">`:""}<div class="facts">${q.facts.map(([k,v])=>`<div class="fact"><b>${k}</b>${v}</div>`).join("")}</div>`}
+ ${related([["Люди",q.people.map(xp).join("")],["Вещи",Object.keys(IT).filter(k=>IT[k].place===id).map(xi).join("")],["Концовки",ends.map(xe).join("")]])}`}
+function route(){
+ const h=location.hash,m=h.match(/^#(p|pl|i)=(\w+)/);
+ const key=m&&(m[1]==="p"?P[m[2]]:m[1]==="i"?IT[m[2]]:PL[m[2]])?h:null;
+ if(m&&m[1]==="p"&&P[m[2]])fromPerson=m[2];
+ main.hidden=!!key;person.hidden=!key;
+ if(key){if(key!==shown){shown=key;ptab="gen";qtab="gen";window.scrollTo(0,0)}person.innerHTML=m[1]==="p"?personPage(m[2]):m[1]==="i"?itemPage(m[2]):placePage(m[2]);return}
+ shown=null;
+ const em=h.match(/^#e=(\d+)$/);
+ if(em&&END[+em[1]]){show(+em[1])}
+ const t=h==="#chars"?"chars":h==="#places"?"places":h==="#items"?"items":(h==="#endings"||em)?"endings":"home";
+ document.querySelectorAll(".panel").forEach(p=>p.hidden=p.id!=="t-"+t);
+}
+person.addEventListener("click",ev=>{
+ const pt=ev.target.closest("[data-ptab]");
+ if(pt){ptab=pt.dataset.ptab;route();return}
+ const qt=ev.target.closest("[data-qtab]");
+ if(qt){qtab=qt.dataset.qtab;route();return}
+ if(ev.target.closest("[data-back]")){history.length>1?history.back():location.hash="";}});
+document.addEventListener("keydown",ev=>{
+ if(person.hidden||ev.altKey||ev.ctrlKey||ev.metaKey||/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)&&document.activeElement.getAttribute("role")==="tab")return;
+ const k=ev.key==="ArrowLeft"?"prev":ev.key==="ArrowRight"?"next":null;if(!k)return;
+ const a=person.querySelector(`[data-nav="${k}"][href]`);if(a){ev.preventDefault();location.hash=a.getAttribute("href")}});
+window.addEventListener("hashchange",()=>{route();if(/^#e=/.test(location.hash))window.scrollTo(0,0)});
+show(cur);
+route();
+const fold=document.getElementById("fold2");
+try{if(localStorage.getItem("lgFold")==="0")fold.open=false}catch(e){}
+fold.addEventListener("toggle",()=>{try{localStorage.setItem("lgFold",fold.open?"1":"0")}catch(e){}});
+</script>
+</body>
+</html>

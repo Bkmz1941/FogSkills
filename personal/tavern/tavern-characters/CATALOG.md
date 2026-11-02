@@ -40,13 +40,14 @@
 - девушка: `TShirtF`, `HoodieF`, `JeansF`, `SneakersF`, `UnderwearF`, `HairF`;
 - носимое: `BackpackM/F`, `BackpackHoodieM/F`, `BackpackJacketM`, `BriefcaseM/F` (+Hoodie/Jacket), `SportBagM/F`
   - ⏳ 22.10 походный рюкзак на девушке `HikeF`/`HikeHoodieF` — только Blender, проба в скретчпаде ilya-ac (`tavern-clothes`, таблица носимого)
+- ⭐ 28.10 вечер: рюкзак походный средний зелёный — в игре: вещь `backpack_green`, посадки `GreenPack{M,HoodieM,JacketM,F,HoodieF}` + `JacketGreenPackM`, предмет `backpackGreen(Lying)`; источник — скретчпад сессии 0b2aead7 `green/` (`green_wear.py`, экспорт `green_export_*.py`), подробности `tavern-clothes` (раздел «Носимое»).
   (+Hoodie/Jacket/Shirt) — посадка под верх;
 - вещи «как лежит» (мир): `Furniture/jeansFolded`, `homeFolded`, `tshirt*Folded`, `sneakersPair*`, `slippersPair`,
   `jeansGirlFolded`, `tshirtGirlFolded`; очки Ирины — предмет `glasses_sokolova` (не носится).
 
 **Только Blender** (ночь 01.10, ждут слова, `tavern-game/BLENDER.md` «Ночь 01.10»): `Library/humanBoots`, `humanCargo`,
 `humanFlannel`, `humanLongsleeve`, `humanRaincoat`, `humanShorts`, `humanSweater`, `humanSweatpants`, `humanTank`, `humanVest`,
-`humanJacket` (показ куртки), `humanBag`, `humanSportBackpackM`; очки носимые `GlassesM_*` в `Library/glasses.blend`.
+`humanJacket` (показ куртки), `humanBag` (старый спортивный рюкзак `humanSportBackpackM` удалён 28.10); очки носимые `GlassesM_*` в `Library/glasses.blend`.
 
 ## 4. Волосы и лицо
 
@@ -65,9 +66,9 @@
 |---|---|
 | движение героя | `Idle_Calm`, `Walk_Calm`, `Jog_Calm`, `Run_Winded`, `Run_Winded_F`, `Walk_Limp`, `Walk_Drunk`, `Crouch_Down/Idle/Walk`; девушка — `Girl_Idle/Walk/Run` |
 | позы | `Sit_Idle`, `Sit_Idle_Lap`, `Sit_Rocking`, `Sit_Sofa`, `Lie_Idle`, `Lie_Sofa`, `Bath_Lie`, `Kneel_Down/Pray/Pray_Shake/Up` |
-| перелазы | `Window_Climb/Fall`, `Rail_Climb/Fall`, `Ladder_Climb` |
+| перелазы | `Window_Climb/Fall`, `Rail_Climb/Fall`, `Ladder_Climb`; с 31.10 `Fence_Climb` (заборчик тропы по пояс, 98 к.) и `Curb_Step` (бордюр, 44 к.) — кнопка «Перелезть» у объектов с `climbOver`, ими же лезет сектант на пути |
 | трупы (17.10) | `Corpse_back_spread/back_chest/prone_head_side/prone_crawl/side_curled/side_sprawl/back_twisted/sit_wall/sit_tree/hanged` — объект уровня «Труп мужчины/женщины» (`corpse_<поза>_<m|f>`), редактор → Модели → «Смерти», муж/жен, поза листается кнопкой «Поза»; тело героя/героини в трусах, клип одной позой (`CorpsePose`, `NpcDummy.cs`), у повешенного верёвка с петлёй по `corpseHanged.json`; сцена `corpse_poses.py` |
-| без сознания (21.10, только Blender) | `Hero_Faint` — падает без сознания, неконтролируемо: качнулся, голова упала, ОБА колена подламываются по t² (таз вниз-вперёд, стопы на месте, на носок), удар коленями с отскоком, тело валится вперёд-вбок поворотом вокруг колен как маятник (с инерцией падения), удар грудью с подскоком, доходит до «ничком, лицо набок» (`Corpse_Poses` 03); руки висят по силе тяжести и с головой догоняют тело с запаздыванием. 72 к.; `BlenderWork/faint_fall.py` → `Animations/Faint_Fall.blend`. Общая: голод, удушение и т. п. — в игру по слову |
+| без сознания (21.10; ⭐ В ИГРЕ с 28.10 — смерть от падения с высоты) | `Hero_Faint` — падает без сознания, неконтролируемо: качнулся, голова упала, ОБА колена подламываются по t² (таз вниз-вперёд, стопы на месте, на носок), удар коленями с отскоком, тело валится вперёд-вбок поворотом вокруг колен как маятник (с инерцией падения), удар грудью на 34-м; ⭐ с 28.10 (Илья: «убери все изменения после 34 кадра, пусть падает и части тела естественно допадают, не надо менять положение тела») после удара тело ЗАМИРАЕТ как упало — доводки к позе трупа и скольжения ног нет, только руки допадают под тяжестью до пола (`arms_drop`, к ~40-му) и голова догоняет; руки висят по силе тяжести и с головой догоняют тело с запаздыванием. 72 к.; `BlenderWork/faint_fall.py` → `Animations/Faint_Fall.blend`. В игре: `DeathScreenUI` играет его при `Harm.Fall` (смертельное падение `TrackFall` → `FallHarm`; прыжок из окна остаётся в последнем кадре `Window_Fall` — сцена держит тело сама), вещи из рук вылетают на 33-м кадре (удар грудью). Голод, болезнь, удушение — по слову (Илья 28.10: «сделай чтобы была когда падаешь с большой высоты и умираешь») |
 | состояния | `Sit_Fallen`, `Stand_Up`, `Prone_Fallen`, `Prone_Up` (⭐ с 21.10 — единое «встать с живота» для героя и всех на его теле, 3,25 с), `Poison_Retch/Fours/Death`, `Bleed_Death`, `Trap_Hit/Pain/Open`, `Throw_Right` |
 | стычка с вороной | `Crow_Brace/Guard/Dodge/Hit/Fall/Melee/Punch/Slip`, сзади `Crow_Back/BackDodge/BackHit/BackSlip` |
 | стычка с сектантом | герой `Hero_SectantBrace/Hit/Dodge/Kill/Guard/Melee/Punch`; сектант `Sectant_Attack/Strike/Miss/Kill/Grapple/Struck/Punched` |
@@ -95,6 +96,14 @@ Punch/Point/Candle/Back` — сцены, из которых выгружены 
 `Zombie_T0` (21.10 вечер) — исход «назад в пустоту» хвата спереди (унификация тесных сцен: хват × реакция на преграду): толчок в грудь, герой семенит назад, садится на пол и опрокидывается на спину, лежит как в конце `Crow_Fall` с руками как упали (`Zombie_T0Fall` + `Hero_ZombieT0Fall`, 64 к., с позы конца петли; в файле и хват `Zombie_T0Hold` 84 к. для стыка); `zombie_tight.py -- T0Fall` / `-- T0FallExport`, В ИГРЕ с 22.10 (сцена `t0Fall`: исход проигрыша «Вырваться», когда сзади свободно 2,1 м; ⏳ play); подробности — там же.
 `Zombie_T2` (22.10) — тесная сцена Т2 «стена спереди, безумный сзади»: захват — удушение сзади (`Zombie_T2Hold`, 110 к.), «вырвался» — оттолкнул спиной от стены и развернулся (`Zombie_T2Free` 52 к.), «не вырвался» — лицом в стену и сполз в присед (`Zombie_T2Wall` 60 к.), пары с `Hero_ZombieT2*`; `zombie_tight.py -- T2`, ТОЛЬКО Blender, ждёт оценки; подробности — `tavern-combat/SKILL.md`, «Т2».
 `Zombie_Slip` (22.10) — «Проскользнуть» для схемы «1 анимация + 2 развилки» (подход → оттолкнуть / проскользнуть / успешная атака на все места): безумный бросается и промахивается, герой приседает, ныряет влево под его правую руку, боком проходит вдоль него за спину и идёт дальше (`Zombie_Slip` + `Hero_ZombieSlip`, 64 к.; проход 1,5 м игры: стена и перила ящиками); `BlenderWork/zombie_slip.py` → `Animations/Zombie_Slip.blend`; В ИГРЕ с 22.10 (`Resources/Zombie_Slip.fbx`, `Hero_ZombieSlip.fbx`, сцена `slip`, кнопка «Проскользнуть»; зеркало вправо `Zombie_SlipR` / `Hero_ZombieSlipR`, сцена `slipR` — отражение поз левой по кадрам, `mirror_actions`; ⏳ play не проверен); подробно `tavern-combat/SKILL.md` «Переосмысление тесных сцен 22.10».
+
+`Fence_Climb` (31.10) — герой перелезает заборчик тропы по пояс (брус 1,22–1,38, нижний 0,60–0,76): хореография перил
+`Rail_Climb` с геометрией параметрами (`crow_fight.py` режим `railclimb`, `rail_kind='fence'`, реестр `anim_kit.py`), 98 к.;
+`Curb_Step` (31.10) — перешагивает бордюр 0,27 плоской стопой, 44 к. (режим `curbstep`); `Zombie_FenceClimb` (31.10) —
+безумный переваливается через верхний брус заборчика животом и падает в позу отжимания (`zombie_climb.py -- fence`, 56 к.,
+дальше `Prone_Up`). Витрина трёх — `climb_showcase.py` → `Animations/Climb_Showcase.blend`. ⭐ В ИГРЕ с 31.10 (Илья: «норм, в игру
+переноси»): `anim_kit.py build Fence_Climb` / `… Curb_Step`, `zombie_build.py -- export Zombie_FenceClimb`; меты копией
+`Rail_Climb.fbx.meta` / `Zombie_WindowClimb.fbx.meta` с новым guid, `name` клипа и `lastFrame` под свой клип.
 
 ## 7. Файлы и сборки (быстрый ответ)
 

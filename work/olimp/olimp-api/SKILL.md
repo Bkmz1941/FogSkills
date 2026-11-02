@@ -429,6 +429,152 @@ busy-loop, а рвущиеся соединения к брокерам (сес�
   Внутри образа пользователь `app` = **uid 999**, файлы должны принадлежать ему.
   Клиентский сертификат `CN=push-new` годен до 20.02.2027.
 
+## `push-service` — отправка win/cash-пушей
+
+Контейнер `old-cms-prod-push-service-1`, образ
+`registry.agg.one/old-cms/monolith/push-service:<docker/push-service/VERSION>`
+(**на проде 1.0.2 с 2026-10-29 10:09 UTC**, до того 1.0.1 с 2026-09-08; лимит
+памяти 512 МБ, `init: true`).
+
+**Как выкатывали 1.0.2 (без CI, по команде Ильи «клади на прод контейнер»).**
+Пуша в `master` не было (коммит `b5b69590` локальный), поэтому образ собран
+локально из коммита и завезён руками, под тем же именем, что даёт CI:
+```bash
+git archive --format=tar HEAD > ctx.tar
+DOCKER_BUILDKIT=1 docker build --pull -f docker/push-service/Dockerfile \
+  -t registry.agg.one/old-cms/monolith/push-service:1.0.2 - < ctx.tar     # ~5 мин, 633 МБ
+docker save <образ> | gzip -1 | ssh admin@209.250.237.82 'gunzip | docker load'   # 153 с
+# дальше на хосте — тот же сценарий, что в .deploy-push-service в .gitlab-ci.yml,
+# только без `compose pull`: бэкап .env, sed PUSH_SERVICE_IMAGE, up -d --no-build --wait,
+# ждать два RUNNING в supervisorctl status. Скрипт — scratchpad/deploy-push-service-remote.sh
+```
+Бэкап конфига — `/srv/prod-monolith/.env.backup-2026-10-29-1009`. На хосте docker 29
+с containerd-стором: загруженный образ показывает другой ID и 1.37 ГБ, это нормально.
+**Ловушка:** в registry.agg.one тега 1.0.2 нет, пока `master` не запушен и CI не
+собрал его; кнопка `deploy-push-service-production` до этого упадёт на `pull`. После
+пуша CI соберёт 1.0.2 из того же коммита, и повторный деплой ничего не изменит.
+Откат: `PUSH_SERVICE_IMAGE=…:1.0.1` в `.env` и `docker compose -f compose.prod.yml up -d push-service`.
+Проверка после выкатки: в `win-*.log` новые записи несут `platform` и `app_v`,
+первые 25 win / 6 cash ушли штатно (`olimp-premium`, `olimp-com`), `com.olmp.premium.client`
+впервые попал в отправку, устройств ≥246 в первые минуты не встретилось. Внутри supervisor
+держит два воркера: `queue:work redis --queue=push-win` и `--queue=push-cash`,
+оба `--tries=3 --timeout=30 --max-jobs=1000` — процессы штатно перезапускаются
+каждые ~1000 задач, короткий uptime у них нормален. Задачи кладёт `kafka-reader`
+(`PrepareWinPushJob` / `PrepareCashPushJob`). Монтирования: `secrets/fcm` →
+`/home/fcm` (ro), `secrets/hms` → `/home/hms` (ro, пусто), `.olimp-platforms.json`,
+общий volume логов. Логи — `storage/logs/push/win-*.log`, `cash-*.log`; обычный
+день даёт 13–17 МБ `win`.
+
+Код: `app/Services/Push/Fcm/{FcmSender,FcmCredentials,FcmAccessTokenProvider}.php`,
+`app/Services/Push/{AllowList,PushMessage}.php`, джобы `app/Jobs/PushWin`,
+`app/Jobs/PushCash`, конфиг `config/push.php`, тексты `resources/lang/*/push.php`.
+Выбор Firebase-проекта и ключа — раздел «Как выбирается ключ» ниже.
+
+**Правило репо:** меняешь код, который попадает в образ пуш-сервиса (джобы,
+`app/Services/Push`, конфиг), — бампай `docker/push-service/VERSION`, иначе дев и
+прод подменят друг другу содержимое одного тега.
+
+**Замечено 2026-10-29:** в логах прода `win-2026-10-21.log` обрывается в 17:46,
+файла за 22.10 нет, за 23.10 только 65 КБ, с 24.10 поток нормальный. Похоже на
+~2 суток без win-пушей. Не разобрано.
+
+### Ключи FCM: что есть и чего нет (2026-10-29)
+
+Файлы `olimp-com.json` (project_id `olimp-com`) и `olimp-premium.json`
+(`olimp-premium-93c72`) лежат локально, на деве и на проде, md5 совпадают.
+**`olimpcom-android-v2.json`** Илья сгенерировал сам 2026-10-29 10:59 в консоли
+Firebase (Project settings → Service accounts → Generate new private key),
+`client_email` `firebase-adminsdk-fbsvc@olimpcom-android-v2.iam.gserviceaccount.com`,
+md5 `3aa6198c…`. Лежит локально в `~/.olimp/certs/fcm/olimpcom-android-v2.json` (600),
+оригинал в `~/Downloads/olimpcom-android-v2-firebase-adminsdk-fbsvc-0779158d6f.json`.
+Проверен: OAuth-обмен 200, FCM v1 `validate_only` отвечает `400 INVALID_ARGUMENT`
+про токен устройства (значит проект и права верные). Скрипт проверки —
+`scratchpad/fcm_key_check.php` в сессии 2026-10-29. **Разложен Ильёй 2026-10-29 10:01**
+на дев и прод в `secrets/fcm/olimpcom-android-v2.json` (999:admin, 640), md5 сверен,
+контейнер `push-service` читает его под uid 999 (`/home/fcm/`).
+
+### `firebase-config-publisher` на деве (Вова, с 2026-10-21)
+
+**Разбор 2026-10-31 — откуда iOS `com.olimpRF1` берёт конфиг.** Publisher принимает снапшоты
+коллекций Firebase (`firebase_request … snapshot:true` в `docker logs`) на `https://proxyconfig.aggone.dev`
+(traefik на деве), собирает релиз `/data/releases/generation-*/configs/v1/<бандл>/<профиль>/config.json`
+(шифр тот же, что у монолита: base64 `{iv,value}`, AES-256-CBC) и раз в 30 с выкладывает в
+**S3 Timeweb `https://s3.twcstorage.ru/proxyconfig-storage/publisher/configs/v1/<бандл>/<профиль>/config.json`**
+(`max-age=300`). Телефон ходит именно туда (в сниффере `s3.twcstorage.ru`). Ночные правки Firebase
+31.10 01:02/01:14 дошли до монолита (`/api/firebase/settings`), но **не до publisher**: последний
+снапшот `olimpkz` у него 29.10 14:46, S3-объект `com.olimpRF1/base` тех же 29.10 14:46 — а тогда
+`direct_api_url` был `dlyamasterapoblokirovkam.top`. Сравнение: sha256 S3-объекта = локальный файл
+publisher. Репо `firebase-proxy/firebase-config-publisher` (git читается ключом Ильи, контракт —
+`docs/contract.md`), админка `https://proxyconfig.aggone.dev/admin/` (только CDN и журнал; «Синхронизировать»
+перезаливает ту же публикацию), токен — `docker cp firebase-config-publisher-app-1:/data/admin-token - | tar -xO`.
+
+**Починено 2026-10-31 11:40 UTC (команда Ильи «делай»).** Отправлен ОДИН документ (не снапшот — снапшот
+авторитетный, удалил бы документы, которых нет у нас: у publisher в `olimpkz` 18, в нашей базе 17):
+`POST https://proxyconfig.aggone.dev/api/firebase/settings` с `{name, project_id: olimp-premium-93c72,
+app_name: olimpkz, content}` (content — `application_settings.id=214` с прода), `X-FB-Token` = md5(значения по
+алфавиту полей через `;` + `;` + секрет из `.secrets/firebase-signing.key`, читать `sudo`). Скрипт —
+`scratchpad/send_doc.py` сессии. Итог: публикация `com.olimpRF1/base` `53ae3408…` → `ff79d665…`, generation 45,
+S3 обновлён, расшифровка (ключ `.secrets/keys/com.olimpRF1.key`, `openssl enc -aes-256-cbc -K <hex> -iv <hex iv>`)
+показала: изменился только `APISettings`, `direct_api_url` = `API2.RAGNAROS.TOP`. Откат:
+`docker compose exec -T app publisher rollback --application com.olimpRF1 --profile base --publication
+53ae3408bca39a40b4484ae0d1ebbf251962aa30ebd5f33652ef4fa8a72b37c9`, затем `resume`.
+11:52 UTC так же android `com.olimp.app` 246+ (`olimpcom-android-v2`/`OlimpCom`): APISettings взят из текущей
+S3-публикации, изменён ТОЛЬКО `default_api_url` `dlyamasterapoblokirovkam.top/` → `https://API2.RAGNAROS.TOP`
+(скрипт `fix_android.py` с assert на diff). Публикация `ceebd51b…` → `260eeb1b…`, generation 46. Откат —
+`rollback --application com.olimp.app --profile from-246.0.0 --publication
+ceebd51b85392ad97aa167e91afa712eb8d25d3b986572d5a81892feecf956cc`. В Firebase и в нашей базе (doc 634)
+`default_api_url` по-прежнему dlyamaster — новый снапшот из Firebase вернёт старое. Причина не устранена:
+Firebase шлёт правки только в монолит — следующая правка снова не дойдёт до publisher.
+
+`/srv/firebase-config-publisher` на дев-сервере, контейнер
+`firebase-config-publisher-app-1` из `registry.agg.one/firebase-proxy/firebase-config-publisher`,
+порт 8080, `.secrets/` (uid 65532, admin не читает) — AES-ключи шифрования настроек
+по бандлам и `signing_secret` доставки. Это **не** сервисные аккаунты FCM. Из
+`config.yml` (обновлён 2026-10-29 09:15): `com.olimp.app`, `.qa`,
+`com.olmp.premium.client`, `.qa` → проект `olimpcom-android-v2` с `min_version 246.0.0`
+(коллекции `OlimpCom`, `OlimpComQA`, `OlimpPremium2`, `OlimpPremium2Qa`);
+**`com.osportquiztop.app` и `-qa` → `olimpcom-android-v2` целиком, без порога**
+(коллекции `SportQuiz`, `SportQuizQa`); `com.olimpRF1` (iOS) → `olimp-premium-93c72`;
+`com.olympcsn.app` → `olimpcs-f0eb6`. Для пушей это значит: у sportquiz в
+`applications.fb_proj` должен стоять `olimpcom-android-v2` базой, а не правилом.
+Проверить на проде — в TODO.
+
+### Что реально в базе прода (проверено 2026-10-29, чтение MariaDB)
+
+- `application_firebase_rules`: четыре правила `246.0.0 → olimpcom-android-v2`
+  (`com.olimp.app`, `.qa`, `com.olmp.premium.client`, `.qa`), созданы 2026-10-16 14:02,
+  то есть миграция на проде применена. На деве те же, 13:24.
+- `applications`: `com.olimp.app` / `.qa` / `com.olmp.premium.client` / `.qa` →
+  `fb_proj=olimp-com`, `sender_id=8`; `com.olimpRF1` (ios) → `olimp-premium`,
+  `sender_id=4`; **`com.osportquiztop.app` → `fb_proj=sportquizfake`**, правил нет —
+  расходится с publisher'ом Вовы, где sportquiz целиком в `olimpcom-android-v2`.
+  `com.olimp.prem2` в `applications` отсутствует.
+- `notification_senders` («ключи в админке»): 14 записей 2020–2023, `fb_key` длиной
+  152 символа с префиксом `AAAA…` — это **серверные ключи легаси FCM API**
+  (`https://fcm.googleapis.com/fcm/send`, `Authorization: key=…`), их читают только
+  старые `Account::sendPush` и `app/Services/Olimp/Push/PushService.php`. Легаси API
+  Google отключил в июне 2024. Для `olimpcom-android-v2` записи нет, и для FCM v1
+  такой ключ всё равно не годится — нужен сервисный аккаунт (JSON).
+- `application_settings`: документы настроек для `olimpcom-android-v2` (вкладка
+  «Firebase settings» в форме приложения admin3) залиты 2026-10-16 14:03 для всех
+  четырёх бандлов — копии документов `olimp-com`. Это и есть «в админке загружено»
+  у Вовы: конфиг приложения, не ключ FCM. У `com.osportquiztop.app` документов нет
+  ни в `sportquizfake`, ни в новом проекте.
+- Поле «Firebase Key» в форме приложения — выпадающий список `notification_senders`
+  (у `com.olimp.app` выбран `ANDROID_COM_FB_KEY`), то есть легаси server key.
+  Сервисный аккаунт для FCM v1 через админку загрузить негде.
+- **Формат `account_devices.app_v` — две части: `245.2`, `242.2`, `246.0`.**
+  `ApplicationVersion` дополняет patch нулём, порог `246.0.0` отрабатывает верно.
+  Среди последних 5000 устройств `com.olimp.app`: 245.2 — 4589, 242.2 — 215,
+  **246.0 — 3** (релиз 246 уже появляется). `com.olmp.premium.client` — все 2000
+  последних на 242.2. `com.osportquiztop.app` — 174 устройства, активны.
+- Лог `win-2026-10-29.log` к 09:30 UTC: 3224 `push.win.sent`, из них 2668 `sent:true`,
+  553 `NOT_FOUND` (протухшие токены, ~17 %, фон), 144 `push.win.prepared` с
+  `no fcm project` — это `com.olmp.premium.client` (85), `com.osportquiztop.app` (48),
+  `com.olimp.prem2` (11). С 1.0.2 premium.client начнёт получать пуши через
+  `olimp-com`, sportquiz упрётся в `no credentials for fcm project sportquizfake`,
+  prem2 останется без проекта. `SENDER_ID_MISMATCH` пока не встречается.
+
 ## `kafka-com` — сервер-читатель Kafka для аналитики (200.169.179.46)
 
 Заведён 2026-10-01 по просьбе Кости Вальтера: посчитать по Kafka, где в COM
@@ -539,6 +685,72 @@ ssh kafka-com 'cd /srv/kafka-com && docker compose exec postgres psql -U analyti
 
 Первые минуты 2026-10-01: в `extra` пусто (схема покрывает все поля), ошибок разбора 0.
 В `cash_com` по `reason`: 1 — 61, 5 — 45, 4 — 6, 2 — 3.
+
+### Состояние `kafka-com` на 2026-10-29 и что изменено
+
+**Хранение — 3 месяца** (команда Ильи 2026-10-29: «история только за последние 3
+месяца, остальное удалять»). `COLLECTOR_RETENTION_MONTHS=3` в `/srv/kafka-com/.env`
+(бэкап `.env.backup-2026-10-29-1036`). Семантика в `src/partitions.rs`: `N` = текущий
+месяц + N полных предыдущих; разделы `<table>_YYYY_MM` старше `текущий − N` дропаются,
+из `_default` удаляются строки старше; проверка при старте и раз в 6 ч. С 3 в октябре
+живут Jul…Nov (Jul/Aug/Sep почти пустые — это перерасчёты старых ставок с давним
+`bet_date`; сбор идёт с 1 октября). Первый реальный дроп большого раздела — 1 февраля
+2027 (октябрь). **Ловушка:** `.env` подключён через `env_file` и к `postgres`, и к
+`collector`, поэтому `docker compose up -d collector` после правки `.env` пересоздаёт и
+Postgres (так и случилось 10:36, перезапуск чистый, ~10 с). В следующий раз —
+`docker compose up -d --no-deps collector`.
+
+**Инцидент 22.10 17:15–17:54 UTC — кончился диск.** Postgres падал в цикле с
+`PANIC: could not write … No space left on device`, сборщик 40 минут писал
+`db.write_failed … pool timed out`, офсеты стояли, потерь нет. Место освободил кто-то
+из соседей (на сервере с Mac — файлы `._*` в `/srv/com-analytics`), 26.10 11:06 стек
+перезапущен. Диск **не расширен**: корень 38.9 ГБ, занято 27 ГБ (71 %). Что ест:
+pgdata 8.9 ГБ, `/srv/com-analytics/container-state` 5.5 ГБ + `dist` 1.2 ГБ,
+`/home/admin/support-control/deploy-runtime` 2.1 ГБ, образы 5.6 ГБ (3 ГБ reclaimable,
+включая наш `kafka-reader:1.2.1` 1.54 ГБ), build cache 0.9 ГБ. **База перенесена на второй диск 2026-10-29 10:45–10:47 UTC** (команда Ильи
+«разметь его и перенеси туда базу»). `/dev/sdb` (40 ГБ, был пустой) → GPT, раздел
+`sdb1` ext4 с меткой `analytics-data`, смонтирован в **`/data`** (fstab по
+`LABEL=analytics-data … defaults,nofail,discard`). Данные — `/data/pgdata` (70:70, 700),
+в `compose.yml` у `postgres` теперь bind `/data/pgdata:/var/lib/postgresql/data`
+вместо named volume (бэкап `compose.yml.backup-2026-10-29-1045`). Перенос: `stop
+collector`, `stop postgres` (чистый shutdown), `rsync -aHAX --numeric-ids` 9.5 ГБ за
+25 с, байты сошлись, старт без recovery, строки на месте (bet 9.44 млн, events 12.5 млн,
+cash 659 тыс.), сборщик догнал 1.5-минутный простой первой пачкой. Простой базы ~1.5 мин.
+**Старый volume `kafka-com_pgdata` (8.9 ГБ) оставлен на корне для отката** — удалить
+`docker volume rm kafka-com_pgdata` по команде, это вернёт корню 8.9 ГБ. Откат: вернуть
+compose из бэкапа и `up -d`. Корень после переноса 67 %, `/data` 23 %.
+Если Timeweb увеличит sdb (например до 80 ГБ): `sudo growpart /dev/sdb 1 && sudo
+resize2fs /dev/sdb1` без остановки.
+
+**Сеть соседского дашборда закреплена в compose.** Оказалось, `kafka-com-postgres-1`
+был подключён к сети `com-analytics-db` руками (`docker network connect`), и любое
+пересоздание контейнера это сносило — утренний `up -d` 10:35 так и сделал, дашборд
+10 минут не резолвил `analytics-db`. Теперь в `compose.yml` у `postgres`: `networks:
+default` + `com-analytics-db` с alias `analytics-db`, сеть объявлена `external: true`.
+
+**Темп роста:** октябрьский раздел ≈ 8.95 ГБ за 29 дней (events 5.2, bets 3.5,
+cash 0.2) ≈ 0.31 ГБ/сутки, 9–10 ГБ/месяц, и растёт (263k → 405k ставок/сутки за
+неделю). При N=3 одновременно живут до 4 месяцев ≈ 38–40 ГБ, при N=2 — до 3 ≈ 28–30 ГБ.
+На корневом диске не влезает ни то, ни другое: к концу ноября (Oct+Nov ≈ 20 ГБ) корень
+заполнится снова. На sdb 40 ГБ N=2 влезает, N=3 впритык.
+
+**Рестарты сборщика: 30 за 28 дней.** 29 из них — 9.10 с 00:43 до 07:57: сторож
+`BET_COM: no messages for 900s, exiting to restart`, в librdkafka `SSL_HANDSHAKE timed
+out` к `apache-kafka-01…:443` — простой на стороне Kafka/сети ~7 ч, сторож отработал,
+чтение продолжилось с закоммиченных офсетов. 14.10 один `SESSTMOUT` без рестарта.
+Ещё один рестарт — 26.10 (перезапуск стека после инцидента с диском).
+
+**Соседи читают нашу базу.** `com-analytics-dashboard` (образ `:18`, 1 ГБ лимит,
+`/srv/com-analytics/server/docker`, проксирован caddy `com-analytics-proxy`) подключён к
+нашему Postgres: контейнер `kafka-com-postgres-1` кем-то добавлен в сеть
+`com-analytics-db`, доступ под той же ролью `analytics` с
+`default_transaction_read_only=on`. Держит сессии **`idle in transaction`** по
+несколько минут (экспорт `COPY (SELECT …)`). Риск: наш `DROP TABLE` старого раздела
+встанет в очередь за их транзакцией и заблокирует вставки в родителя, пока экспорт не
+закончится; `lock_timeout` у роли 0. Лечить в сборщике: `SET lock_timeout='10s'` на
+обслуживании и пропуск до следующего цикла (0.1.3, не сделано). `support-control`
+(4 контейнера, `/home/admin/support-control`) к нашей базе не подключён.
+Сосед не наш — не трогать, но память на сервере общая (1.9 ГБ, свободно ~0.9).
 
 ### БД аналитики на `kafka-com` — решения (2026-10-01)
 
@@ -859,6 +1071,37 @@ librdkafka, не в порте и не в размере fetch. Это же об
 точек и сводку по Redis. Клик по очереди разворачивает ближайшие 10 задач с
 разобранным `displayName`. Вкладки в шапке переключают Redis: `local` / `dev`.
 
+### Опубликованная панель прода — https://admin3.ragnaros.net/push-logs/ (с 2026-10-29)
+
+По просьбе Ильи («выложи на admin3.ragnaros.net/push-logs и закрой логином и
+паролем»). Живёт на проде в **`/srv/olimp-api-redis`** (compose-проект
+`olimp-api-redis-prod`, контейнер `olimp-api-redis-prod-panel-1`, образ
+`olimp-api-redis:1.1.0`, собран локально и завезён через `docker save | docker load`).
+Устройство: Redis напрямую `redis:6379` из сети `old-cms-prod_default`; логи через
+volume `old-cms-prod-logs`, смонтированный **только на чтение** в `/logs` (источники —
+`tail -n 200` по маске, без SSH и без docker-сокета); снаружи общий traefik, роутер
+`Host(admin3.ragnaros.net) && PathPrefix(/push-logs)` (приоритет выше админки за
+счёт длины правила), сертификат admin3 уже есть, middleware **basic-auth** с
+htpasswd-хэшем из `.env` (`PANEL_HTPASSWD='olimp:$apr1$…'`, в одинарных кавычках,
+иначе compose съест `$`). Логин `olimp`, пароль — у Ильи (выдан в сессии
+2026-10-29, в файлах не хранится). Одна вкладка `prod`: очереди + источники
+`kafka bet-com`, `kafka cash-com`, `push win`, `push cash`, `laravel`.
+Контейнер `read_only`, без capabilities, 64 МБ. Админка admin-v1 не задета
+(корень и `/api/*` отвечают как раньше).
+
+В панели ради этого появился `BASE_PATH` (main.go) и относительные `fetch('api/…')`
+в `web/index.html` — локальный запуск в корне работает как прежде.
+
+Обновить: пересобрать `docker build -t olimp-api-redis:<ver> .`, завезти
+`docker save | ssh … docker load`, поменять тег в `/srv/olimp-api-redis/compose.yml`,
+`docker compose up -d`. Сменить пароль: `openssl passwd -apr1`, записать в `.env`,
+`docker compose up -d` (traefik перечитает лейблы). Снять: `docker compose down`
+в `/srv/olimp-api-redis`.
+
+Локальный `targets.json` с 2026-10-29 содержит только `prod` («оставь только prod»);
+полный набор вкладок (local, dev, prod, rpc-dev, rpc-cms) — в `targets.full.json`
+рядом, вернуть копированием.
+
 ### Запускать по просьбе Ильи — командами ниже
 
 Дев-Redis наружу не опубликован, живёт только в docker-сети сервера, поэтому
@@ -927,14 +1170,34 @@ Laravel отдаёт русский (`app.fallback_locale = ru`). `SetLocale` mi
 
 #### Как выбирается ключ
 
-`config('push.fcm.apps')` — карта `бандл → платформа → проект`. В неё вносим
-**только те бандлы, под которые реально есть ключ** (сама раскладка бандлов по
-проектам берётся из прод-таблицы `applications`, поле `fb_proj`). Нет ключа —
-нет записи, и джоба напишет `no fcm project for …`. Резолв —
-`FcmSender::project($device->bundle_id, $device->platform)`; платформа
-нормализуется, `IOS1`/`ANDROID7` из `account_devices` превращаются в
-`ios`/`android`. Файл ключа — `{FCM_CREDENTIALS_PATH}/{проект}.json`,
-`FCM_CREDENTIALS_PATH` теперь **каталог** (в контейнере `/home/fcm`), а не файл.
+**С push-service 1.0.2 (код 2026-10-29, на проде пока 1.0.1).** Хардкод в
+`config/push.php`, ключ `fcm.apps`: `бандл → ['project' => базовый, 'versions' =>
+['<мин. версия>' => проект]]`. `FcmSender::project($device)` берёт
+`account_devices.bundle_id` и `app_v`, выбирает порог с наибольшей версией, не
+превышающей `app_v` (сравнение `ApplicationVersion`: `245.2` = `245.2.0`,
+мусор = `0.0.0` = базовый). Файл ключа — `{FCM_CREDENTIALS_PATH}/{проект}.json`.
+Решение Ильи 2026-10-29: **не завязываться на `application_firebase_rules` Вовы**
+(«лучше сами разрулим», «просто хардкод сделаем») — те правила только для выдачи
+настроек, и настройки уезжают в его новый сервис. `app_v` и push-токены пишутся
+одной транзакцией в `AccountService::saveAccountData`, поэтому версия на
+устройстве соответствует сборке, выдавшей токен.
+
+Карта на 2026-10-29 (базовые проекты сверены с `applications.fb_proj` на проде):
+`com.olimp.app`, `.qa`, `com.olmp.premium.client`, `.qa` → `olimp-com`, с `246.0.0`
+→ `olimpcom-android-v2`; `com.olimpRF1` → `olimp-premium`; `com.osportquiztop.app` →
+`sportquizfake` без порога (**не подтверждено**: в publisher'е Вовы sportquiz целиком
+в `olimpcom-android-v2`). Нет бандла или пустой проект → `no fcm project for
+<bundle> v<app_v>`; нет файла → `no credentials for fcm project <имя>`.
+Новый проект = файл ключа на хост + строка в карту + бамп `VERSION` + деплой.
+Дока — `docs/push-fcm-projects.md`. Класс `DevicePlatform` удалён. Тесты —
+`tests/Unit/Services/Push/FcmSenderProjectTest.php` (без БД). Запускать по
+одному пути: phpunit 9 берёт только первый аргумент.
+
+**Следствие при выкатке:** до 1.0.2 в карте были только `com.olimp.app`, `.qa`,
+`com.olimpRF1`; теперь ещё `com.olmp.premium.client` (+qa) через `olimp-com` —
+это ~85 win-пушей в день, которые раньше падали в `no fcm project`.
+
+**До 1.0.1** карта была `бандл → платформа → проект`, три записи, без версий.
 
 Раскладка секретов — каталог монтируется в `/home/fcm` read-only, новый проект
 = положить ещё один файл, кода не трогать:
@@ -989,7 +1252,7 @@ uid 999 — это пользователь `app` внутри образов `p
 `olimp-premium-93c72`) — iOS `com.olimpRF1`, `com.olimppremium2` и её QA;
 `olimp-com.json` (`project_id` `olimp-com`) — android-бандлы, среди них
 `com.olimp.app` (657 тыс. аккаунтов), `com.olimpRF1.app`, `com.asiabet.bet`,
-`com.olimpmatch`, `com.olmp.premium.client`. Итого 13 комбинаций в карте.
+`com.olimpmatch`, `com.olmp.premium.client`. С 1.0.2 карты нет, проект берётся из базы (см. «Как выбирается ключ»).
 
 Ключей **нет** для проектов `olimp-ios` (`com.olimpbetkz`), `olimpcs-f0eb6`
 (`com.olympcsn.app`, `com.olimpRF2.app`, `com.oplatinum.mobile.android`,
@@ -1002,6 +1265,33 @@ uid 999 — это пользователь `app` внутри образов `p
 (`com.olimp.matchcenter`, `com.olimpbar.app1029`, `com.olimp.soccer`,
 `com.olmpclubprm.app` — там в `fb_proj` вообще мусор «Olmp Clubs Premium QA»)
 в карту не попали: под них неизвестно, какой проект.
+
+## Адреса API в приложениях (прокси) — `application_settings`, документ `APISettings`
+
+> Полная схема (Firebase → монолит + Config Publisher → S3), рецепт смены адреса, скрипты и инцидент 31.10 —
+> в скиле **`olimp-proxy`**: `CONFIGS.md`, `INCIDENT-2026-10-31.md`, `scripts/`.
+> Там же разбор «пустой главной» 31.10: витрину выбирает `viewscreens.sort` (больше = выше) среди подходящих
+> по `viewscreen_has_applications.min/max_app_version`, сегменту и периоду; 29.10 14:08 тестовая «Проверка»
+> (id 11, версии 0–246) встала выше рабочей (id 15). История сортировок — `storage/logs/db_query_log-<дата>.log`.
+> 31.10 13:49–13:52 старый хост вычищен из ВСЕХ `application_settings` прода через вебхук (скрипт
+> `olimp-proxy/scripts/mono_replace_host.php`); `olimpcom-android-v2` в монолит из Firebase сам не шлёт.
+
+Проверено на проде 2026-10-31. Конфиг мобилки — документы в `application_settings`
+(`application_id` → `applications.id`, бандл в `applications.bundle_name`), `content` — JSON.
+Пишет их форма «Firebase settings» в admin3 (`StoreFirebaseSettingsAction`: БД + диск `firebase`),
+мобилка забирает зашифрованно `POST /api/mobile/v2/application/settings`. Адрес API — в `APISettings`:
+
+| бандл (doc id) | поле адреса API | прочее |
+|---|---|---|
+| `com.olimpRF1` iOS (214) | `direct_api_url` | `proxy_mode` 3, `proxy_url`, `trusted_proxy_urls` (зашифрованы), `cms_api_urls` |
+| `com.olimp.app` / `com.olimpmatch` android (213 / 318, проект `olimp-com`) | `default_api_url` | `proxy_mode` 3, `trusted_proxy_urls`, `cms_api_urls`, `admin_api_url` |
+| `com.olimp.app` ≥246 (634, проект `olimpcom-android-v2`, копия от 16.10) | `default_api_url` | правится отдельно от 213! |
+| olympc-бандлы | `direct_api_url` = `devryn.xyz` | |
+
+Смотреть (только чтение): `docker compose -f compose.prod.yml exec -T mysql sh -c 'exec mariadb -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"'`,
+поля — `JSON_EXTRACT(content,'$.direct_api_url')` / `'$.default_api_url'` при `name='APISettings'`.
+IP контейнера базы: `dcps --filter name=mysql` или
+`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' old-cms-prod-mysql-1`.
 
 ## Ловушки
 
@@ -1033,6 +1323,19 @@ uid 999 — это пользователь `app` внутри образов `p
 
 ## TODO
 
+- [ ] **push-service 1.0.2** (проект FCM по версии устройства, хардкод в
+      `config/push.php`): закоммичен `b5b69590` в `master` локально, **на проде с
+      2026-10-29 10:09 UTC** (локальная сборка, см. раздел push-service), ключ на деве
+      и проде лежит. Осталось: запушить `master` (по команде), на деве 1.0.2 нет;
+      дождаться первых устройств ≥246 в `win-*.log` и убедиться, что `project` =
+      `olimpcom-android-v2` и `sent:true`; затем: (б) уточнить `com.osportquiztop.app`:
+      в карте пока `sportquizfake` без порога, в publisher'е Вовы — `olimpcom-android-v2`
+      целиком; поправить карту и/или положить ключ;
+      (в) уточнить у мобильщиков, что приложение ≥246 после обновления заново шлёт
+      FCM-токен в `account/store`. База прода проверена 2026-10-29: правила 246 есть,
+      `app_v` двухчастный (`245.2`), резолвер с ним работает. После выкатки смотреть
+      `project` и `app_v` в `push.win.sent`.
+- [ ] Разобрать провал win-пушей 21–23.10 на проде (см. раздел push-service).
 - [ ] FCM: нет ключей для `olimp-ios`, `olimpcs-f0eb6`, `sportquizfake`.
       Появятся — положить файл в каталог и дописать бандлы в `push.fcm.apps`.
 - [ ] На деве переименовать `secrets/fcm/service-account.json` в

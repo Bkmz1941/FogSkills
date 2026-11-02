@@ -77,6 +77,16 @@ def parse(dump):
     return collections.Counter(x for x in dump.split(';') if x)
 
 
+# Растения после загрузки игроком досыпаются в фоне (28.10, шаг plants-defer-all-loads):
+# снимок «до» без них разошёлся бы с полной пересборкой «после».
+PENDING = 'return UnityEngine.Application.isPlaying && Cozy.Grid.GridCursor.I != null ? Cozy.Grid.GridCursor.I.PendingPlants.ToString() : "0";'
+import time
+for _ in range(60):
+    left = call(PENDING).strip()
+    if left in ('', '0'): break
+    print("ждём досыпку растений:", left)
+    time.sleep(2)
+
 before = parse(call(SNAPSHOT))
 print("до:", sum(before.values()), "объектов")
 print(call(RELOAD))

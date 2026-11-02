@@ -108,8 +108,10 @@ Feature-тесты на `RefreshDatabase`, отдельной тестовой �
 базы со старого хоста `88.218.169.48`, **содержит пароли MySQL открытым текстом**.
 Не `cat`-ить в чат, по-хорошему удалить.
 
-**Сборки самих игр ни в одном репозитории нет** — приходят от фронтов игр готовыми
-файлами, на серверах лежат только в `games/`. Игра открывается по `games.link` из
+Клиент 11 краш-игр (balloonfly … smashhockey, dunecopter) — репо **`crash-games-pixi`**,
+свой скил **crash-games-pixi** (сборка, раскладка `games/<slug>/`, SFTP `ftp_games`,
+план CI). Остальные папки `games/` (crashhockey, chickshot, olimphockey, слоты)
+приходят готовыми файлами. Игра открывается по `games.link` из
 таблицы `games` (`https://games.crash-heroes.com/<slug>`), slug ≠ `sys_name`:
 `hockey_classic` → `smashhockey`, `creepy_clown` → `creepyclown`, id 8 в pm2
 зовётся ScaryClown.
@@ -122,6 +124,7 @@ Feature-тесты на `RefreshDatabase`, отдельной тестовой �
 | Движки игр | `crash-heroes-backend-game-engine` | `crash-heroes/backend/…-game-engine` | `develop` → `main` | да, перезапуск только изменившегося |
 | **Админка (фронт)** | **`admin-panel`** | **`crash-heroes/frontend/admin-panel`** | **`dev`** → `main` | да, статика rsync |
 | Каталог / демо / мобилка | `catalog-app` | `crash-heroes/frontend/catalog-app` | `dev` → `main` (`dev` мёртв с 01.2026, Titov коммитит прямо в `main`) | **нет**, `www/` копируется руками |
+| Клиент краш-игр (Pixi) | `crash-games-pixi` — **свой скил `crash-games-pixi`** | `crash-heroes/frontend/crash-games-pixi` | живая ветка `Aleksandr/Main` (`main`/`develop` с 01.2026 устарели) | **нет**, заливают по SFTP `ftp_games` |
 | **Новый движок под новую игру** | `game-engine-rng` — **свой скил `game-engine-rng`** | `crash-heroes/backend/game-engine-rng` | пока только `main` | **нет** |
 
 > Ветки называются по-разному: у бэкенда `develop`, у админки и каталога `dev`.

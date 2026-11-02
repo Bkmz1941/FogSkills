@@ -11,3 +11,9 @@ tavern-game/Temp/
 # в git — нарезка экранов в JPEG
 **/design/*.svg
 tavern/tavern-regress/probes/.move_frames/
+
+._*
+.DS_Store
+
+# бэкапы карты уровня (сотни МБ, не для git)
+personal/tavern/tavern-level1/map/backup-*/

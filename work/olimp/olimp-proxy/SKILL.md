@@ -1,19 +1,52 @@
 ---
 name: olimp-proxy
-description: Прокси-сервер «Olimp» — боевой 195.181.241.231 (Time4VPS, Вильнюс), haproxy на API за доменом dlyamastera.com, доступ admin по ключу it@agg.one, пароли в ~/password.txt, логи, сертификат, как проверить и как заводить новый сервер. По «прокси олимп», «зайди на прокси», «проверь прокси», «подними прокси», «добавь прокси-серв».
+description: Прокси API «Olimp» и КОНФИГИ ПРИЛОЖЕНИЙ с адресом API. Боевой прокси 89.47.164.147 (api2/api3.ragnaros.top, Time4VPS, olimp-proxy3), прежний 195.181.241.231 (dlyamastera.com, лежит с 28.10); haproxy → olimpapi.cc, сертификаты, логи, как заводить новый сервер. Где приложения берут адрес API (Firebase → монолит и Config Publisher proxyconfig.aggone.dev → S3 twcstorage) и как его поменять точечно с откатом (CONFIGS.md, scripts/). Инцидент 31.10 — INCIDENT-2026-10-31.md. По «прокси олимп», «зайди на прокси», «проверь прокси», «подними прокси», «прокси умер», «приложение не видит api», «вечная загрузка», «поменять адрес api в приложениях», «default_api_url», «direct_api_url», «конфиг приложения», «publisher», «proxyconfig», «dlyamaster», «инцидент 31.10», «пустая главная», «витрина Проверка», «minio prx30admrgnrs».
 ---
 
-# Olimp — прокси-серверы
+# Olimp — прокси-серверы и адрес API в приложениях
 
 Скил про **сетевые прокси** для нужд Olimp: реестр машин, доступ, runbook'и.
 НЕ путать с `proxy-server-bff` / `proxy-server-dev` из скила `olimp-api` —
 это BFF-приложение на серверах монолита, к прокси не относится.
 
+## Карта файлов
+
+| Файл | Что |
+|---|---|
+| `CONFIGS.md` | **Где приложения берут адрес API** (Firebase → монолит; Config Publisher → S3), поля по бандлам, команды publisher, рецепт смены адреса с откатом, проверка |
+| `INCIDENT-2026-10-31.md` | Инцидент «умер dlyamaster»: хронология, что сделали, id публикаций для отката, что осталось, грабли |
+| `scripts/pub_inventory.py` | расшифровать все публикации publisher и показать адреса (только чтение) |
+| `scripts/pub_set_field.py` | поменять одно поле одного документа в publisher (сухой прогон / `--send`) |
+| `scripts/pub_replace_host.py` | заменить хост старого прокси в документах коллекции (в т.ч. вложенные `payment_url`) |
+| `scripts/pub_compare.py` | сравнить две публикации (бэкап ↔ текущая) |
+| `scripts/mono_replace_host.php` | МОНОЛИТ (прод): найти старый хост во всех `application_settings` и переслать исправленные документы через вебхук `/api/firebase/settings` (tinker в контейнере `app`; сухой прогон без `SEND=1`) |
+| `scripts/pub_send_from_monolith.py` | переслать в publisher документ из БД монолита |
+| `backups/2026-10-31/` | зашифрованные копии S3-конфигов ДО правок 31.10 |
+| `haproxy/` | конфиг haproxy 89.47.164.147, deploy-хук certbot, крон продления |
+
+**Сменился адрес прокси → менять в трёх местах: Firebase, монолит (приходит из Firebase сам), publisher (НЕ приходит сам).** Подробно — `CONFIGS.md`.
+
 ## Реестр серверов
 
 | IP | Хост | ОС / железо | Что крутится | Заведён |
 |---|---|---|---|---|
-| `195.181.241.231` | `5xft.l.time4vps.cloud` | **Time4VPS**, Вильнюс (AS212531), Ubuntu 24.04.5, ядро 6.8.0-139, **3 vCPU / 8 GB / 99 GB** (тариф подняли 2026-09-17, до этого 1/2/25), без swap, IPv6 `2a02:7b40:c3b5:f1e7::1` | haproxy 2.8 :443 → API `olimpapi.cc`, **домен `dlyamastera.com` смотрит сюда** | 2026-09-17 |
+| `195.181.241.231` | `5xft.l.time4vps.cloud` | **Time4VPS**, Вильнюс (AS212531, UAB «Interneto vizija», панель billing.time4vps.com), Ubuntu 24.04.5, ядро 6.8.0-139, **3 vCPU / 8 GB / 99 GB** (тариф подняли 2026-09-17, до этого 1/2/25), без swap, IPv6 `2a02:7b40:c3b5:f1e7::1` | haproxy 2.8 :443 → API `olimpapi.cc`, домен `dlyamastera.com`. **Не отвечает с 2026-10-28** | 2026-09-17 |
+| `89.47.164.147` | `5ysg.l.time4vps.cloud` | **Time4VPS**, Ubuntu 24.04.5, ядро 6.8.0-53, **2 vCPU / 4 GB / 50 GB**, IPv6 `2a02:7b40:592f:a493::1`. База AGG уже была (`audit`, fail2ban, UFW 22) — открыли 80, 443 | **БОЕВОЙ с 31.10.** haproxy 2.8.30 :443 → `olimpapi.cc`, тот же конфиг (`nbthread 2`, `cpu-map auto:1/1-2 0-1`, копия в `haproxy/`), **домены `api2.ragnaros.top` и `api3.ragnaros.top`** (LE, SAN api2+api3, до 2027-01-29; NS dnsowl = NameSilo, правит Вальтер). Вход `ssh olimp-proxy3` | 2026-10-31 |
+
+⚠️ 2026-10-31: у `api.ragnaros.top` ДВЕ A-записи — `89.47.164.147` и чужая `95.179.168.249`
+(серт `remote.apexcrm.cc`, отдаёт какую-то веб-панель). LE http-01 бьёт в случайную → 404 (3 неудачи).
+На `.147` пока самоподписанный `cert.cer` (= `cert.cer.selfsigned`); deploy-хук, крон `certbot-haproxy`,
+отключённый `certbot.timer` уже стоят. После удаления чужой записи:
+`sudo certbot certonly --standalone -n -d api.ragnaros.top`, затем
+`sudo env RENEWED_LINEAGE=/etc/letsencrypt/live/api.ragnaros.top /etc/letsencrypt/renewal-hooks/deploy/haproxy.sh`.
+В вики «Сервера» строки нет.
+Итог 2026-10-31 ~01:34 UTC: Вальтер завёл `api2`/`api3.ragnaros.top` → 89.47.164.147 (сначала `api2` по
+ошибке на 95.179.168.249). **Выпущен LE на `api3.ragnaros.top`** (до 2027-01-29, lineage
+`/etc/letsencrypt/live/api3.ragnaros.top`), стоит в `cert.cer`, `renew --dry-run` ok. 03:47 UTC — **`api2` добавлен
+в тот же серт** (`--cert-name api3.ragnaros.top --expand -d api3… -d api2…`), SAN = api2+api3, до 2027-01-29.
+Исправленная (не новая) запись `api2` у NameSilo/dnsowl мигала между старым и новым IP **~80 минут**
+(новая `api3` разошлась сразу) — при ошибке в IP проще удалить запись и завести заново.
+Порядок без траты лимитов: проверить все NS → порт 80 листенером → `--dry-run` → один боевой.
 
 Новый сервер — дописать строку сюда, пароль в `~/password.txt`, алиас в `~/.ssh/config`.
 

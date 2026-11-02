@@ -243,6 +243,10 @@
 | `shirt_collar_stand` | `0.065` |
 | `shirt_collar_flare` | `0.012` |
 | `shirt_collar_thick` | `0.01` |
+| `jacket_trim` | `{cuff_r, hem_r 0.011, pocket_r 0.0065, sides 8, cuff: {h 0.035, base 0.016, top 0.018, sink 0.008, over 0.004, rows 1, arc 3}}` — кромки куртки: манжета-лента сечением, валик подола, кант карманов (`jacket_trim()`) |
+| `jacket_texture` | `{retex, слот: {name, kind pack:nylon/pack:braid/pack:webbing (рецепт рюкзаков) или canvas/braid, hex, mat, tile, contrast}}` — ткань, верёвочки, тесьма картинкой (`jacket_textures()`); `contrast` < 1 гасит пятна рецепта на светлой ткани |
+| `jacket_hood_round` | `true` — капюшон: торец толщины круглый (solidify NON_MANIFOLD + ROUND), низ ровный; при нём `jacket_hood_thick` 0,012 |
+| `shirt_collar_profile` | `{base 0.024, top 0.024, bulge 0, sink 0.004, rows 1, arc 3}` — сечение стойки (формат воротника 30.10): толщина у ткани, ⌀ валика сверху, утопление в ткань, ряды стенок, сегменты валика; при нём `shirt_collar_thick` не действует |
 | `jacket_crumple` | `0.01` |
 | `jacket_crumple_freq` | `10.0` |
 | `jacket_fold` | `0.005` |

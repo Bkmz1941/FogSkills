@@ -166,7 +166,7 @@ EditMode: 229 тестов, 2 новых зелёные; 8 красных — ч
 | тесты | `ZoneKindCanonTests.Слаг_to_делает_зону_переходом_на_уровень`, `LifeRulesParseTests.Строки_за_кадром_разбираются_а_кривые_помечаются` |
 | пробы (play, level1) | `tavern-regress/probes/travel_probe.py` (переходы зонами, память, файл), `offscreen_probe.py` (маркер, журнал, применение, Simulate) |
 | сборка по шагам, фазы, `LogLoadTiming` | `Assets/Modules/Grid/Cursor/GridCursor.Levels.cs` — `RestoreLevelSteps`, `RestoreSteps`, `RestorePhase`, `RestoreProgress`, `ClearLevel` |
-| досыпка растений после перехода | `Assets/Modules/Grid/Cursor/GridCursor.PlantStream.cs` — `Deferrable`, `FlushPlantsNear`, `StreamPlants`, `SortPendingNearestLast`, `PlantBudgetMs`, `PlantNear` |
+| досыпка растений после перехода, из менеджера уровней и автозагрузки на старте play (с 29.10; `DeferPlantsNext`, `FlushDeferredNear`) | `Assets/Modules/Grid/Cursor/GridCursor.PlantStream.cs` — `Deferrable`, `FlushPlantsNear`, `StreamPlants`, `SortPendingNearestLast`, `PlantBudgetMs`, `PlantNear` |
 | ленивые облака тумана | `Assets/Modules/Grid/Weather/FogView.cs` — `Lazy`, `BuildNear`, `LazyCount/LazyQueued` |
 | окно загрузки, полоса | `SceneLoader.cs` — `RunTravel`, `LoadingLook` (HUD → «Окно загрузки») |
 | вкладка F1 → Мир → «Уровни» | `Assets/Game/UI/Hud/HudUI.DebugLevels.cs` |
@@ -253,7 +253,7 @@ EditMode: 229 тестов, 2 новых зелёные; 8 красных — ч
 | Что | Цена | Заметка |
 |---|---|---|
 | Спавн одного растения (`RestoreOne` → `SpawnObject` → `Build`) | трава 0,34 мс, дерево 0,62, галька/цветок ~0,3 (после починок; было 0,80 / 1,00) | 8 `AddComponent` (0,09 мс), `Instantiate` 0,02, остальное — управляемый `Build` (обводка, гейт этажа, ветер, горючесть, коллайдер) |
-| 24 тыс. растений | ~8–10 с любой полной загрузки, 25 с досыпки | структурно: растение = полный `InteractiveObject` — вопрос Илье (`tavern-game/OPEN.md`) |
+| 24 тыс. растений | ~8–10 с любой полной загрузки, 25 с досыпки | с 29.10 досыпка на всех загрузках игрока (шаг 21), в файле — короткая запись `PlantData` (шаг 22); лёгкий экземпляр без фич — открыт (`tavern-game/OPEN.md`) |
 | `LevelIO.Collect` при уходе | 790 мс | под экраном |
 | `LightZones.MarkScene` | 419 мс, 2,9 МБ | полная сцена, за каждую загрузку |
 | чтение сейва | 0,66 с | только первый визит; потом из памяти |
