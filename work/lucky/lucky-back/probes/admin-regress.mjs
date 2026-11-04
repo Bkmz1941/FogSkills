@@ -47,7 +47,8 @@ const cashAccounts = async () => {
 
 const original = await settings();
 const originalCurrencies = await currencies();
-check("project currencies carry Root's coefficient", originalCurrencies.length > 0 && originalCurrencies.every((item) => typeof item.coefficient === "string"), originalCurrencies.map((item) => `${item.code}:${item.coefficient}`).join(","));
+// The per-currency wagering coefficient was dropped on 2026-10-21 (a75a260): the list is only checked to be there.
+check("project currencies are listed", originalCurrencies.length > 0, originalCurrencies.map((item) => item.code).join(","));
 const registration = original?.registration_currency;
 const spare = originalCurrencies.find((item) => item.code !== registration);
 
@@ -78,8 +79,12 @@ check("a project deposit refuses a bad amount", r.status === 400, String(r.statu
 
 await call("POST", "/v1/core/balances/select", { token: player, publicKey: cfg.PUBLIC_KEY, body: { balance_code: "cash" } });
 before = await cashAccounts();
-if (before.available >= 1) {
-  r = await call("POST", "/v1/core/balances/withdrawal-requests", { token: player, publicKey: cfg.PUBLIC_KEY, body: { amount: "1.00", balance_code: "cash" } });
+// A withdrawal request names its method; a stand without one for USD (dev and prod regress projects) skips the review.
+const methods = await call("GET", "/v1/core/payment-methods?locale=en", { token: player, publicKey: cfg.PUBLIC_KEY });
+const withdrawalMethod = (methods.body?.data ?? []).find((m) => m.capabilities?.withdrawal && (m.withdrawal_currency_codes ?? []).map((c) => c.toUpperCase()).includes("USD"))?.code;
+if (!withdrawalMethod) console.log("SKIP withdrawal review  // no withdrawal method for USD on this stand");
+else if (before.available >= 1) {
+  r = await call("POST", "/v1/core/balances/withdrawal-requests", { token: player, publicKey: cfg.PUBLIC_KEY, body: { amount: "1.00", balance_code: "cash", provider_code: withdrawalMethod } });
   const requestId = r.body?.id;
   after = await cashAccounts();
   check("a withdrawal request locks the amount", r.status === 201 && +(after.locked - before.locked).toFixed(2) === 1, `${r.status} locked ${before.locked}->${after.locked}`);

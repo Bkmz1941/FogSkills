@@ -169,17 +169,8 @@ check("an open game session on the ended bonus cannot bet", game.placed.status =
 r = await patchBonus(bonus.id, { expires_at: null });
 check("removing the end brings it back", r.status === 200 && r.body?.is_live === true, String(r.status));
 
-r = await createBonus({ code: `regress_closed_${stamp}`, coefficient_rules: [{ provider_id: cfg.PROVIDER_ID, game_id: null, coefficient: null }] });
-const narrow = r.body;
-if (narrow?.id) created.push(narrow.id);
-await manual("credit", codeOf(narrow), "5.00");
-await select(codeOf(narrow));
-const refused = await sessionOn();
-check("a bonus whose rules close the regress provider refuses to open its game (BONUS_GAME_NOT_ALLOWED)", refused.status === 403 && JSON.stringify(refused.body).includes("BONUS_GAME_NOT_ALLOWED"), `${refused.status}`);
-r = await patchBonus(narrow.id, { coefficient_rules: [{ provider_id: cfg.PROVIDER_ID, game_id: null, coefficient: null }, { provider_id: cfg.PROVIDER_ID, game_id: cfg.GAME_ID, coefficient: "2" }] });
-const allowed = await sessionOn();
-check("a game rule ×2 for the regress game lets it open under the closed provider", r.status === 200 && allowed.status === 201, `${r.status} ${allowed.status}`);
-await manual("debit", codeOf(narrow), "5.00");
+// Per-provider and per-game rollover rules were removed on 22.10 (ef08c85): every game counts the same.
+console.log("SKIP rollover rules per provider and game: removed 22.10");
 
 r = await call("POST", "/v1/project/bonuses", { token: admin, body: { code: `regress_later_${stamp}`, name: "Later", display_name: "Later", currency_codes: ["USD"], coefficient: "1", starts_at: new Date(Date.now() + 86400000).toISOString(), expires_at: null } });
 if (r.body?.id) created.push(r.body.id);

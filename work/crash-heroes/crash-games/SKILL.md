@@ -110,8 +110,8 @@ Feature-тесты на `RefreshDatabase`, отдельной тестовой �
 
 Клиент 11 краш-игр (balloonfly … smashhockey, dunecopter) — репо **`crash-games-pixi`**,
 свой скил **crash-games-pixi** (сборка, раскладка `games/<slug>/`, SFTP `ftp_games`,
-план CI). Остальные папки `games/` (crashhockey, chickshot, olimphockey, слоты)
-приходят готовыми файлами. Игра открывается по `games.link` из
+CI с 02.11). `crashhockey` и `chickshot` с 02.11 выкатывает CI своих репо (`crashheroeshockey`,
+`chickenrun`, таблица ниже); `olimphockey` и слоты приходят готовыми файлами. Игра открывается по `games.link` из
 таблицы `games` (`https://games.crash-heroes.com/<slug>`), slug ≠ `sys_name`:
 `hockey_classic` → `smashhockey`, `creepy_clown` → `creepyclown`, id 8 в pm2
 зовётся ScaryClown.
@@ -125,6 +125,8 @@ Feature-тесты на `RefreshDatabase`, отдельной тестовой �
 | **Админка (фронт)** | **`admin-panel`** | **`crash-heroes/frontend/admin-panel`** | **`dev`** → `main` | да, статика rsync |
 | Каталог / демо / мобилка | `catalog-app` | `crash-heroes/frontend/catalog-app` | `dev` → `main` (`dev` мёртв с 01.2026, Titov коммитит прямо в `main`) | **нет**, `www/` копируется руками |
 | Клиент краш-игр (Pixi) | `crash-games-pixi` — **свой скил `crash-games-pixi`** | `crash-heroes/frontend/crash-games-pixi` | живая ветка `Aleksandr/Main` (`main`/`develop` с 01.2026 устарели) | **нет**, заливают по SFTP `ftp_games` |
+| Фронт «Crash Hockey» (React+Vite) | `crashheroeshockey` | **`crashheroes/crashheroeshockey`** (другая группа!) | `dev` → `main` | **да, с 02.11** (`7fae65a`): `build:dev` в `node:22` с хостом из переменной `DEV_URL`/`PROD_URL` по окружению → rsync под `admin@` в `games/crashhockey/`. **Грабля:** код в git от 30.09 старше того, что было на серверах, — выкатка из git ломает прод (журнал 02.11) |
+| Фронт «Chick Shot» (Phaser+Vite) | `chickenrun` | **`crashheroes/chickenrun`** | `dev` → `main` | **да, с 02.11** (`e92bce3`): одна сборка на оба окружения (`DEV_URL`+`PROD_URL` из переменных, хост по `dev` в адресе) → rsync в `games/chickshot/`. На проде папки `chickshot` на 02.11 нет. **Та же грабля:** код в git от 23.10, на dev до CI лежала сборка новее (02.11 11:37: видео истории, `farmer-search-p2`) |
 | **Новый движок под новую игру** | `game-engine-rng` — **свой скил `game-engine-rng`** | `crash-heroes/backend/game-engine-rng` | пока только `main` | **нет** |
 
 > Ветки называются по-разному: у бэкенда `develop`, у админки и каталога `dev`.
@@ -1937,3 +1939,60 @@ Aviatrix): **каждая ставка закрывается ровно одн�
 - Прод крашей: `chick-shot-engine-1` (:3101) — `GAME_MODE=shared`, `ROLLING_SECONDS=5`, 0.1.19; `crash-engine-rng-1` —
   0.1.19 `solo`. На проде compose — `docker-compose`.
 - Демо-сессия RNG-игры без подписи: tinker → `GameLaunchService::launchDemo($project, ["game_id" => "<uuid>"])`.
+
+## Журнал: 2026-11-02 — CI фронтов Crash Hockey и Chick Shot, прод хоккея сломан старым кодом
+
+Подробно про CI крашей на Pixi — скил `crash-games-pixi`. Здесь — два отдельных фронта новых игр.
+
+**Что сделано**
+- `crashheroeshockey` (`crashheroes/crashheroeshockey`): ветка `dev`, коммиты `557dfc8` «Add CI to build and deploy the game
+  to dev and prod», `7fae65a` «Take the game hosts from CI variables». `dev` → `main` запушен 02.11 (`edc083d..7fae65a`),
+  прод выкачен CI в 14:40 UTC (`index-BcCQN2JV.js`).
+- `chickenrun` (`crashheroes/chickenrun`): ветка `dev`, `54d1671` (CI), `e92bce3` «Take the game hosts from CI variables».
+  Dev выкачен. На проде папки `games/chickshot/` на 02.11 15:50 нет.
+- Файлы в обоих репо: `.gitlab-ci.yml`, `ci/check-build.sh` (сборка есть, хост и `PUBLIC_KEY` попали в бандл),
+  `ci/deploy.sh` (rsync под `admin@SERVER_HOST`, `--chmod=D2775,F664`, сначала скрипты и ассеты, `index.html` последним;
+  файлы не из сборки старше `KEEP_DAYS=14` удаляются; `DRY_RUN=1` — без записи; ssh ControlMaster, 5 повторов).
+- Хоккей: джобы `build:dev`/`deploy:dev` (ветка `dev`) и `build:prod`/`deploy:prod` (ветка `main`), образ `node:22`,
+  всегда `npm run build:dev` (относительные пути; прод-`build` с base `/` в подпапке не работает), хост передаётся
+  через `BUILD_HOST: "$DEV_URL"` / `"$PROD_URL"` → `export DEV_URL="$BUILD_HOST"` (переменная проекта перекрывает
+  переменную джобы, поэтому через промежуточную). Куры: одна `build`, два `deploy`.
+- `GAME_DIR` и `PUBLIC_KEY` (uuid игры) — в `.gitlab-ci.yml`. **Домены в CI не пишем** (Илья): хосты только в переменных.
+
+**Переменные GitLab (завёл Илья), по окружению `dev` / `prod`:** `DEV_URL`, `PROD_URL`, `SERVER_HOST`,
+`SSH_PRIVATE_KEY_BASE64` (ключ `deploy@gitlab`, тот же, что у админки). Protected → ветки `dev` и `main` должны быть
+защищены. Пуш в `main` хоккея сначала отклонялся (`pre-receive hook declined`, аккаунт `@ilya_titov`) — Илья дал права.
+
+**Бэкапы до первой выкатки** (`~/deploy-backups/`): dev `crashhockey.dev.20261102-115404.tgz`,
+`chickshot.dev.20261102-115900.tgz`; прод `crashhockey.prod.20261102-115845.tgz` (сборка 05.10, `index-CJBJJze_.js`).
+
+**Прод хоккея сломан (02.11 15:43):** «Соединение прервано. Ответ сервера не соответствует поддерживаемому формату».
+- Причина: код в git (30.09) в `src/features/hockey/infrastructure/server/protocol.ts:13` требует
+  `profile.currency === "USD"` (плюс USD в history/round). В прежней прод-сборке `index-CJBJJze_.js` проверка профиля —
+  только `typeof currency === "string"` (сверено по бандлам 02.11). Значит у игрока не USD (см. журнал 12.10).
+- Сборка из git = регресс; CI тут ни при чём, он собрал что есть в git.
+- **Откат:** развернуть бэкап прода в `games/crashhockey/` (скрипты до `index.html`). 02.11 откат из сессии не прошёл —
+  классификатор авто-режима запретил деплой на прод, ждём решения Ильи.
+- Что дальше: авторы игры (PikchaGameDev) должны запушить актуальный код в `dev`; до этого пуш в `main` хоккея
+  снова выкатит старую версию. То же касается кур (git от 23.10).
+
+
+## Журнал: 2026-11-02 (продолжение) — CI слотов `slots-pixi`, правка USD в бандле хоккея
+
+**Слоты** (`~/Documents/Work/Lucky/slots-pixi`, `crash-heroes/frontend/slots-pixi`, игры `wildwest` 13 и `fallout` 14):
+- Живой код — `origin/Aleksandr/Main` (`5a03439`, 26.02); `main`/`develop` = v1.0.0 от 21.01. Сборка `Aleksandr/Main`
+  побайтно равна серверной (`index-CUawVVpY.js`, md5 `4b5571af…`), ассеты отличаются только CRLF и `.DS_Store`.
+- `dev` от `Aleksandr/Main` + `5b10ce5` «Add CI to build and deploy slots to dev and prod»; `085b14b` «Merge main history
+  into dev» (`-s ours`, код не менялся) → запушены `dev` и `main`. CI выкатил dev 15:09, прод 15:21 UTC — сборка та же.
+- CI: `node:22`, `npm run build` (`tsc && vite build`), `ci/check-build.sh` (index.html, ссылки, публичный ключ в бандле),
+  `ci/deploy.sh` — в `games/<slug>/` для каждого из `GAMES` кладёт `build/` (в корень) + `games-assets/` (обе игры),
+  `index.html` последним, старые `index-*` старше 14 дн. удаляет. Переменные: `SERVER_HOST`, `SSH_PRIVATE_KEY_BASE64`
+  по `dev`/`prod`. Хостов в переменных нет: API зашит в исходниках, `VITE_PUBLIC_KEY` — в закоммиченном `.env`.
+- Грабля кода: прод-API выбирается, только если в URL есть `prod` (`src/main.ts`), а на проде `/prod/…` → 301 на `/…` —
+  слоты на проде, вероятно, ходят в `dev.api`. Было до CI, не трогали.
+
+**Хоккей, рубли:** в бэкапе прода `crashhockey/scripts/index-CJBJJze_.js.orig-usd` — оригинал 05.10; сам
+`index-CJBJJze_.js` **правили руками на сервере 13.10**: 4 проверки `currency!=="USD"` → `typeof currency!="string"`,
+валюта из профиля вместо `"USD"`. В git этой правки нет (исходники: `protocol.ts:13,28`, `game-protocol.ts:20`,
+`history-protocol.ts:14`, `round-protocol.ts:11`, тип в `application/server-types.ts`) — CI 02.11 её затёр, RUB-игроки
+получили «Ответ сервера не соответствует поддерживаемому формату». Правку надо внести в исходники (Илья спросил Сашу).

@@ -26,6 +26,11 @@ description: Инфра и деплой «Lucky»: дев 178.104.243.232 / 95.2
 **lucky-back** (`~/.claude/skills/lucky-back/`); `backend/CONTEXT.md` здесь
 остаётся про серверный стек, CI и ansible.
 
+## ⭐ Прод витрины = два адреса (Илья 03.11)
+
+Выкатил витрину на прод (`main`) — обнови оба сайта: **brobro.casino** (CI из `main`) и **games.crash-heroes.com**
+(руками, сборка Crash Heroes из того же `main`; рецепт и журнал — `storefront/CONTEXT.md`, раздел «Витрина Crash Heroes»).
+
 ## Серверы — сводка
 
 | Сервер | Роль | Доступ |

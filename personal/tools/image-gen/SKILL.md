@@ -692,6 +692,7 @@ cd /media/ilya/T714/image-gen; export TMPDIR=$PWD/.tmp HF_HOME=$PWD/.tmp/hf
   спичек» → `a closed rectangular matchbox lying flat, fully closed with no tray showing, … and next to the box two loose wooden
   matches with round red heads lying in front of it` (`out/m4_matches_1152583913`). ⚠️ Отдельные части (спички рядом) —
   НЕ чистить «самой большой связной частью» (`clean_green_shadow.py` их сотрёт): убрать только тень, касающуюся фона, и мусор < 800 px.
+- Ключи современные 206…215 02.11 (Илья: «10 ключей с простыми ободками»): один кадр `a single small modern flat door key lying diagonally from the lower left to the upper right … the rounded rectangular steel head … the whole edge of the head wrapped in a thick bright red plastic rim like a colored key cap` + bold outlines, зелёный фон, seed 1152583912 (`out/modkey_*`, у 913 зелёный блик в отверстии — не брать); остальные 9 — перекраска красного ободка (`R ≥ G+0.12, R ≥ B+0.12, sat > 0.35`, новый цвет × яркость/медиана), `--fit-only 1x1` → `Fog/Equipment/modern_key_N/modern_key_N_1.png`, `Icons/modern_key_N.png`, сайт v=105.
 - ⭐ 19.10 Илья: «все иконки переноси в игру» — 50 иконок из `Fog/Kitchen/<id>/<id>_1.png` в `Resources/Icons/<id>.png`
   (прежние — scratchpad c43ce975 `game_icons_before/`), новым свечам `.meta` скопирован с `matches.png.meta` с новым guid;
   `Items.cs`: чипсы ×6 2×2 → 1×2, пиво ×5 1×2 → 1×1, газеты 1×2 → 2×1 (в `Newspaper(n)`), журнал 1×2 → 1×1, сосиски 1×1,

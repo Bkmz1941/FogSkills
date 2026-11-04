@@ -14,7 +14,7 @@ seamless-интеграцию и старые движки — в скиле `cr
 | Локально | `~/Documents/Work/CrashGames/game-engine-rng` |
 | Remote | `git@gitlab.agg.one:crash-heroes/backend/game-engine-rng.git` |
 | Ветки | **`dev`** (отслеживает `origin/dev`) — рабочая; `main` — `0a78bcd` Initial commit от GitLab. Первый коммит ядра — `64ae969 project init` (Илья, 18.09 15:05) |
-| CI | нет |
+| CI | нет (у движка; CI есть у фронтов игр — скил `crash-games`, таблица репо) |
 | Деплой | **образ в Docker Hub с версией, на сервер — руками**, runbook — раздел «Деплой»; dev развёрнут 18.09 |
 
 **Состояние на 19.10:** `dev` == `origin/dev` == **`9ae85fd`** «Run shared rounds on a fixed schedule with
@@ -1379,7 +1379,7 @@ Lucky считает комиссию провайдера с проигрыша
 | `GAME_MODE` | `solo` | `solo` = Хоккеист (своя партия), `shared` = общий раунд |
 | `GAME_RULE` | `miss` | правило выигрыша (`domain/rules.ts`) |
 | `GAME_RTP` | 95 | RTP в процентах, целое |
-| `BETTING_SECONDS` | 10 | приём ставок, 1–600 |
+| `BETTING_SECONDS` | 10 (**на деве и проде Chick Shot — 15** с 02.11, просьба Александра Григорова) | приём ставок, 1–600 |
 | `ROLLING_SECONDS` | 7 (**на деве и проде Chick Shot — 5**) | бросок, 3–60 (бросок запрашивается за 2 с до конца фазы) |
 | `RESULT_SECONDS` | 5 | показ результата, 0–60 |
 
@@ -1448,7 +1448,7 @@ Lucky считает комиссию провайдера с проигрыша
 | | дев 167.233.24.119 | прод 78.141.216.99 |
 |---|---|---|
 | Хоккей `crash-engine-rng-1` :3100 | 0.1.19 `solo` | 0.1.19 `solo` |
-| Chick Shot `chick-shot-engine-1` :3101 | 0.1.19 `shared`, `ROLLING_SECONDS=5` | 0.1.19 `shared`, `ROLLING_SECONDS=5` |
+| Chick Shot `chick-shot-engine-1` :3101 | 0.1.19 `shared`, `BETTING_SECONDS=15`, `ROLLING_SECONDS=5` | 0.1.19 `shared`, `BETTING_SECONDS=15`, `ROLLING_SECONDS=5` |
 | сокет Chick Shot | `wss://dev.server.crash-heroes.com/9bf75694-da55-4eae-9bf1-b8312d91fcb8/v1?session=…` | `wss://server.crash-heroes.com/9bf75694-…/v1?session=…` |
 | сессия | `POST https://dev.api.crash-heroes.com/api/external/game/url` | `POST https://api.crash-heroes.com/api/external/game/url` |
 | Lucky | BroBro Casino dev `/games/1/15`, скрыта | `brobro.casino/games/1/20`, скрыта |

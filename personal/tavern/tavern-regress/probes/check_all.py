@@ -314,6 +314,7 @@ def main():
         probe_cs('padlock_hang_probe.cs')
         probe_cs('doors_probe.cs')
         probe_cs('zombie_probe.cs')
+        probe_cs('zombie_box_probe.cs')  # P1294: бокс существа по телу, не по зонам чувств; спавн не на герое
         probe_cs('rooms_probe.cs')  # закрытые комнаты (ROOMS.md): флаг, скан HiddenRooms и закрытость независимым обходом, недоступность по AccessCells, крестики
         probe_cs('attack_reach_probe.cs')  # атака только дотянувшись: стена, окно, закрытая дверь, этаж (ZB-A…, P1174)
     else:

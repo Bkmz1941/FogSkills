@@ -36,6 +36,8 @@
 | **Балахон** (07.10) | `robe` | Тело (первое) + ЗАКРЫВАЕТ Голову, Тело (второе), Ноги, Обувь (`covers`) | 2×2 | `Clothes/RobeM` — из `sectantRobes.blend` через `sectant_robe_export.py` (скил `tavern-sectant`), 11 684 тр. | `robe_folded` → `robeFolded` | `robe.png` — cel-рендер надетого балахона с контуром (`sectant_robe_icon.py`, исходник `Fog/Clothes/robe/robe_1.png`) | 1.6 |
 | **Полицейская форма** (17.10, М и Ж отдельными предметами) | `police_shirt(_f)` рубашка с галстуком — Тело, карманы 2×1; `police_trousers(_f)` брюки со стрелками и ремнём — Ноги, 4×1; `police_jacket(_f)` куртка нараспашку — Тело (второе), `Outer`, 4×2; `police_shoes(_f)` ботинки — Обувь, `soleLift` 0.025 / 0.021 | 2×2 | `Clothes/Police{Shirt,Trousers,Jacket,Shoes}{M,F}` — из `police_build.py -- export` (тела игровые, вещи полями из тела; рубашка 12 тыс. тр., куртка 13,4, брюки 7,2, ботинки 4,7) | `police_{shirt,trousers,jacket}(_f)_folded` → `policeShirtFolded` / `policeTrousersFolded` / `policeJacketFolded` (одна модель на оба пола; `build_kit.py -- police_*_folded`: рубашка и куртка на `flannel_folded_scene.py` с параметрами `tie`/`pockets`/`badge`/`sleeves`, брюки на `jeans_folded_scene.py`); `police_shoes_pair(_f)` → `policeShoesPair{M,F}` | `police_shirt/trousers/jacket/shoes.png` — cel-рендер надетой вещи с контуром (`police_build.py -- icons <папка>`, как у балахона; `ig` 17.10 упал по видеопамяти), исходники `Fog/Clothes/police_*/` | 0.35/0.6/1.1/1.0 (жен. легче) |
 | **Водолазка** (переделана 18.10) | `turtleneck` | Тело | 2×2 | `Clothes/TurtleneckM` — из `humanClothes.blend` (`show_turtleneck`, блок `turtleneck` в params), 15 750 тр.: ткань 12 000, ворот-стойка 512, отворот 1 440, манжеты 900, резинка подола 900 | `turtleneck_folded` → `turtleneckFolded` (сцена `longsleeve_folded_scene.py` с ключом `roll`, 7 804 тр.) | `turtleneck.png` (картинка 05.10, `Fog/Clothes/turtleneck/`) | 0.45 |
+| **Жилет проката** (02.11, Валерий Шилов) | `rental_vest` | Тело (второе), `Outer` — поверх свитера, как куртка | 2×2 | `Clothes/RentalVestM` — из `valera_build.py -- export` (поле из тела, как куртка полицейского; 12 частей, 18 280 тр.: жилет, кант, 2 светоотражающие полосы, молния с бегунком, бейдж «ПРОКАТ / ВАЛЕРИЙ», «ПРОКАТ» на спине; текстуры `Clothes/ValeraVest*`, `ValeraReflective`, `ValeraBadge*`) | `rental_vest_folded` → `rentalVestFolded` (`flannel_folded_scene.py` + `rental_vest_folded_params.json`: `collar: false`, `sleeves: null`, полосы `plaid.rows`; 6 408 тр.) | `rental_vest.png` — cel-рендер надетого с контуром (`valera_build.py -- icons`), исходник `Fog/Clothes/rental_vest/` | 0.5 |
+| **Вязаная шапка** (02.11, ⭐ первая вещь слота Голова) | `knit_hat` | Голова (`Head`; узел `Wear_Head`) | 2×1 | `Clothes/KnitHatM` — тот же экспорт (шапка + отворот на `B-head`, 4 480 тр., текстуры `Clothes/ValeraBeanieKnit/Cuff`) | `knit_hat_folded` → `knitHatFolded` (та же шапка на боку, примята ×0,48, ×1,4; `hat_item` в `valera_params.json`; `modelScale` 1) | `knit_hat.png` — cel-рендер, `Fog/Clothes/knit_hat/` | 0.15 |
 
 Подъём фигуры на подошве (`ItemDef.soleLift`): кроссовки 0.025, тапочки 0.015,
 у остального 0.
@@ -136,9 +138,9 @@
 
 ### `WardrobeVisuals` — вещь на модели
 
-- Четыре носибельных слота → четыре узла на `Visual`:
-  `Body → Wear_Body`, `Outer → Wear_Outer` (куртка), `Legs → Wear_Legs`,
-  `Feet → Wear_Feet`.
+- Носибельные слоты → узлы на `Visual`:
+  `Head → Wear_Head` (с 02.11, вязаная шапка), `Body → Wear_Body`, `Outer → Wear_Outer` (куртка, жилет проката),
+  `Legs → Wear_Legs`, `Feet → Wear_Feet`, `Bag → Wear_Bag`.
 - `GarmentResource(item)` — switch id → путь `Clothes/*`. **Новая вещь = новый
   `case` здесь**, иначе она надевается, но не видна.
 - Материал: сначала `KitMaterials.Apply(inst, resource + "-materials")`; нет
@@ -429,8 +431,8 @@ HideUnderwearUnderClothes` — часть `SportTop*` прячется под в
   10.09, вешается на крючок вешалки (раздел «Куртка на крючке»).
 - **Женская модель** — одежда сшита по мужскому телу; у `dummy_f` своих вещей
   нет.
-- **Слоты Голова / Руки / Пояс** — вещей нет, строки «Руки» и «Пояс» с экрана
-  сняты.
+- **Слоты Руки / Пояс** — вещей нет, строки «Руки» и «Пояс» с экрана сняты. Голова — с 02.11 есть
+  вязаная шапка `knit_hat` (узел `Wear_Head`).
 - **Тепло и износ.** `BodyTemperature` есть, но одежда на него не влияет:
   ни утепления, ни намокания, ни грязи/износа. Открытый вопрос про мокрую
   одежду от дождя — `tavern-game/OPEN.md`.
