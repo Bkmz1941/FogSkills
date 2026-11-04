@@ -13,9 +13,9 @@
 
 ## Когда гонять
 
-ДО и ПОСЛЕ правки: `Talk.cs`, `LevelIO.cs` (блок `TalkMemoryData`), `LifeRules.cs`/`LifeRules.Parse.cs` (события и действия общения, заголовки групп), `CreaturePlan.cs` (шаги `talk`/`attitude`), `MonsterCardUI.cs`, `InventoryScreenUI*.cs` (режим «передать»), `HudUI.Talk.cs`, `SpeechBubbles.cs`, `HudUI.Examine.cs`, любой `Dialogs/*.json`.
+ДО и ПОСЛЕ правки: `Talk*.cs` (6 частей), `LevelIO.cs` (блок `TalkMemoryData`), `LifeRules.Talk.cs`, `CreaturePlan.cs` (шаги `talk`/`attitude`/`say`), `MonsterCardUI.cs`, `InventoryScreenUI*.cs` (режим «передать»), `HudUI.Talk.cs`, `HudUI.TalkPeople.cs`, `SpeechBubbles.cs`, `HudUI.Examine.cs`, любой `Dialogs/*.json`.
 
-Команды: `python3 ~/.claude/skills/tavern-regress/probes/cycle.py compile` → `cycle.py tests` (EditMode); офлайн в play — `offline_build.py`. Живая проба `talk_probe.cs` — в очереди.
+Команды: `cycle.py compile` → `cycle.py tests` (EditMode); в play — живая проба `talk_probe.cs` (в `check_all.py`; ~30 кейсов TK-…, свой Валера `valera_97`, память Валеры уровня сохраняется и возвращается); офлайн, пока Илья в play, — `offline_build.py` и `offline_tests.py AiMonsterBriefTests` (тесты правил офлайн не идут — им нужен живой Unity).
 
 ## Группы
 

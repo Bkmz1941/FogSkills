@@ -29,14 +29,20 @@ description: ОБЩЕНИЕ С ПЕРСОНАЖАМИ «Таверны» (с 04.
 
 | | путь |
 |---|---|
-| логика разговора, память, фазы, просьбы, темы, занятость | `Assets/Modules/Life/Talk.cs` (`Talk`, `TalkFeature`) |
+| разговор: старт, ответ, модель, атака, `TalkFeature` | `Assets/Modules/Life/Talk.cs` |
+| файл персонажа: типы `Dialog*`, `Persona`, `FromFile`, `PersonaOf/ById`, `Norm`, разбор брифа уровня | `Talk.Dialogs.cs` |
+| память и журнал (`MemoryOf`, `AddLog`, `MemoryPrompt`, `FinishMemory`), имя (`SaidName`, `SetKnowsName`), `Learn`, `Forget` | `Talk.Memory.cs` |
+| шкала и фазы (`AddScore`, `SetScore`, `SetPhase`, `PhaseOfScore`, `FloorOf`), нравится/не нравится (`Feel`, `FeltBy`), закрытые темы | `Talk.Attitude.cs` |
+| просьбы (`MaybeOffer`, `OfferVerdict`, `AskOfferModel`, `AnswerOffer`, `Assign`, `CompleteRequest`), передача (`Give`, `RequestFor`), темы (`MaybeTopic`, `AnswerTopic`) | `Talk.Favors.cs` |
+| сам заговаривает (`StartBy`), занят и уход (`Busy`, `LeaveTick`, `WaveOff`), крик (`Shout`), реплики `#id` (`LineFor`) | `Talk.Initiative.cs` |
 | хранение в файле уровня | `Assets/Modules/Grid/Save/LevelIO.cs` — `TalkMemoryData`, `TalkLineData`, `TalkPhaseData`, `LevelIO.TalkMemory`, поле `talkMemory` |
-| правила: события и действия общения, `[talk limit]`/`[no talk]` | `Assets/Modules/Life/LifeRules.cs` (`HeroAround`, `PlayerExamines`, `SeesPlayerEnter`, `TalkEvents`, `GroupOf`, `TalkLimitOf`), `LifeRules.Parse.cs` (`ParseTalkEvent`, `ParseTalkAction`, `TalkLimitRx`, `NoTalkWords`) |
+| правила: всё общение в одном файле — разбор событий/действий/заголовков (`ParseTalkEvent`, `ParseTalkAction`, `ParseTalkHeader`), срабатывание (`TalkEvents` раз в 0,25 с по `CreatureSenses.All`, ранний выход без правил общения), `GroupOf`, `TalkLimitOf`; имена событий — константы в `LifeRules.cs` | `Assets/Modules/Life/LifeRules.Talk.cs` |
 | шаги плана `talk`, `attitude` | `Assets/Modules/Life/CreaturePlan.cs` (`TalkStep`, `Attitude`) |
 | что сейчас осматривают | `ViewState.Examined`, `ViewState.ExamineStamp` (ставит `HudUI.Examine.cs`) |
 | карточка существа: «Поговорить», «Передать» | `Assets/Game/UI/Hud/MonsterCardUI.cs` |
 | инвентарь в режиме «передать» | `InventoryScreenUI.OpenForGive` / `GiveItem` |
-| панель разговора, «Сделаю/Нет», реплики над головой, F1 «Персонажи» | `Assets/Game/UI/Hud/HudUI.Talk.cs` (`TalkPeopleTab`, `TalkPersonBlock`), `SpeechBubbles.Hide/Pinned` |
+| панель разговора, субтитры, реплики над головой, вкладка «Коммуникация» | `Assets/Game/UI/Hud/HudUI.Talk.cs`, `SpeechBubbles.Hide/Pinned` |
+| вкладка F1 → ИИ → «Персонажи» | `Assets/Game/UI/Hud/HudUI.TalkPeople.cs` |
 | файл персонажа | `Assets/Game/Resources/Dialogs/<id>.json` (`valera.json`) |
 | перевод строк кода | `Resources/Localization/en.extra.json` (в конец) |
 | тесты | `AiMonsterBriefTests.Диалог_из_файла_фазы_пар_нравится_и_закрытые_темы`, `CatalogTests.Диалоги_персонажей_читаются_и_у_всего_есть_английский`, `LifeRulesParseTests.Сам_заговаривает_отношение_и_события_общения` |
