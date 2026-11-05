@@ -85,12 +85,13 @@ try
     got = Say("как вас зовут?");
     Check(Cozy.Life.Talk.Offer == null, "TK-A13 после ответа-вопроса просьбы нет: «" + got + "»");
     Check(Cozy.Creatures.CreatureHealth.TitleOf(io) == "Валерий" && m.knownName == "Валерий", "TK-N03 назвался — карточка «" + Cozy.Creatures.CreatureHealth.TitleOf(io) + "»");
-    got = Say("где лодки?");
-    Check(Cozy.Life.Talk.Offer != null && got.StartsWith(Expect("где лодки?", 1)), "TK-R01 просьба дописана к утверждению: «" + got + "»");
+    // утверждение, не вопрос: на вопрос героя просьба не дописывается (tavern-talk п. 20, HeroQuestion 05.11)
+    got = Say("я не клиент");
+    Check(Cozy.Life.Talk.Offer != null && got.StartsWith(Expect("я не клиент", 1)), "TK-R01 просьба дописана к утверждению: «" + got + "»");
     var asked = Cozy.Life.Talk.Offer;
     Cozy.Life.Talk.OfferChance = 0f;
     got = Say("Да, принесу");
-    Check(Cozy.Life.Talk.Offer == null && asked != null && m.active.Contains(asked.id) && got == "Договорились.", "TK-R02 «Да, принесу» → обещано «" + (asked != null ? asked.id : "-") + "», ответ «" + got + "»");
+    Check(Cozy.Life.Talk.Offer == null && asked != null && m.active.Contains(asked.id) && got.TrimEnd('.') == "Договорились", "TK-R02 «Да, принесу» → обещано «" + (asked != null ? asked.id : "-") + "», ответ «" + got + "»");
 
     Cozy.Life.Talk.Assign("valera", "water");
     int s0 = m.score;
@@ -106,7 +107,7 @@ try
     Cozy.Life.Talk.TopicChance = 1f;
     got = Say("абракадабра");
     Check(Cozy.Life.Talk.Topic == null && System.Array.Exists(file.pool, p => p.Get() == got), "TK-A10 запас без дописок: «" + got + "»");
-    got = Say("до скольки работаете?");
+    got = Say("мне нужна лодка");
     var t = Cozy.Life.Talk.Topic;
     Check(t != null, "TK-T01 тема заведена: «" + got + "»");
     Cozy.Life.Talk.TopicChance = 0f;

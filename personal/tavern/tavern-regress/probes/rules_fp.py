@@ -50,6 +50,9 @@ def snippets():
             continue
         if rules.strip():
             out.append(('level ' + os.path.basename(f), rules))
+    # скрипты людей (Илья 05.11: «правила — всегда и в файле, и в игре») — весь синтаксис общения, быта, помех
+    for f in sorted(glob.glob(os.path.expanduser('~/Documents/Fog/Behavior/*.txt'))):
+        out.append(('behavior ' + os.path.basename(f), open(f, encoding='utf-8').read()))
     for w in action_words() + EXTRA:
         for a in ARGS:
             out.append(('rule %s %s' % (w, a), '[sectant_1] → [%s]%s' % (w, a)))

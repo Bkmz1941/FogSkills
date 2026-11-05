@@ -219,7 +219,22 @@ def path_of(label):
     return OUT / ('debug_panel_%s.txt' % label)
 
 
+def big_level():
+    """P1316 (05.11): на «Котедж 104» (57 тыс. объектов) снимок вкладки «Монстры» раздул редактор до 19,6 ГБ — OOM убил
+    Unity. На уровне больше 20 тыс. объектов снимок только с --force (и лучше на тестовом уровне)."""
+    try:
+        n = int(run('return Cozy.Grid.InteractiveObject.All.Count.ToString();'))
+    except Exception:
+        return False
+    if n > 20000 and '--force' not in sys.argv:
+        print('отказ — объектов %d (> 20 000): снимок панели на таком уровне уронил редактор по памяти (P1316); --force, если точно надо' % n)
+        return True
+    return False
+
+
 def snap(label):
+    if big_level():
+        return 1
     # По вкладке за вызов: вместе они шли дольше лимита моста (29.09: 45 с,
     # одна «Телефон» — 8,6 с), и мост отвечал пустым отказом.
     OUT.mkdir(parents=True, exist_ok=True)
