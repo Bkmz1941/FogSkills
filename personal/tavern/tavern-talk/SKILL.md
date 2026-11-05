@@ -65,7 +65,7 @@ description: ОБЩЕНИЕ С ПЕРСОНАЖАМИ «Таверны» (с 04.
 | сам заговаривает (`StartBy`), занят и уход (`Busy`, `LeaveTick`, `WaveOff`), крик (`Shout`), реплики `#id` (`LineFor`) | `Talk.Initiative.cs` |
 | хранение в файле уровня | `Assets/Modules/Grid/Save/LevelIO.cs` — `TalkMemoryData`, `TalkLineData`, `TalkPhaseData`, `LevelIO.TalkMemory`, поле `talkMemory` |
 | правила: всё общение в одном файле — разбор событий/действий/заголовков (`ParseTalkEvent`, `ParseTalkAction`, `ParseTalkHeader`), срабатывание (`TalkEvents` раз в 0,25 с по `CreatureSenses.All`, ранний выход без правил общения), `GroupOf`, `TalkLimitOf`; имена событий — константы в `LifeRules.cs` | `Assets/Modules/Life/LifeRules.Talk.cs` |
-| шаги плана `talk`, `attitude` | `Assets/Modules/Life/CreaturePlan.cs` (`TalkStep`, `Attitude`) |
+| шаги плана `talk`, `attitude`, `say`, `end talk`, ждать вещь / пока выйдет | `Assets/Modules/Life/CreaturePlan.cs` → `BeginTalkStep` (05.11) |
 | что сейчас осматривают | `ViewState.Examined`, `ViewState.ExamineStamp` (ставит `HudUI.Examine.cs`) |
 | карточка существа: «Поговорить», «Передать» | `Assets/Game/UI/Hud/MonsterCardUI.cs` |
 | инвентарь в режиме «передать» | `InventoryScreenUI.OpenForGive` / `GiveItem` |

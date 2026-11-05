@@ -40,7 +40,7 @@ description: СРАЖЕНИЯ в «Таверне» — кинематограф
 - В этот момент `CreaturePlan.FightTick → HandsFree`: сигарета — `CreatureSmoke.Throw` (падает на пол, тлеет 6 с, окурок лежит `ButtLife`; пачка и зажигалка — в карман), швабра — `CreatureMop.Drop` (ложится на пол черенком туда, куда смотрела). Нож достаёт `Arm` (пока только сектант — `SectantPoint`). Ножа нет — дерётся руками.
 - Швабра одна на существо и живёт в мире (`_left`): стоит после `[mop drop]`, лежит после драки; не вернулся `LeftLife` (600 с) — убирается.
 - `[mop take]` / `[mop Ns]`, а швабра оставлена → `BeginMop` сначала идёт к ней (`FetchSpot` — встать так, чтобы швабра пришлась под руку клипа), стоящую берёт `Mop_Take`, лежащую поднимает `Pick_Floor` (слот Lift в графе швабры: до хвата лежит, на хвате ложится в ладонь, к концу клипа приходит в хват «несёт»), потом моет. Новой швабры из воздуха нет, пока своя где-то лежит.
-- Код: `Assets/Modules/Life/CreatureMop.cs`, `CreatureSmoke.cs`, `CreaturePlan.cs` (`FightTick`, `HandsFree`, `BeginMop`). Стенд — Валера, `~/Documents/Fog/Behavior/valera.txt` (курит, моет, подбирает).
+- Код: `Assets/Modules/Life/CreatureMop.cs`, `CreatureSmoke.cs`, `CreaturePlan.Poses.cs` (`FightTick`, `HandsFree`, `BeginMop`; до 05.11 — `CreaturePlan.cs`). Стенд — Валера, `~/Documents/Fog/Behavior/valera.txt` (курит, моет, подбирает).
 
 ## Карта скила (с 16.09)
 

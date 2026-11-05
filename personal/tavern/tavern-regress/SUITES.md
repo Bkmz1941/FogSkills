@@ -152,7 +152,7 @@ Roslyn по всем сборкам, быстрее, чем ждать реда�
   QuestRun, SourceRules (1), Targeting (1), ZoneKindCanon. Остальные падают `SecurityException: ECall` /
   `Application.dataPath` / `TypeInitializationException GameClock` — это не красное, а граница офлайна. Полный список
   классов одной командой — в `TARGETS.md`, T-FOUND-1210. Без аргументов гоняет LifeRulesParseTests и AiMonsterBriefTests.
-- `rules_fp.py <out.txt>` — характеризующий снимок парсера правил существ (`LifeRules.Parse.cs`): правила всех уровней с
+- `rules_fp.py <out.txt>` — характеризующий снимок парсера правил существ (`LifeRules.Parse*.cs`, 5 частей с 05.11; в корпусе и скрипты людей `~/Documents/Fog/Behavior/*.txt`): правила всех уровней с
   диска + каждое слово действия (читается из `ActionByWord` в исходнике) в 7 синтаксических позициях × 13 аргументов,
   около 1,8 тыс. сниппетов; печатает `Check()` и все поля каждого `Rule`/`PlanStep` через рефлексию над офлайн-DLL
   (~7,8 тыс. строк). Правка парсера: снимок ДО → правка → `offline_build.py` → снимок ПОСЛЕ → `cmp`. Любая разница —

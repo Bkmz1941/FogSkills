@@ -12,7 +12,11 @@ description: РЕГРЕСС ДЕЙСТВИЙ ЛЮДЕЙ «Таверны» (им
 1. **Тесты:** редактор вне play → `python3 ~/.claude/skills/tavern-regress/probes/cycle.py compile` → `cycle.py tests` (классы `LifeRulesParseTests`, `LifeActionsTests`, `SeatsAndBedsTests`). Илья в play с несохранённым — НЕ останавливать (cycle.py stop откажет, `--force` не использовать), только `offline_build.py`.
 2. **Разбор правил Валеры:** `behavior_apply.py valera --check` (или раздел «Скрипты людей» F1 → ИИ): 0 непонятых строк.
 3. **Play:** `mcp_call.py execute_code` — `CreaturePlan.Of(go)`/`Current`, `Step`, `Index`, `_stack.Count`; часы — `Weather.Hour` (скачок часов будит группы `[at …]`, после — вернуть всё, что сдвинулось: раскладушку, дверь).
-4. **Кадр:** `python3 ~/.claude/skills/tavern-regress/probes/night.py fps` (скил `tavern-fps`) — с Валерой на уровне и без; новые тики не должны давать мусор на кадр (группа LF-F).
+4. **Кадр:** `python3 ~/.claude/skills/tavern-regress/probes/life_fps_probe.py` — в play, через ~60 с после входа (уровень догружается): пороги self-мс и мусора на кадр по маркерам `LifeRulesRunner`, `CreaturePlan`, `SpeechBubbles`; код 1 — превышен. Группа LF-F.
+5. **Разбор правил:** `rules_fp.py <out>` до и после правки `LifeRules.Parse*.cs` / `LifeRules.Talk.cs` — снимок посимвольно (в корпусе и скрипты `~/Documents/Fog/Behavior/*.txt`); нужна `offline_build.py`.
+6. **Общение живьём:** `talk_probe.cs` (через `mcp_call.py execute_code`) — ~30 кейсов TK, гонять дважды подряд (второй прогон ловит «Опять вы?» после «Стереть»).
+
+⚠️ НЕ запускать `debug_panel_probe.py snap` на «Котедж 104» (57 тыс. объектов): 05.11 редактор убит OOM (P1316); теперь проба сама отказывает > 20 тыс. объектов.
 
 ## Что важно знать
 

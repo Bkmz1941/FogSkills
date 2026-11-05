@@ -4157,3 +4157,11 @@ FBX соседней партии (бра, шторы, шампуни, мишк�
 5. `719d1c42` мёртвое: `OpenRequests`, `Liked`, `Disliked`.
 Кадр: `TalkEvents` до коммита переписан с обхода 61 тыс. `InteractiveObject.All` раз в 0,25 с на реестр `CreatureSenses.All`
 с ранним выходом без правил общения и без аллокаций — замер ПОСЛЕ ждёт перекомпиляции.
+
+
+## 2026-11-05 ночь (ilya-e0) — жизнь существ после дня фич (Илья: «долго и качественно отрефактори… + регресс в конце полный», «упор и тесты на фпс от новых механик»)
+Защита: `rules_fp.py` (снимок разбора, в корпусе теперь и `Behavior/*.txt`) — посимвольно тот же после каждого шага; EditMode — без новых красных (20 → 17 красных, все чужие); `talk_probe.cs` дважды подряд зелёный; живые пробы помехи на лавочке (обе ветки), разбор 32 правил Валеры без ошибок; `life_fps_probe.py`.
+Шаги (коммиты): `9dcfb1bb` — разбор общения на группы (`ParseTalkEvent` 102 → 4 части, `ParseTalkAction` 92 → 4), `Begin` 107 → `StepToBegin` + `BeginTalkStep` + `BeginBodyStep`, `TalkEvents` 74 → 5 частей, кадр (см. `tavern-fps` 05.11), `CreatureLoopAct` без 5 повторов (`CanAnimate`/`LoadSingle`/`Launch` — не `Start`: имя сообщения Unity), «Стереть» сбрасывает `_lastEnd`; `e59bce30` — `LifeRules.Parse.cs` 2138 → 847 + `.Check` 300 + `.When` 362 + `.Then` 453 + `.World` 229, `CreaturePlan.cs` 1400 → ~1180 + `.Poses` 265, `ResetStep`, `ZoneTick`, `SightTick`, вкладки F1 «Коммуникация»/«Персонажи» на блоки.
+Числа (Life + HUD общения): методов > 60 строк 11 → 3 (оставшиеся: `ZoneShape.BuildVisual` — зоны, `CreaturePlan.Label` — таблица, `GridCursor.UpdateZonePlace` — редактор зон), > 40 — 42 → 37.
+Отвергнуто: `EnsureParsed` (59) — машина состояний строк, разбивка потребует объекта-состояния и читается хуже; `Label` — таблица подписей.
+Грабли: `debug_panel_probe.py snap` на «Котедж 104» убил редактор по памяти (19,6 ГБ, P1316) — проба теперь отказывает > 20 тыс. объектов; редактор перезапущен, диалог «Recovering Scene Backups» → Yes, мост — Window → MCP for Unity → Start Server.
